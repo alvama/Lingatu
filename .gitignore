@@ -12,3 +12,6 @@ tools/marcadores_config.json
 # Sistema operativo / editores
 .DS_Store
 Thumbs.db
+
+# Paquete generado para la Chrome Web Store (regenerable con tools/empaquetar_extension.py)
+store/*.zip
