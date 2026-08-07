@@ -91,6 +91,7 @@ PinBoard/
 ├── docs/
 │   └── ESPECIFICACIONES.md       # Documentación técnica detallada
 ├── README.md
+├── CHANGELOG.md
 └── LICENSE
 ```
 
@@ -103,6 +104,8 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   `pinboard.html` (constante `APP_CONFIG.version` en el propio archivo).
 - La versión de la extensión se muestra en su página de opciones, tomada
   directamente de `manifest.json`.
+- El historial de cambios de cada versión se documenta en
+  [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Licencia
 
