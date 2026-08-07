@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Política de privacidad — PinBoard Connector</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#222;line-height:1.6;}
+  h1{margin-bottom:4px;}
+  h2{margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px;}
+  code{background:#f0f0f0;padding:1px 5px;border-radius:3px;}
+  .updated{color:#777;font-size:13px;}
+  .en{margin-top:48px;padding-top:16px;border-top:2px solid #ddd;color:#444;}
+</style>
+</head>
+<body>
+  <h1>Política de privacidad — PinBoard Connector</h1>
+  <p class="updated">Última actualización: 7 de agosto de 2026</p>
+
+  <h2>Resumen</h2>
+  <p>PinBoard Connector es una extensión de navegador que captura el título,
+  la URL y la meta-descripción de la pestaña activa y los pasa a
+  <code>pinboard.html</code>, una aplicación web de un solo archivo que el
+  propio usuario descarga y ejecuta localmente. La extensión no tiene
+  servidor propio, no envía datos a ningún sitio, no usa analítica ni
+  anuncios, y no requiere cuenta de ningún tipo.</p>
+
+  <h2>Qué datos trata la extensión</h2>
+  <p>Al pulsar el icono de la extensión sobre una pestaña:</p>
+  <ul>
+    <li>Se lee el <strong>título</strong>, la <strong>URL</strong> y la
+    <strong>meta-descripción</strong> de esa pestaña.</li>
+    <li>Esos datos se pasan directamente, dentro del propio navegador, a la
+    pestaña donde el usuario tiene abierta su copia de
+    <code>pinboard.html</code>, para comprobar si el enlace ya existe o
+    precargar el formulario de alta.</li>
+  </ul>
+  <p>La extensión guarda, mediante <code>chrome.storage.local</code>, un
+  único dato de configuración: la URL <code>file://</code> de la copia de
+  <code>pinboard.html</code> del usuario. Ningún otro dato de navegación se
+  almacena.</p>
+  <p><strong>Ninguno de estos datos sale nunca del dispositivo del
+  usuario.</strong> La extensión no realiza llamadas de red, no tiene
+  backend, no usa analítica ni servicios de terceros.</p>
+
+  <h2>Qué datos trata pinboard.html (la aplicación web)</h2>
+  <p><code>pinboard.html</code> no forma parte del paquete de la extensión,
+  pero conviene documentarlo porque es donde acaban los datos capturados:
+  guarda todos los enlaces en el <code>localStorage</code> del navegador del
+  usuario, en su propio equipo. No hay sincronización en la nube ni servidor
+  alguno.</p>
+  <p>Para mostrar el icono de cada enlace guardado, <code>pinboard.html</code>
+  solicita la imagen del favicon al servicio público de Google
+  (<code>https://www.google.com/s2/favicons</code>), enviándole únicamente el
+  dominio del enlace guardado. Es la única llamada de red de todo el
+  proyecto, y la realiza la página web, no la extensión.</p>
+
+  <h2>Sin cuentas, sin analítica, sin venta de datos</h2>
+  <p>La extensión no crea cuentas, no usa cookies, no incluye analítica ni
+  publicidad, y no vende ni comparte datos con terceros bajo ningún
+  concepto.</p>
+
+  <h2>Código fuente</h2>
+  <p>El código completo de la extensión y de <code>pinboard.html</code> es
+  público y auditable en
+  <a href="https://github.com/alvama/PinBoard">github.com/alvama/PinBoard</a>,
+  bajo licencia MIT.</p>
+
+  <h2>Cambios en esta política</h2>
+  <p>Si esta política cambia, se actualizará esta misma página y la fecha
+  de "Última actualización" de arriba.</p>
+
+  <h2>Contacto</h2>
+  <p>Dudas o incidencias:
+  <a href="https://github.com/alvama/PinBoard/issues">github.com/alvama/PinBoard/issues</a>.</p>
+
+  <div class="en">
+    <h2>English summary</h2>
+    <p>PinBoard Connector reads the title, URL and meta-description of the
+    active tab only when the user clicks its icon, and passes that data
+    directly, inside the browser, to the user's own local copy of
+    <code>pinboard.html</code>. No data is ever sent to any server: there is
+    no backend, no analytics, no ads, and no accounts. The extension stores
+    only one setting locally (the <code>file://</code> URL of the user's
+    pinboard.html) via <code>chrome.storage.local</code>. The companion web
+    app <code>pinboard.html</code> stores links in the browser's own
+    <code>localStorage</code> and fetches favicon images from Google's public
+    favicon service for the domains of saved links — the only network call
+    in the whole project, made by the web page, not the extension. Source:
+    <a href="https://github.com/alvama/PinBoard">github.com/alvama/PinBoard</a>
+    (MIT license).</p>
+  </div>
+</body>
+</html>
