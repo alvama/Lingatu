@@ -1,0 +1,10 @@
+# Exportaciones de datos personales (enlaces reales del usuario)
+pinboard_*.json
+marcadores_edge.json
+
+# Configuración local de Claude Code (específica de esta máquina)
+.claude/settings.local.json
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db

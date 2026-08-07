@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Configuración — PinBoard Connector</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:480px;margin:32px auto;padding:0 16px;color:#222;}
+  h2{margin-bottom:4px;}
+  label{display:block;margin-bottom:8px;font-weight:600;}
+  input{width:100%;padding:8px;box-sizing:border-box;margin-bottom:12px;font-size:14px;}
+  button{padding:8px 16px;cursor:pointer;font-size:14px;}
+  p{color:#555;font-size:13px;line-height:1.5;}
+  code{background:#f0f0f0;padding:1px 4px;border-radius:3px;}
+  #status{margin-top:12px;font-size:13px;min-height:18px;}
+  #version{color:#888;font-size:12px;margin:0 0 20px 0;}
+</style>
+</head>
+<body>
+  <h2>PinBoard Connector</h2>
+  <p id="version"></p>
+  <p>
+    Abre primero tu <code>pinboard.html</code> normalmente en el navegador y copia la URL
+    completa desde la barra de direcciones (empieza por <code>file:///</code>). Pégala aquí
+    para que la extensión sepa qué pestaña usar.
+  </p>
+  <label for="url">URL de pinboard.html</label>
+  <input id="url" type="text" placeholder="file:///C:/Users/.../PinBoard/pinboard.html" autocomplete="off">
+  <button id="save">Guardar</button>
+  <div id="status"></div>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,1794 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PinBoard</title>
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --surface:#ffffff;
+    --surface-2:#fafbfc;
+    --border:#e2e5ea;
+    --text:#1c2029;
+    --text-muted:#6b7280;
+    --primary:#3d63dd;
+    --primary-hover:#2f4fc0;
+    --primary-fg:#ffffff;
+    --danger:#d64545;
+    --danger-hover:#b8332f;
+    --success:#1f9d55;
+    --success-bg:#e6f7ec;
+    --inactive-bg:#f1f2f4;
+    --inactive-fg:#8a8f98;
+    --tag-bg:#eef1fb;
+    --tag-fg:#3d4a8a;
+    --tag-active-bg:#3d63dd;
+    --tag-active-fg:#ffffff;
+    --shadow:0 1px 3px rgba(20,22,30,0.08), 0 1px 2px rgba(20,22,30,0.06);
+    --shadow-lg:0 10px 30px rgba(20,22,30,0.18);
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14161c;
+      --surface:#1b1e26;
+      --surface-2:#20232c;
+      --border:#2c3039;
+      --text:#e7e9ee;
+      --text-muted:#9aa0ac;
+      --primary:#5b7cf0;
+      --primary-hover:#7691f5;
+      --primary-fg:#0d1017;
+      --danger:#e5605c;
+      --danger-hover:#f07d79;
+      --success:#3ec472;
+      --success-bg:#123425;
+      --inactive-bg:#262a33;
+      --inactive-fg:#6f7684;
+      --tag-bg:#242a3d;
+      --tag-fg:#a9b6f5;
+      --tag-active-bg:#5b7cf0;
+      --tag-active-fg:#0d1017;
+      --shadow:0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-lg:0 10px 30px rgba(0,0,0,0.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--primary);}
+  .app{
+    display:grid;
+    grid-template-columns:270px 1fr;
+    min-height:100vh;
+  }
+  /* Sidebar */
+  .sidebar{
+    background:var(--surface);
+    border-right:1px solid var(--border);
+    padding:20px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  .sidebar h1{
+    font-size:18px;
+    margin:0 0 4px 0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sidebar-section h2{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--text-muted);
+    margin:0 0 10px 0;
+    font-weight:600;
+  }
+  .category-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .category-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:7px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:14px;
+    color:var(--text);
+    user-select:none;
+  }
+  .category-item:hover{background:var(--surface-2);}
+  .category-item.active{background:var(--primary);color:var(--primary-fg);}
+  .category-item .count{
+    font-size:12px;
+    color:var(--text-muted);
+    background:var(--surface-2);
+    border-radius:999px;
+    padding:1px 7px;
+    min-width:20px;
+    text-align:center;
+  }
+  .category-item.active .count{background:rgba(255,255,255,0.25);color:var(--primary-fg);}
+
+  .tag-cloud{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .tag-chip{
+    font-size:12px;
+    padding:4px 9px;
+    border-radius:999px;
+    background:var(--tag-bg);
+    color:var(--tag-fg);
+    cursor:pointer;
+    border:1px solid transparent;
+    white-space:nowrap;
+  }
+  .tag-chip:hover{border-color:var(--primary);}
+  .tag-chip.active{background:var(--tag-active-bg);color:var(--tag-active-fg);outline:2px solid var(--primary);outline-offset:1px;}
+  .tag-empty{font-size:13px;color:var(--text-muted);}
+
+  .cat-color-dot{
+    display:inline-block;
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .cat-name-wrap{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .data-actions{
+    margin-top:auto;
+    display:flex;
+    gap:8px;
+  }
+  .data-actions button{flex:1;}
+
+  .app-footer{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding-top:12px;
+    border-top:1px solid var(--border);
+    font-size:12px;
+    color:var(--text-muted);
+    text-align:center;
+  }
+  .app-footer a{color:var(--text-muted);text-decoration:none;}
+  .app-footer a:hover{color:var(--primary);text-decoration:underline;}
+
+  /* Buttons */
+  button{
+    font-family:inherit;
+    font-size:13px;
+    padding:8px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    cursor:pointer;
+  }
+  button:hover{filter:brightness(0.97);}
+  @media (prefers-color-scheme: dark){ button:hover{filter:brightness(1.15);} }
+  .btn-primary{
+    background:var(--primary);
+    color:var(--primary-fg);
+    border-color:var(--primary);
+    font-weight:600;
+    width:100%;
+    padding:10px 12px;
+  }
+  .btn-primary:hover{background:var(--primary-hover);border-color:var(--primary-hover);}
+  .btn-danger{color:var(--danger);border-color:var(--danger);background:transparent;}
+  .btn-danger:hover{background:var(--danger);color:#fff;}
+
+  /* Main content */
+  .content{padding:24px 28px;max-width:1200px;}
+  .toolbar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:20px;
+  }
+  #searchInput{
+    flex:1;
+    padding:11px 14px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    font-size:14px;
+  }
+  #resultCount{font-size:13px;color:var(--text-muted);white-space:nowrap;}
+
+  .status-toggle{
+    display:flex;
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+    flex-shrink:0;
+  }
+  .status-toggle-btn{
+    border:none;
+    border-radius:0;
+    background:var(--surface);
+    padding:9px 14px;
+    font-size:13px;
+    color:var(--text-muted);
+  }
+  .status-toggle-btn + .status-toggle-btn{border-left:1px solid var(--border);}
+  .status-toggle-btn.active{background:var(--primary);color:var(--primary-fg);font-weight:600;}
+
+  .links-groups{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+  .category-group-title{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:15px;
+    font-weight:700;
+    margin:0 0 12px 0;
+    color:var(--text);
+    cursor:pointer;
+    user-select:none;
+  }
+  .group-toggle-arrow{
+    display:inline-block;
+    font-size:11px;
+    color:var(--text-muted);
+    transition:transform 0.15s ease;
+  }
+  .category-group.collapsed .group-toggle-arrow{transform:rotate(-90deg);}
+  .category-group.collapsed .links-grid,
+  .category-group.collapsed .links-list{display:none;}
+  .category-group-title.drag-over{outline:2px dashed var(--primary);outline-offset:4px;border-radius:6px;}
+  .category-group-count{
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-muted);
+    background:var(--surface-2);
+    border-radius:999px;
+    padding:1px 8px;
+  }
+  .links-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:14px;
+  }
+
+  .links-list{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .link-card-compact{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:6px 10px;
+  }
+  .link-card-compact.inactive{opacity:0.55;}
+  .link-card-compact{cursor:grab;}
+  .link-card-compact.dragging{opacity:0.4;}
+  .link-card-compact.drag-over{outline:2px dashed var(--primary);outline-offset:2px;}
+  .compact-title{
+    flex:1;
+    min-width:0;
+    font-size:13px;
+    color:var(--text);
+    text-decoration:none;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .compact-title:hover{text-decoration:underline;}
+  .compact-tags{
+    display:flex;
+    gap:4px;
+    flex-shrink:0;
+    max-width:240px;
+    overflow:hidden;
+  }
+  .compact-tags .tag{white-space:nowrap;flex-shrink:0;}
+  .link-card-compact .card-icon-actions{flex-shrink:0;}
+  .link-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .link-card.inactive{opacity:0.6;}
+  .link-card{cursor:grab;}
+  .link-card.dragging{opacity:0.4;}
+  .link-card.drag-over{outline:2px dashed var(--primary);outline-offset:2px;}
+  .bridge-highlight{animation:bridgeFlash 2s ease-out;}
+  @keyframes bridgeFlash{
+    0%,30%{outline:2px solid var(--primary);outline-offset:2px;background:var(--surface-2);}
+    100%{outline:2px solid transparent;outline-offset:2px;}
+  }
+  .card-header{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:8px;
+  }
+  .card-icon-actions{display:flex;gap:2px;flex-shrink:0;}
+  .icon-action-plain{
+    background:transparent;
+    border:none;
+    padding:3px 5px;
+    font-size:14px;
+    line-height:1;
+    color:var(--text-muted);
+  }
+  .icon-action-plain:hover{color:var(--text);background:transparent;}
+  .icon-action-plain.icon-danger:hover{color:var(--danger);}
+  .icon-disabled{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:3px 5px;
+    font-size:14px;
+    line-height:1;
+    color:var(--text-muted);
+    opacity:0.25;
+  }
+  .favicon{
+    width:16px;
+    height:16px;
+    border-radius:3px;
+    vertical-align:middle;
+    flex-shrink:0;
+  }
+  .link-card h3 .favicon{margin-right:6px;}
+  .link-card h3{margin:0;font-size:15px;line-height:1.35;}
+  .link-card h3 a{text-decoration:none;word-break:break-word;}
+  .link-card h3 a:hover{text-decoration:underline;}
+  .link-card .url{font-size:12px;color:var(--text-muted);word-break:break-all;}
+  .description{font-size:13px;color:var(--text-muted);margin:0;white-space:pre-wrap;}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;}
+  .tags .tag{
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:999px;
+    background:var(--tag-bg);
+    color:var(--tag-fg);
+    cursor:pointer;
+  }
+  .empty-state{
+    text-align:center;
+    color:var(--text-muted);
+    padding:60px 20px;
+    font-size:14px;
+  }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(10,12,18,0.5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:100;
+  }
+  .modal-overlay[hidden]{display:none;}
+  .modal{
+    background:var(--surface);
+    border-radius:14px;
+    padding:24px;
+    width:100%;
+    max-width:440px;
+    box-shadow:var(--shadow-lg);
+    max-height:90vh;
+    overflow-y:auto;
+  }
+  .modal h2{margin:0 0 16px 0;font-size:17px;}
+  #linkForm{display:flex;flex-direction:column;gap:12px;}
+  #linkForm label{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-muted);
+  }
+  #linkForm input:not([type=checkbox]),#linkForm textarea{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:400;
+    color:var(--text);
+    padding:9px 11px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+  }
+  #linkForm textarea{resize:vertical;}
+  .checkbox-label{
+    flex-direction:row !important;
+    align-items:center;
+    gap:8px !important;
+  }
+  .checkbox-label input{width:auto;}
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:6px;
+  }
+  .field-error{font-size:12px;color:var(--danger);font-weight:400;display:none;}
+
+  /* Título del sitio */
+  .site-title{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .site-title h1{margin:0;overflow-wrap:anywhere;}
+  .icon-btn{
+    background:transparent;
+    border:none;
+    padding:4px 6px;
+    font-size:14px;
+    line-height:1;
+    color:var(--text-muted);
+    flex-shrink:0;
+  }
+  .icon-btn:hover{color:var(--text);background:transparent;}
+
+  /* Cabeceras de sección con acción de gestión */
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .section-header h2{margin:0;}
+  .link-btn{
+    background:transparent;
+    border:none;
+    padding:0;
+    font-size:12px;
+    font-weight:600;
+    color:var(--primary);
+  }
+  .link-btn:hover{text-decoration:underline;background:transparent;}
+
+  /* Modal de gestión de categorías/etiquetas */
+  .manage-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:320px;
+    overflow-y:auto;
+    margin-bottom:14px;
+  }
+  .manage-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--surface-2);
+  }
+  .manage-row-name{font-size:13px;display:flex;align-items:center;gap:8px;word-break:break-word;}
+  .manage-row-color{
+    width:22px;
+    height:22px;
+    padding:0;
+    border:1px solid var(--border);
+    border-radius:5px;
+    background:none;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .manage-row-color-reset{padding:2px 4px;font-size:12px;flex-shrink:0;}
+  .manage-row-count{
+    font-size:11px;
+    color:var(--text-muted);
+    background:var(--surface);
+    border-radius:999px;
+    padding:1px 7px;
+    flex-shrink:0;
+  }
+  .manage-row-actions{display:flex;gap:6px;flex-shrink:0;}
+  .manage-row-actions button{font-size:12px;padding:5px 9px;}
+  .manage-row-edit-input{
+    flex:1;
+    min-width:0;
+    padding:6px 9px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    font-size:13px;
+  }
+  .manage-add-form{display:flex;gap:8px;margin-bottom:4px;}
+  .manage-add-form input{
+    flex:1;
+    padding:9px 11px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:14px;
+  }
+
+  @media (max-width: 780px){
+    .app{grid-template-columns:1fr;}
+    .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
+    .compact-tags{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="site-title">
+      <h1 id="siteTitleDisplay">🔗 PinBoard</h1>
+      <button type="button" id="btnEditTitle" class="icon-btn" title="Cambiar título de la página">✏️</button>
+    </div>
+    <button id="btnAdd" class="btn-primary">+ Nuevo enlace</button>
+
+    <div class="sidebar-section">
+      <div class="section-header">
+        <h2>Categorías</h2>
+        <button type="button" id="btnManageCategories" class="link-btn">Gestionar</button>
+      </div>
+      <ul id="categoryList" class="category-list"></ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-header">
+        <h2>Etiquetas</h2>
+        <button type="button" id="btnManageTags" class="link-btn">Gestionar</button>
+      </div>
+      <div id="tagCloud" class="tag-cloud"></div>
+    </div>
+
+    <div class="data-actions">
+      <button id="btnExport" title="Exportar todos los enlaces a un archivo JSON">Exportar</button>
+      <button id="btnImport" title="Importar enlaces desde un archivo JSON">Importar</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+    </div>
+
+    <div class="app-footer" id="appFooter"></div>
+  </aside>
+
+  <main class="content">
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="Buscar por título, descripción o etiqueta...">
+      <div class="status-toggle" id="statusToggle">
+        <button type="button" class="status-toggle-btn" data-value="all">Todos</button>
+        <button type="button" class="status-toggle-btn" data-value="active">Activos</button>
+      </div>
+      <div class="status-toggle" id="viewToggle">
+        <button type="button" class="status-toggle-btn" data-value="comfortable">Cómoda</button>
+        <button type="button" class="status-toggle-btn" data-value="compact">Compacta</button>
+      </div>
+      <button type="button" id="btnToggleAllGroups" class="link-btn" style="white-space:nowrap;">Plegar todo</button>
+      <span id="resultCount"></span>
+    </div>
+    <div id="linksContainer" class="links-groups"></div>
+    <p id="emptyState" class="empty-state" hidden>No se encontraron enlaces con los filtros actuales.</p>
+  </main>
+</div>
+
+<div id="modalOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="modalTitle">Nuevo enlace</h2>
+    <form id="linkForm">
+      <input type="hidden" id="linkId">
+      <label>Categoría *
+        <input id="fieldCategory" list="categoryOptions" required autocomplete="off">
+      </label>
+      <datalist id="categoryOptions"></datalist>
+
+      <label>Título *
+        <input id="fieldTitle" required autocomplete="off">
+      </label>
+
+      <label>Link *
+        <input id="fieldUrl" type="url" required placeholder="https://ejemplo.com" autocomplete="off">
+      </label>
+
+      <label>Descripción
+        <textarea id="fieldDescription" rows="2"></textarea>
+      </label>
+
+      <label>Etiquetas <span style="font-weight:400">(separadas por espacio, con o sin #)</span>
+        <input id="fieldTags" placeholder="#trabajo #referencia" autocomplete="off">
+      </label>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="fieldActive" checked>
+        Activo
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" id="btnCancel">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="manageModalOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="manageModalTitle">Gestionar categorías</h2>
+    <div id="manageList" class="manage-list"></div>
+    <form id="manageAddForm" class="manage-add-form">
+      <input id="manageAddInput" placeholder="Nueva categoría..." autocomplete="off">
+      <button type="submit" class="btn-primary">Añadir</button>
+    </form>
+    <div class="modal-actions">
+      <button type="button" id="manageCloseBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="importModalOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>Importar enlaces</h2>
+    <p id="importSummary" style="font-size:13px;color:var(--text-muted);margin:0 0 16px 0;"></p>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button type="button" id="importCancelBtn">Cancelar</button>
+      <div style="display:flex;gap:10px;">
+        <button type="button" id="importReplaceBtn" class="btn-danger">Sustituir todo</button>
+        <button type="button" id="importMergeBtn" class="btn-primary" style="width:auto;">Fusionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "enlaces_links_v1";
+  var CATEGORIES_KEY = "enlaces_categories_v1";
+  var TAGS_KEY = "enlaces_tags_v1";
+  var TITLE_KEY = "enlaces_site_title_v1";
+  var VIEW_MODE_KEY = "enlaces_view_mode_v1";
+  var COLLAPSED_KEY = "enlaces_collapsed_categories_v1";
+  var CATEGORY_COLORS_KEY = "enlaces_category_colors_v1";
+  var TAG_COLORS_KEY = "enlaces_tag_colors_v1";
+
+  // Identidad de la app: versión visible y créditos. Editable a mano aquí.
+  var APP_CONFIG = {
+    version: "1.0.0",
+    author: "Alberto Vázquez Martín",
+    authorUrl: "https://nlevia.org",
+    repoUrl: "https://github.com/alvama/PinBoard"
+  };
+
+  var state = {
+    links: [],
+    categories: [],
+    allTags: [],
+    siteTitle: "PinBoard",
+    viewMode: "comfortable",
+    collapsedCategories: new Set(),
+    categoryColors: {},
+    tagColors: {},
+    category: null,
+    tags: new Set(),
+    activeFilter: "active",
+    search: ""
+  };
+
+  var editingId = null;
+
+  // ---------- Persistencia ----------
+  function load(){
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      try{ return JSON.parse(raw); }catch(e){ return null; }
+    }
+    return null;
+  }
+
+  function save(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.links));
+  }
+
+  function loadCategories(){
+    var raw = localStorage.getItem(CATEGORIES_KEY);
+    if(raw){ try{ return JSON.parse(raw); }catch(e){ return []; } }
+    return [];
+  }
+  function saveCategories(){
+    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(state.categories));
+  }
+
+  function loadAllTags(){
+    var raw = localStorage.getItem(TAGS_KEY);
+    if(raw){ try{ return JSON.parse(raw); }catch(e){ return []; } }
+    return [];
+  }
+  function saveAllTags(){
+    localStorage.setItem(TAGS_KEY, JSON.stringify(state.allTags));
+  }
+
+  function loadSiteTitle(){
+    return localStorage.getItem(TITLE_KEY) || "PinBoard";
+  }
+  function saveSiteTitle(){
+    localStorage.setItem(TITLE_KEY, state.siteTitle);
+  }
+
+  function loadViewMode(){
+    var v = localStorage.getItem(VIEW_MODE_KEY);
+    return (v === "compact" || v === "comfortable") ? v : "comfortable";
+  }
+  function saveViewMode(){
+    localStorage.setItem(VIEW_MODE_KEY, state.viewMode);
+  }
+
+  function loadCollapsedCategories(){
+    var raw = localStorage.getItem(COLLAPSED_KEY);
+    if(raw){ try{ return new Set(JSON.parse(raw)); }catch(e){ return new Set(); } }
+    return new Set();
+  }
+  function saveCollapsedCategories(){
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(state.collapsedCategories)));
+  }
+
+  function loadCategoryColors(){
+    var raw = localStorage.getItem(CATEGORY_COLORS_KEY);
+    if(raw){ try{ return JSON.parse(raw); }catch(e){ return {}; } }
+    return {};
+  }
+  function saveCategoryColors(){
+    localStorage.setItem(CATEGORY_COLORS_KEY, JSON.stringify(state.categoryColors));
+  }
+
+  function loadTagColors(){
+    var raw = localStorage.getItem(TAG_COLORS_KEY);
+    if(raw){ try{ return JSON.parse(raw); }catch(e){ return {}; } }
+    return {};
+  }
+  function saveTagColors(){
+    localStorage.setItem(TAG_COLORS_KEY, JSON.stringify(state.tagColors));
+  }
+
+  function seedData(){
+    return [
+      { id: genId(), category: "Desarrollo", title: "MDN Web Docs", url: "https://developer.mozilla.org", description: "Referencia de HTML, CSS y JavaScript.", active: true, tags: ["#referencia","#web"] },
+      { id: genId(), category: "Desarrollo", title: "Can I use", url: "https://caniuse.com", description: "Compatibilidad de funciones web en distintos navegadores.", active: true, tags: ["#referencia","#compatibilidad"] },
+      { id: genId(), category: "Diseño", title: "Coolors", url: "https://coolors.co", description: "Generador de paletas de color.", active: true, tags: ["#color","#diseño"] },
+      { id: genId(), category: "Productividad", title: "Notion", url: "https://notion.so", description: "", active: true, tags: ["#notas","#organizacion"] },
+      { id: genId(), category: "Productividad", title: "Herramienta antigua", url: "https://example.com/old-tool", description: "Ya no se usa, se mantiene por referencia histórica.", active: false, tags: ["#legacy"] }
+    ];
+  }
+
+  function genId(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,9);
+  }
+
+  // ---------- Utilidades ----------
+  function escapeHtml(str){
+    return String(str == null ? "" : str).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  // Favicon vía el servicio público de Google (a partir del dominio de la URL).
+  // Si la URL es inválida, no se muestra ningún icono.
+  function faviconUrl(url){
+    try{
+      var host = new URL(url).hostname;
+      return "https://www.google.com/s2/favicons?sz=32&domain=" + encodeURIComponent(host);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function faviconImgHtml(url){
+    var src = faviconUrl(url);
+    if(!src) return "";
+    return '<img class="favicon" src="' + escapeHtml(src) + '" alt="" loading="lazy" onerror="this.remove()">';
+  }
+
+  function normalizeTags(raw){
+    if(!raw) return [];
+    var parts = raw.split(/[\s,]+/).map(function(t){ return t.trim(); }).filter(Boolean);
+    var seen = new Set();
+    var out = [];
+    parts.forEach(function(t){
+      var clean = "#" + t.replace(/^#+/, "");
+      var key = clean.toLowerCase();
+      if(clean.length > 1 && !seen.has(key)){
+        seen.add(key);
+        out.push(clean);
+      }
+    });
+    return out;
+  }
+
+  // Devuelve el nombre canónico ya existente (comparación sin distinguir mayúsculas)
+  // o registra "name" como nueva categoría si no existía.
+  function ensureCategory(name){
+    name = (name || "").trim();
+    if(!name) return name;
+    var existing = state.categories.find(function(c){ return c.toLowerCase() === name.toLowerCase(); });
+    if(existing) return existing;
+    state.categories.push(name);
+    return name;
+  }
+
+  function ensureTag(tag){
+    var existing = state.allTags.find(function(t){ return t.toLowerCase() === tag.toLowerCase(); });
+    if(existing) return existing;
+    state.allTags.push(tag);
+    return tag;
+  }
+
+  function getCategories(){
+    var counts = {};
+    state.links.forEach(function(l){
+      counts[l.category] = (counts[l.category] || 0) + 1;
+    });
+    return state.categories.slice().sort(function(a,b){ return a.localeCompare(b); }).map(function(c){
+      return { name: c, count: counts[c] || 0 };
+    });
+  }
+
+  function getAllTags(){
+    return state.allTags.slice().sort(function(a,b){ return a.localeCompare(b); });
+  }
+
+  // El orden de state.links es el orden manual del usuario dentro de cada categoría
+  // (ver swapLinks). No se reordena aquí para respetarlo.
+  function getFilteredLinks(){
+    var q = state.search.trim().toLowerCase();
+    return state.links.filter(function(l){
+      if(state.category && l.category !== state.category) return false;
+      if(state.activeFilter === "active" && !l.active) return false;
+      if(state.tags.size > 0){
+        var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
+        if(!hasTag) return false;
+      }
+      if(q){
+        var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ")).toLowerCase();
+        if(haystack.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function normalizeUrlForCompare(url){
+    return String(url || "").trim().replace(/\/+$/, "").toLowerCase();
+  }
+
+  function findDuplicateUrl(url, excludeId){
+    var normalized = normalizeUrlForCompare(url);
+    return state.links.find(function(l){
+      if(l.id === excludeId) return false;
+      return normalizeUrlForCompare(l.url) === normalized;
+    });
+  }
+
+  function swapLinks(idA, idB){
+    var idxA = state.links.findIndex(function(l){ return l.id === idA; });
+    var idxB = state.links.findIndex(function(l){ return l.id === idB; });
+    if(idxA === -1 || idxB === -1) return;
+    var tmp = state.links[idxA];
+    state.links[idxA] = state.links[idxB];
+    state.links[idxB] = tmp;
+    save();
+    render();
+  }
+
+  // Mueve un enlace (por drag & drop) a una categoría, insertado justo antes de "beforeId"
+  // (o al final de esa categoría si beforeId es null). Permite tanto reordenar dentro de
+  // una misma categoría como cambiar de categoría arrastrando a otro grupo.
+  function moveLinkTo(draggedId, targetCategory, beforeId){
+    var idx = state.links.findIndex(function(l){ return l.id === draggedId; });
+    if(idx === -1) return;
+    var link = state.links.splice(idx, 1)[0];
+    link.category = ensureCategory(targetCategory);
+    if(beforeId && beforeId !== draggedId){
+      var targetIdx = state.links.findIndex(function(l){ return l.id === beforeId; });
+      state.links.splice(targetIdx === -1 ? state.links.length : targetIdx, 0, link);
+    } else {
+      var lastIdx = -1;
+      state.links.forEach(function(l, i){ if(l.category === link.category) lastIdx = i; });
+      state.links.splice(lastIdx + 1, 0, link);
+    }
+    save();
+    saveCategories();
+    render();
+  }
+
+  // Elige texto negro o blanco según la luminancia del color de fondo, para mantener contraste legible.
+  function contrastTextColor(hex){
+    var c = String(hex || "").replace("#", "");
+    if(c.length === 3) c = c.split("").map(function(ch){ return ch + ch; }).join("");
+    if(c.length !== 6) return "#1c2029";
+    var r = parseInt(c.substr(0,2),16), g = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+    var luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+    return luminance > 0.6 ? "#1c2029" : "#ffffff";
+  }
+
+  function categoryDotHtml(name){
+    var color = state.categoryColors[name];
+    return '<span class="cat-color-dot" style="background:' + (color || "var(--text-muted)") + ';"></span>';
+  }
+
+  function tagChipStyle(tag){
+    var color = state.tagColors[tag];
+    if(!color) return "";
+    return ' style="background:' + color + ';color:' + contrastTextColor(color) + ';"';
+  }
+
+  // ---------- Render ----------
+  function renderSidebar(){
+    var categories = getCategories();
+    var totalCount = state.links.length;
+    var html = '<li class="category-item' + (state.category === null ? ' active' : '') + '" data-category="">' +
+                 '<span>Todas</span><span class="count">' + totalCount + '</span></li>';
+    categories.forEach(function(c){
+      html += '<li class="category-item' + (state.category === c.name ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '">' +
+                '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span><span class="count">' + c.count + '</span></li>';
+    });
+    document.getElementById("categoryList").innerHTML = html;
+
+    var tags = getAllTags();
+    var tagCloud = document.getElementById("tagCloud");
+    if(tags.length === 0){
+      tagCloud.innerHTML = '<span class="tag-empty">Sin etiquetas todavía</span>';
+    } else {
+      tagCloud.innerHTML = tags.map(function(t){
+        var active = state.tags.has(t) ? " active" : "";
+        return '<span class="tag-chip' + active + '" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
+      }).join("");
+    }
+
+    var catOptions = document.getElementById("categoryOptions");
+    catOptions.innerHTML = categories.map(function(c){ return '<option value="' + escapeHtml(c.name) + '">'; }).join("");
+  }
+
+  function renderCards(){
+    var filtered = getFilteredLinks();
+    var container = document.getElementById("linksContainer");
+    var emptyState = document.getElementById("emptyState");
+    document.getElementById("resultCount").textContent = filtered.length + " enlace" + (filtered.length === 1 ? "" : "s");
+
+    if(filtered.length === 0){
+      container.innerHTML = "";
+      emptyState.hidden = false;
+      return;
+    }
+    emptyState.hidden = true;
+
+    var groups = {};
+    filtered.forEach(function(l){
+      if(!groups[l.category]) groups[l.category] = [];
+      groups[l.category].push(l);
+    });
+    var categoryNames = Object.keys(groups).sort(function(a,b){ return a.localeCompare(b); });
+    var compact = state.viewMode === "compact";
+    var listClass = compact ? "links-list" : "links-grid";
+    var cardFn = compact ? cardHtmlCompact : cardHtml;
+
+    container.innerHTML = categoryNames.map(function(cat){
+      var items = groups[cat];
+      var cardsHtml = items.map(function(l, i){
+        var prevId = i > 0 ? items[i - 1].id : null;
+        var nextId = i < items.length - 1 ? items[i + 1].id : null;
+        return cardFn(l, prevId, nextId);
+      }).join("");
+      var collapsed = state.collapsedCategories.has(cat);
+      return (
+        '<section class="category-group' + (collapsed ? ' collapsed' : '') + '">' +
+          '<h2 class="category-group-title" data-category="' + escapeHtml(cat) + '">' +
+            '<span class="group-toggle-arrow">▾</span>' +
+            categoryDotHtml(cat) +
+            escapeHtml(cat) +
+            '<span class="category-group-count">' + items.length + '</span>' +
+          '</h2>' +
+          '<div class="' + listClass + '">' + cardsHtml + '</div>' +
+        '</section>'
+      );
+    }).join("");
+  }
+
+  function moveButtonsHtml(l, prevId, nextId){
+    return (
+      (prevId
+        ? '<button class="icon-action-plain" data-action="move-up" data-id="' + l.id + '" data-target="' + prevId + '" title="Subir" aria-label="Subir">▲</button>'
+        : '<span class="icon-disabled" aria-hidden="true">▲</span>') +
+      (nextId
+        ? '<button class="icon-action-plain" data-action="move-down" data-id="' + l.id + '" data-target="' + nextId + '" title="Bajar" aria-label="Bajar">▼</button>'
+        : '<span class="icon-disabled" aria-hidden="true">▼</span>')
+    );
+  }
+
+  function cardHtml(l, prevId, nextId){
+    var tagsHtml = l.tags.map(function(t){
+      return '<span class="tag" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
+    }).join("");
+    return (
+      '<div class="link-card' + (l.active ? '' : ' inactive') + '" data-id="' + l.id + '" draggable="true" title="Arrastra para reordenar o mover a otra categoría">' +
+        '<div class="card-header">' +
+          '<div class="card-icon-actions">' +
+            moveButtonsHtml(l, prevId, nextId) +
+            '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
+            '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
+          '</div>' +
+        '</div>' +
+        '<h3>' + faviconImgHtml(l.url) + '<a href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer" draggable="false">' + escapeHtml(l.title) + '</a></h3>' +
+        (l.description ? '<p class="description">' + escapeHtml(l.description) + '</p>' : '') +
+        (tagsHtml ? '<div class="tags">' + tagsHtml + '</div>' : '') +
+      '</div>'
+    );
+  }
+
+  function cardHtmlCompact(l, prevId, nextId){
+    var tagsHtml = l.tags.map(function(t){
+      return '<span class="tag" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
+    }).join("");
+    var tooltip = l.title + (l.description ? " — " + l.description : "");
+    return (
+      '<div class="link-card-compact' + (l.active ? '' : ' inactive') + '" data-id="' + l.id + '" draggable="true" title="' + escapeHtml(tooltip) + ' — arrastra para reordenar o mover a otra categoría">' +
+        faviconImgHtml(l.url) +
+        '<a class="compact-title" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer" draggable="false">' + escapeHtml(l.title) + '</a>' +
+        (tagsHtml ? '<div class="tags compact-tags">' + tagsHtml + '</div>' : '') +
+        '<div class="card-icon-actions">' +
+          moveButtonsHtml(l, prevId, nextId) +
+          '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
+          '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function toggleCategoryCollapse(cat){
+    if(state.collapsedCategories.has(cat)) state.collapsedCategories.delete(cat);
+    else state.collapsedCategories.add(cat);
+    saveCollapsedCategories();
+    render();
+  }
+
+  function syncStatusToggle(){
+    document.querySelectorAll("#statusToggle .status-toggle-btn").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-value") === state.activeFilter);
+    });
+    document.querySelectorAll("#viewToggle .status-toggle-btn").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-value") === state.viewMode);
+    });
+  }
+
+  function syncToggleAllGroupsLabel(){
+    var names = getCategories().map(function(c){ return c.name; });
+    var allCollapsed = names.length > 0 && names.every(function(c){ return state.collapsedCategories.has(c); });
+    document.getElementById("btnToggleAllGroups").textContent = allCollapsed ? "Expandir todo" : "Plegar todo";
+  }
+
+  function render(){
+    renderSidebar();
+    renderCards();
+    syncStatusToggle();
+    syncToggleAllGroupsLabel();
+  }
+
+  // ---------- Modal / formulario ----------
+  var overlay = document.getElementById("modalOverlay");
+  var form = document.getElementById("linkForm");
+
+  function openModal(link){
+    editingId = link ? link.id : null;
+    document.getElementById("modalTitle").textContent = link ? "Editar enlace" : "Nuevo enlace";
+    document.getElementById("linkId").value = link ? link.id : "";
+    document.getElementById("fieldCategory").value = link ? link.category : (state.category || "");
+    document.getElementById("fieldTitle").value = link ? link.title : "";
+    document.getElementById("fieldUrl").value = link ? link.url : "";
+    document.getElementById("fieldDescription").value = link ? link.description : "";
+    document.getElementById("fieldTags").value = link ? link.tags.join(" ") : "";
+    document.getElementById("fieldActive").checked = link ? link.active : true;
+    overlay.hidden = false;
+    document.getElementById("fieldCategory").focus();
+  }
+
+  function closeModal(){
+    overlay.hidden = true;
+    editingId = null;
+    form.reset();
+  }
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    var category = document.getElementById("fieldCategory").value.trim();
+    var title = document.getElementById("fieldTitle").value.trim();
+    var url = document.getElementById("fieldUrl").value.trim();
+    var description = document.getElementById("fieldDescription").value.trim();
+    var tags = normalizeTags(document.getElementById("fieldTags").value);
+    var active = document.getElementById("fieldActive").checked;
+
+    if(!category || !title || !url) return;
+
+    var duplicate = findDuplicateUrl(url, editingId);
+    if(duplicate){
+      var proceed = confirm('Ya tienes guardado este enlace como "' + duplicate.title + '" (categoría "' + duplicate.category + '"). ¿Quieres guardarlo de todas formas?');
+      if(!proceed) return;
+    }
+
+    category = ensureCategory(category);
+    tags = tags.map(ensureTag);
+
+    if(editingId){
+      var link = state.links.find(function(l){ return l.id === editingId; });
+      if(link){
+        link.category = category; link.title = title; link.url = url;
+        link.description = description; link.tags = tags; link.active = active;
+      }
+    } else {
+      state.links.push({ id: genId(), category: category, title: title, url: url, description: description, active: active, tags: tags });
+    }
+    save();
+    saveCategories();
+    saveAllTags();
+    closeModal();
+    render();
+  });
+
+  document.getElementById("btnAdd").addEventListener("click", function(){ openModal(null); });
+  document.getElementById("btnCancel").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(!overlay.hidden) closeModal();
+    if(!manageOverlay.hidden) closeManageModal();
+    if(!importModalOverlay.hidden) closeImportModal();
+  });
+
+  // ---------- Puente para la extensión de navegador ----------
+  // Superficie mínima y estable pensada para ser llamada desde fuera de esta
+  // IIFE (p. ej. una extensión inyectando código en el "MAIN world" de esta
+  // página). Reutiliza la lógica de duplicados/guardado ya existente en vez
+  // de duplicarla, para que el origen de verdad siga siendo este archivo.
+  function suggestCategory(title, description, url){
+    var haystack = ((title || "") + " " + (description || "") + " " + (url || "")).toLowerCase();
+    var host = "";
+    try{ host = new URL(url).hostname.toLowerCase(); }catch(e){}
+    var best = null, bestScore = 0;
+    state.categories.forEach(function(cat){
+      var words = cat.toLowerCase().split(/\s+/).filter(Boolean);
+      var score = 0;
+      words.forEach(function(w){ if(w.length > 2 && haystack.indexOf(w) !== -1) score++; });
+      if(host && cat.length > 2 && host.indexOf(cat.toLowerCase()) !== -1) score += 2;
+      if(score > bestScore){ bestScore = score; best = cat; }
+    });
+    return best || "";
+  }
+
+  function highlightLink(id){
+    var el = document.querySelector('.link-card[data-id="' + id + '"], .link-card-compact[data-id="' + id + '"]');
+    if(!el) return;
+    el.scrollIntoView({behavior:"smooth", block:"center"});
+    el.classList.add("bridge-highlight");
+    setTimeout(function(){ el.classList.remove("bridge-highlight"); }, 2000);
+  }
+
+  window.PinBoardBridge = {
+    // Comprueba si la URL ya existe. Devuelve {id, title, category} o null.
+    checkDuplicate: function(url){
+      var d = findDuplicateUrl(url, null);
+      return d ? { id: d.id, title: d.title, category: d.category } : null;
+    },
+    // Desplaza la vista hasta el enlace existente y lo resalta brevemente.
+    focusExisting: function(url){
+      var d = findDuplicateUrl(url, null);
+      if(d) highlightLink(d.id);
+    },
+    // Heurística simple: propone una categoría ya existente según coincidencias
+    // de palabras en título/descripción/dominio. No inventa categorías nuevas.
+    suggestCategory: suggestCategory,
+    // Abre el modal de "Nuevo enlace" con los campos precargados; el usuario
+    // sigue confirmando y pulsando "Guardar" como en el flujo manual.
+    prefillAndOpen: function(data){
+      data = data || {};
+      openModal(null);
+      document.getElementById("fieldCategory").value = data.category || "";
+      document.getElementById("fieldTitle").value = data.title || "";
+      document.getElementById("fieldUrl").value = data.url || "";
+      document.getElementById("fieldDescription").value = data.description || "";
+      window.focus();
+      document.getElementById("fieldTitle").focus();
+    }
+  };
+
+  // ---------- Título de la página ----------
+  function applySiteTitle(){
+    document.getElementById("siteTitleDisplay").textContent = "🔗 " + state.siteTitle;
+    document.title = state.siteTitle;
+  }
+
+  // ---------- Pie de página: versión y créditos ----------
+  function renderFooter(){
+    var el = document.getElementById("appFooter");
+    if(!el) return;
+    el.innerHTML =
+      '<span>PinBoard v' + escapeHtml(APP_CONFIG.version) + '</span>' +
+      '<span>·</span>' +
+      '<a href="' + escapeHtml(APP_CONFIG.authorUrl) + '" target="_blank" rel="noopener">' + escapeHtml(APP_CONFIG.author) + '</a>' +
+      '<span>·</span>' +
+      '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>';
+  }
+  document.getElementById("btnEditTitle").addEventListener("click", function(){
+    var next = prompt("Título de la página:", state.siteTitle);
+    if(next === null) return;
+    next = next.trim();
+    if(!next) return;
+    state.siteTitle = next;
+    saveSiteTitle();
+    applySiteTitle();
+  });
+
+  // ---------- Gestión de categorías y etiquetas ----------
+  var manageType = null; // "category" | "tag"
+  var manageEditingName = null;
+  var manageOverlay = document.getElementById("manageModalOverlay");
+  var manageList = document.getElementById("manageList");
+  var manageAddForm = document.getElementById("manageAddForm");
+  var manageAddInput = document.getElementById("manageAddInput");
+
+  function openManageModal(type){
+    manageType = type;
+    manageEditingName = null;
+    document.getElementById("manageModalTitle").textContent = type === "category" ? "Gestionar categorías" : "Gestionar etiquetas";
+    manageAddInput.placeholder = type === "category" ? "Nueva categoría..." : "Nueva etiqueta...";
+    renderManageList();
+    manageOverlay.hidden = false;
+    manageAddInput.focus();
+  }
+
+  function closeManageModal(){
+    manageOverlay.hidden = true;
+    manageType = null;
+    manageEditingName = null;
+    manageAddForm.reset();
+  }
+
+  function renderManageList(){
+    var items;
+    if(manageType === "category"){
+      items = getCategories();
+    } else {
+      var counts = {};
+      state.links.forEach(function(l){ l.tags.forEach(function(t){ counts[t] = (counts[t] || 0) + 1; }); });
+      items = getAllTags().map(function(t){ return { name: t, count: counts[t] || 0 }; });
+    }
+    if(items.length === 0){
+      manageList.innerHTML = '<p class="tag-empty">Aún no hay ' + (manageType === "category" ? "categorías" : "etiquetas") + '.</p>';
+      return;
+    }
+    manageList.innerHTML = items.map(function(it){
+      if(manageEditingName === it.name){
+        var editValue = manageType === "tag" ? it.name.replace(/^#/, "") : it.name;
+        return '<div class="manage-row editing" data-name="' + escapeHtml(it.name) + '">' +
+          '<input type="text" class="manage-row-edit-input" value="' + escapeHtml(editValue) + '">' +
+          '<div class="manage-row-actions">' +
+            '<button type="button" data-action="save-rename">Guardar</button>' +
+            '<button type="button" data-action="cancel-rename">Cancelar</button>' +
+          '</div>' +
+        '</div>';
+      }
+      var colorMap = manageType === "category" ? state.categoryColors : state.tagColors;
+      var customColor = colorMap[it.name];
+      return '<div class="manage-row" data-name="' + escapeHtml(it.name) + '">' +
+        '<span class="manage-row-name">' +
+          '<input type="color" class="manage-row-color" value="' + (customColor || "#9aa0ac") + '" title="Color">' +
+          (customColor ? '<button type="button" class="icon-action-plain manage-row-color-reset" data-action="reset-color" title="Quitar color">✕</button>' : '') +
+          escapeHtml(it.name) + '<span class="manage-row-count">' + it.count + '</span>' +
+        '</span>' +
+        '<div class="manage-row-actions">' +
+          '<button type="button" data-action="rename">Renombrar</button>' +
+          '<button type="button" class="btn-danger" data-action="delete">Eliminar</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+    if(manageEditingName !== null){
+      var input = manageList.querySelector(".manage-row-edit-input");
+      if(input){ input.focus(); input.select(); }
+    }
+  }
+
+  // Aplica el renombrado (categoría o etiqueta) a las listas maestras y a los enlaces afectados.
+  // Si el nuevo nombre coincide (sin distinguir mayúsculas) con uno ya existente, los fusiona.
+  function performRename(oldName, rawNewValue){
+    if(manageType === "category"){
+      var newName = rawNewValue.trim();
+      if(!newName || newName === oldName) return;
+      state.links.forEach(function(l){ if(l.category === oldName) l.category = newName; });
+      state.categories = state.categories.filter(function(c){ return c !== oldName; });
+      var canonicalCat = ensureCategory(newName);
+      if(canonicalCat !== newName){
+        state.links.forEach(function(l){ if(l.category === newName) l.category = canonicalCat; });
+      }
+      if(state.category === oldName) state.category = canonicalCat;
+      if(state.categoryColors[oldName] && !state.categoryColors[canonicalCat]){
+        state.categoryColors[canonicalCat] = state.categoryColors[oldName];
+      }
+      delete state.categoryColors[oldName];
+      saveCategoryColors();
+      save();
+      saveCategories();
+    } else {
+      var raw = rawNewValue.trim();
+      if(!raw) return;
+      var newTag = "#" + raw.replace(/^#+/, "");
+      if(newTag === oldName) return;
+      state.links.forEach(function(l){
+        var idx = l.tags.indexOf(oldName);
+        if(idx !== -1){
+          l.tags.splice(idx, 1);
+          if(l.tags.indexOf(newTag) === -1) l.tags.push(newTag);
+        }
+      });
+      state.allTags = state.allTags.filter(function(t){ return t !== oldName; });
+      var canonicalTag2 = ensureTag(newTag);
+      if(canonicalTag2 !== newTag){
+        state.links.forEach(function(l){
+          var idx2 = l.tags.indexOf(newTag);
+          if(idx2 !== -1) l.tags[idx2] = canonicalTag2;
+        });
+      }
+      if(state.tags.has(oldName)){ state.tags.delete(oldName); state.tags.add(canonicalTag2); }
+      if(state.tagColors[oldName] && !state.tagColors[canonicalTag2]){
+        state.tagColors[canonicalTag2] = state.tagColors[oldName];
+      }
+      delete state.tagColors[oldName];
+      saveTagColors();
+      save();
+      saveAllTags();
+    }
+    manageEditingName = null;
+    renderManageList();
+    render();
+  }
+
+  document.getElementById("btnManageCategories").addEventListener("click", function(){ openManageModal("category"); });
+  document.getElementById("btnManageTags").addEventListener("click", function(){ openManageModal("tag"); });
+  document.getElementById("manageCloseBtn").addEventListener("click", closeManageModal);
+  manageOverlay.addEventListener("click", function(e){ if(e.target === manageOverlay) closeManageModal(); });
+
+  manageAddForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var val = manageAddInput.value.trim();
+    if(!val) return;
+
+    if(manageType === "category"){
+      var beforeLen = state.categories.length;
+      var canonical = ensureCategory(val);
+      if(state.categories.length === beforeLen){
+        alert('La categoría "' + canonical + '" ya existe.');
+      } else {
+        saveCategories();
+      }
+    } else {
+      var cleanTag = "#" + val.replace(/^#+/, "");
+      var beforeLenT = state.allTags.length;
+      var canonicalTag = ensureTag(cleanTag);
+      if(state.allTags.length === beforeLenT){
+        alert('La etiqueta "' + canonicalTag + '" ya existe.');
+      } else {
+        saveAllTags();
+      }
+    }
+    manageAddForm.reset();
+    renderManageList();
+    render();
+  });
+
+  manageList.addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-action]");
+    if(!btn) return;
+    var row = btn.closest(".manage-row");
+    var name = row.getAttribute("data-name");
+    var action = btn.getAttribute("data-action");
+
+    if(action === "rename"){
+      manageEditingName = name;
+      renderManageList();
+    } else if(action === "cancel-rename"){
+      manageEditingName = null;
+      renderManageList();
+    } else if(action === "save-rename"){
+      var input = row.querySelector(".manage-row-edit-input");
+      performRename(name, input.value);
+    } else if(action === "delete"){
+      if(manageType === "category"){
+        var count = state.links.filter(function(l){ return l.category === name; }).length;
+        var msg = count > 0
+          ? 'La categoría "' + name + '" tiene ' + count + ' enlace(s). Se moverán a "Sin categoría". ¿Continuar?'
+          : '¿Eliminar la categoría "' + name + '"?';
+        if(!confirm(msg)) return;
+        if(count > 0){
+          var fallback = ensureCategory("Sin categoría");
+          state.links.forEach(function(l){ if(l.category === name) l.category = fallback; });
+          save();
+        }
+        state.categories = state.categories.filter(function(c){ return c !== name; });
+        saveCategories();
+        if(state.category === name) state.category = null;
+        delete state.categoryColors[name];
+        saveCategoryColors();
+      } else {
+        var tagCount = state.links.filter(function(l){ return l.tags.indexOf(name) !== -1; }).length;
+        var tmsg = tagCount > 0
+          ? 'La etiqueta "' + name + '" se usa en ' + tagCount + ' enlace(s) y se quitará de todos ellos. ¿Continuar?'
+          : '¿Eliminar la etiqueta "' + name + '"?';
+        if(!confirm(tmsg)) return;
+        state.links.forEach(function(l){
+          var idx = l.tags.indexOf(name);
+          if(idx !== -1) l.tags.splice(idx, 1);
+        });
+        state.allTags = state.allTags.filter(function(t){ return t !== name; });
+        saveAllTags();
+        save();
+        state.tags.delete(name);
+        delete state.tagColors[name];
+        saveTagColors();
+      }
+      renderManageList();
+      render();
+    } else if(action === "reset-color"){
+      var colorMap = manageType === "category" ? state.categoryColors : state.tagColors;
+      delete colorMap[name];
+      if(manageType === "category") saveCategoryColors(); else saveTagColors();
+      renderManageList();
+      render();
+    }
+  });
+
+  manageList.addEventListener("change", function(e){
+    var input = e.target.closest(".manage-row-color");
+    if(!input) return;
+    var name = input.closest(".manage-row").getAttribute("data-name");
+    var colorMap = manageType === "category" ? state.categoryColors : state.tagColors;
+    colorMap[name] = input.value;
+    if(manageType === "category") saveCategoryColors(); else saveTagColors();
+    renderManageList();
+    render();
+  });
+
+  manageList.addEventListener("keydown", function(e){
+    var input = e.target.closest(".manage-row-edit-input");
+    if(!input) return;
+    if(e.key === "Enter"){
+      e.preventDefault();
+      var row = input.closest(".manage-row");
+      performRename(row.getAttribute("data-name"), input.value);
+    } else if(e.key === "Escape"){
+      manageEditingName = null;
+      renderManageList();
+    }
+  });
+
+  // ---------- Delegación de eventos ----------
+  document.getElementById("linksContainer").addEventListener("click", function(e){
+    var groupTitle = e.target.closest(".category-group-title");
+    if(groupTitle){
+      toggleCategoryCollapse(groupTitle.getAttribute("data-category"));
+      return;
+    }
+    var btn = e.target.closest("button[data-action]");
+    if(btn){
+      var id = btn.getAttribute("data-id");
+      var action = btn.getAttribute("data-action");
+      if(action === "edit"){
+        var link = state.links.find(function(l){ return l.id === id; });
+        if(link) openModal(link);
+      } else if(action === "delete"){
+        var target = state.links.find(function(l){ return l.id === id; });
+        var label = target ? target.title : "este enlace";
+        if(confirm('¿Eliminar "' + label + '"? Esta acción no se puede deshacer.')){
+          state.links = state.links.filter(function(l){ return l.id !== id; });
+          save();
+          render();
+        }
+      } else if(action === "move-up" || action === "move-down"){
+        var targetId = btn.getAttribute("data-target");
+        if(targetId) swapLinks(id, targetId);
+      }
+      return;
+    }
+    var tagEl = e.target.closest(".tag[data-tag]");
+    if(tagEl){
+      var tag = tagEl.getAttribute("data-tag");
+      if(state.tags.has(tag)) state.tags.delete(tag);
+      else state.tags.add(tag);
+      render();
+    }
+  });
+
+  // ---------- Arrastrar y soltar (reordenar / mover de categoría) ----------
+  var draggedLinkId = null;
+  var linksContainerEl = document.getElementById("linksContainer");
+
+  linksContainerEl.addEventListener("dragstart", function(e){
+    var card = e.target.closest(".link-card, .link-card-compact");
+    if(!card) return;
+    draggedLinkId = card.getAttribute("data-id");
+    card.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try{ e.dataTransfer.setData("text/plain", draggedLinkId); }catch(err){}
+  });
+
+  linksContainerEl.addEventListener("dragend", function(){
+    var dragging = linksContainerEl.querySelector(".dragging");
+    if(dragging) dragging.classList.remove("dragging");
+    linksContainerEl.querySelectorAll(".drag-over").forEach(function(el){ el.classList.remove("drag-over"); });
+    draggedLinkId = null;
+  });
+
+  linksContainerEl.addEventListener("dragover", function(e){
+    if(!draggedLinkId) return;
+    var group = e.target.closest(".category-group");
+    if(!group) return;
+    e.preventDefault();
+    linksContainerEl.querySelectorAll(".drag-over").forEach(function(el){ el.classList.remove("drag-over"); });
+    var card = e.target.closest(".link-card, .link-card-compact");
+    if(card && card.getAttribute("data-id") !== draggedLinkId){
+      card.classList.add("drag-over");
+    } else {
+      group.querySelector(".category-group-title").classList.add("drag-over");
+    }
+  });
+
+  linksContainerEl.addEventListener("drop", function(e){
+    if(!draggedLinkId) return;
+    var group = e.target.closest(".category-group");
+    if(!group) return;
+    e.preventDefault();
+    var targetCategory = group.querySelector(".category-group-title").getAttribute("data-category");
+    var card = e.target.closest(".link-card, .link-card-compact");
+    var beforeId = (card && card.getAttribute("data-id") !== draggedLinkId) ? card.getAttribute("data-id") : null;
+    moveLinkTo(draggedLinkId, targetCategory, beforeId);
+  });
+
+  document.getElementById("btnToggleAllGroups").addEventListener("click", function(){
+    var names = getCategories().map(function(c){ return c.name; });
+    var allCollapsed = names.length > 0 && names.every(function(c){ return state.collapsedCategories.has(c); });
+    if(allCollapsed){
+      state.collapsedCategories.clear();
+    } else {
+      names.forEach(function(c){ state.collapsedCategories.add(c); });
+    }
+    saveCollapsedCategories();
+    render();
+  });
+
+  document.getElementById("categoryList").addEventListener("click", function(e){
+    var item = e.target.closest(".category-item");
+    if(!item) return;
+    var cat = item.getAttribute("data-category");
+    state.category = cat === "" ? null : cat;
+    render();
+  });
+
+  document.getElementById("tagCloud").addEventListener("click", function(e){
+    var chip = e.target.closest(".tag-chip[data-tag]");
+    if(!chip) return;
+    var tag = chip.getAttribute("data-tag");
+    if(state.tags.has(tag)) state.tags.delete(tag);
+    else state.tags.add(tag);
+    render();
+  });
+
+  document.getElementById("statusToggle").addEventListener("click", function(e){
+    var btn = e.target.closest(".status-toggle-btn");
+    if(!btn) return;
+    state.activeFilter = btn.getAttribute("data-value");
+    render();
+  });
+
+  document.getElementById("viewToggle").addEventListener("click", function(e){
+    var btn = e.target.closest(".status-toggle-btn");
+    if(!btn) return;
+    state.viewMode = btn.getAttribute("data-value");
+    saveViewMode();
+    render();
+  });
+
+  document.getElementById("searchInput").addEventListener("input", function(e){
+    state.search = e.target.value;
+    render();
+  });
+
+  // ---------- Atajos de teclado ----------
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "/" && e.key !== "n") return;
+    var tag = (e.target.tagName || "").toLowerCase();
+    var isTyping = tag === "input" || tag === "textarea" || e.target.isContentEditable;
+    var anyModalOpen = !overlay.hidden || !manageOverlay.hidden || !importModalOverlay.hidden;
+    if(isTyping || anyModalOpen) return;
+    if(e.key === "/"){
+      e.preventDefault();
+      document.getElementById("searchInput").focus();
+    } else if(e.key === "n"){
+      e.preventDefault();
+      openModal(null);
+    }
+  });
+
+  // ---------- Exportar / Importar ----------
+  document.getElementById("btnExport").addEventListener("click", function(){
+    var blob = new Blob([JSON.stringify(state.links, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    var d = new Date();
+    var stamp = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    a.download = "pinboard_" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  });
+
+  function resetFiltersAfterImport(){
+    state.category = null; state.tags.clear(); state.activeFilter = "all"; state.search = "";
+    document.getElementById("searchInput").value = "";
+  }
+
+  function performImportReplace(data){
+    state.links = data.map(function(l){
+      return {
+        id: l.id || genId(),
+        category: String(l.category),
+        title: String(l.title),
+        url: String(l.url),
+        description: l.description ? String(l.description) : "",
+        active: l.active !== false,
+        tags: Array.isArray(l.tags) ? normalizeTags(l.tags.join(" ")) : []
+      };
+    });
+    state.links.forEach(function(l){
+      l.category = ensureCategory(l.category);
+      l.tags = l.tags.map(ensureTag);
+    });
+    save();
+    saveCategories();
+    saveAllTags();
+    resetFiltersAfterImport();
+    render();
+  }
+
+  function performImportMerge(data){
+    var existingUrls = {};
+    state.links.forEach(function(l){ existingUrls[normalizeUrlForCompare(l.url)] = true; });
+    var added = 0, skipped = 0;
+    data.forEach(function(raw){
+      var url = String(raw.url || "").trim();
+      var key = normalizeUrlForCompare(url);
+      if(!url || existingUrls[key]){ skipped++; return; }
+      existingUrls[key] = true;
+      var tags = Array.isArray(raw.tags) ? normalizeTags(raw.tags.join(" ")).map(ensureTag) : [];
+      state.links.push({
+        id: genId(),
+        category: ensureCategory(String(raw.category || "Sin categoría")),
+        title: String(raw.title || url),
+        url: url,
+        description: raw.description ? String(raw.description) : "",
+        active: raw.active !== false,
+        tags: tags
+      });
+      added++;
+    });
+    save();
+    saveCategories();
+    saveAllTags();
+    resetFiltersAfterImport();
+    render();
+    alert("Importación completada: " + added + " enlaces añadidos, " + skipped + " omitidos (URL ya existente o vacía).");
+  }
+
+  var fileImport = document.getElementById("fileImport");
+  var pendingImportData = null;
+  var importModalOverlay = document.getElementById("importModalOverlay");
+
+  function closeImportModal(){
+    importModalOverlay.hidden = true;
+    pendingImportData = null;
+  }
+
+  document.getElementById("btnImport").addEventListener("click", function(){ fileImport.click(); });
+  fileImport.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(reader.result);
+        if(!Array.isArray(data)) throw new Error("Formato inválido");
+        var valid = data.every(function(l){ return l && l.category && l.title && l.url; });
+        if(!valid) throw new Error("Formato inválido");
+        pendingImportData = data;
+        document.getElementById("importSummary").textContent =
+          "El archivo contiene " + data.length + " enlaces. Tienes " + state.links.length + " enlaces actualmente. " +
+          '"Fusionar" añade solo los que no tengas ya (comparando por URL). "Sustituir todo" borra tus enlaces actuales y los reemplaza por los del archivo.';
+        importModalOverlay.hidden = false;
+      }catch(err){
+        alert("No se pudo importar el archivo: " + err.message);
+      }
+      fileImport.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("importMergeBtn").addEventListener("click", function(){
+    if(pendingImportData) performImportMerge(pendingImportData);
+    closeImportModal();
+  });
+  document.getElementById("importReplaceBtn").addEventListener("click", function(){
+    var data = pendingImportData;
+    if(!data){ closeImportModal(); return; }
+    if(confirm("Vas a sustituir tus " + state.links.length + " enlaces actuales por los " + data.length + " del archivo. Esta acción no se puede deshacer. ¿Continuar?")){
+      performImportReplace(data);
+      closeImportModal();
+    }
+  });
+  document.getElementById("importCancelBtn").addEventListener("click", closeImportModal);
+  importModalOverlay.addEventListener("click", function(e){ if(e.target === importModalOverlay) closeImportModal(); });
+
+  // ---------- Inicio ----------
+  var stored = load();
+  state.links = stored !== null ? stored : seedData();
+  state.categories = loadCategories();
+  state.allTags = loadAllTags();
+  state.siteTitle = loadSiteTitle();
+  state.viewMode = loadViewMode();
+  state.collapsedCategories = loadCollapsedCategories();
+  state.categoryColors = loadCategoryColors();
+  state.tagColors = loadTagColors();
+
+  state.links.forEach(function(l){
+    l.category = ensureCategory(l.category);
+    l.tags = (l.tags || []).map(ensureTag);
+  });
+
+  save();
+  saveCategories();
+  saveAllTags();
+  applySiteTitle();
+  renderFooter();
+  render();
+})();
+</script>
+</body>
+</html>
