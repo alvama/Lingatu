@@ -1,0 +1,15 @@
+{
+  "sources": [
+    {
+      "browser": "Edge",
+      "profile": "Default",
+      "bookmarksPath": "C:\\Users\\TU_USUARIO\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Bookmarks"
+    },
+    {
+      "browser": "Chrome",
+      "profile": "Default",
+      "bookmarksPath": "C:\\Users\\TU_USUARIO\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Bookmarks"
+    }
+  ],
+  "outputPath": "C:\\Users\\TU_USUARIO\\Ruta\\a\\PinBoard\\marcadores_importados.json"
+}

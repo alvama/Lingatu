@@ -1,6 +1,10 @@
 # Exportaciones de datos personales (enlaces reales del usuario)
 pinboard_*.json
 marcadores_edge.json
+marcadores_importados.json
+
+# Configuración local de tools/convertir_marcadores.py (rutas de esta máquina)
+tools/marcadores_config.json
 
 # Configuración local de Claude Code (específica de esta máquina)
 .claude/settings.local.json

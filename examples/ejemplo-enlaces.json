@@ -1,0 +1,7 @@
+[
+  { "category": "Desarrollo", "title": "MDN Web Docs", "url": "https://developer.mozilla.org", "description": "Referencia de HTML, CSS y JavaScript.", "active": true, "tags": ["#referencia", "#web"] },
+  { "category": "Desarrollo", "title": "Can I use", "url": "https://caniuse.com", "description": "Compatibilidad de funciones web en distintos navegadores.", "active": true, "tags": ["#referencia", "#compatibilidad"] },
+  { "category": "Diseño", "title": "Coolors", "url": "https://coolors.co", "description": "Generador de paletas de color.", "active": true, "tags": ["#color", "#diseño"] },
+  { "category": "Productividad", "title": "Notion", "url": "https://notion.so", "description": "", "active": true, "tags": ["#notas", "#organizacion"] },
+  { "category": "Productividad", "title": "Herramienta antigua", "url": "https://example.com/old-tool", "description": "Ya no se usa, se mantiene por referencia histórica.", "active": false, "tags": ["#legacy"] }
+]

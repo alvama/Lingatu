@@ -118,7 +118,7 @@ Icono ✏️ junto al `<h1>` del sidebar abre un `prompt()` para cambiar el text
   - Tras cualquiera de las dos, se resetean los filtros a estado neutro (`resetFiltersAfterImport`: `activeFilter = "all"`, categoría = todas, etiquetas = ninguna, búsqueda vacía) para poder revisar el resultado.
 
 ### 4.8 Datos de ejemplo (primer arranque)
-Si no hay datos guardados en `localStorage`, se cargan 5 enlaces de ejemplo (`seedData()`) para que la página no se vea vacía. Se sobrescriben en cuanto el usuario edita/borra/importa.
+Si no hay datos guardados en `localStorage`, la app arranca sin ningún enlace (`state.links = []`). Para probarla con contenido de muestra, existe un archivo aparte, [`examples/ejemplo-enlaces.json`](../examples/ejemplo-enlaces.json), cargable con el botón "Importar".
 
 ### 4.9 Reordenar enlaces manualmente
 Cada tarjeta/fila incluye iconos ▲/▼ (junto a ✏️/🗑️) para mover el enlace un puesto arriba/abajo **dentro de su categoría y respetando el filtro/búsqueda actual** — es decir, "arriba" significa "con el enlace visible inmediatamente anterior en este mismo grupo", no con el anterior en el array completo. Detalles:
@@ -235,8 +235,10 @@ Recogidas aquí porque no son obvias a partir del código y explican *por qué* 
 |---|---|
 | `pinboard.html` | La aplicación (único archivo necesario para usarla) |
 | `extension/` | Extensión de navegador (Chrome/Edge, Manifest V3) que captura la pestaña activa y la añade a `pinboard.html` — ver `README.md` para instalación |
-| `tools/convertir_marcadores.py` | Script puntual (Python) para convertir los marcadores de Microsoft Edge (`Bookmarks`, formato Chromium JSON) al formato de importación de `pinboard.html`. Recorre recursivamente las carpetas de favoritos de los perfiles de Edge configurados en `PROFILES`, usa la ruta de carpetas como `category` (unidas con `" / "`), deduplica por URL entre perfiles, y genera `marcadores_edge.json`. No se ejecuta automáticamente; es una utilidad de un solo uso, se puede volver a lanzar (`python tools/convertir_marcadores.py`) si se quiere resincronizar. |
-| `marcadores_edge.json` | Salida generada por el script anterior, en formato compatible con "Importar". Se puede borrar una vez importado. No se versiona (ver `.gitignore`). |
+| `tools/convertir_marcadores.py` | Script (Python) para convertir marcadores de Chrome y/o Edge (`Bookmarks`, formato Chromium JSON) al formato de importación de `pinboard.html`. No lleva ninguna ruta escrita: lee `sources` (lista de `{browser, profile, bookmarksPath}`) y `outputPath` desde un archivo de configuración JSON (`marcadores_config.json` junto al script por defecto, o `--config <ruta>`). Recorre recursivamente cada `Bookmarks`, usa la ruta de carpetas como `category` (unidas con `" / "`), deduplica por URL entre todas las fuentes, y escribe el resultado en `outputPath`. |
+| `tools/configurar_marcadores.html` | Página autocontenida (sin dependencias) para generar `marcadores_config.json` con un formulario, en vez de escribirlo a mano. Incluye una tabla de referencia con las rutas típicas de `Bookmarks` por sistema operativo y navegador. |
+| `tools/marcadores_config.example.json` | Plantilla de ejemplo del archivo de configuración anterior, con rutas ficticias. `marcadores_config.json` (el real, con rutas de tu máquina) no se versiona. |
+| `examples/ejemplo-enlaces.json` | Enlaces de muestra (genéricos, no personales) cargables con "Importar" para ver la app con contenido. |
 | `docs/ESPECIFICACIONES.md` | Este documento. |
 | `README.md` | Instrucciones de instalación y configuración de la app y la extensión. |
 | `LICENSE` | Licencia MIT. |

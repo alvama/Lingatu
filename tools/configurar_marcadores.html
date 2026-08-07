@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configurar importación de marcadores — PinBoard</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --surface:#ffffff; --border:#e2e4e9; --text:#1f2430;
+    --text-muted:#6b7280; --primary:#4f46e5; --primary-fg:#ffffff; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:32px 16px 64px; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+  h1{font-size:22px;margin:0 0 4px;}
+  p.lead{color:var(--text-muted);font-size:14px;line-height:1.6;margin:0 0 24px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+  h2{font-size:15px;margin:0 0 12px;}
+  .source-row{display:grid;grid-template-columns:110px 140px 1fr auto;gap:8px;margin-bottom:10px;align-items:center;}
+  .source-row select, .source-row input{
+    padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;
+  }
+  .source-row button{
+    border:1px solid var(--border);background:var(--surface);border-radius:6px;
+    padding:8px 10px;cursor:pointer;color:#b91c1c;
+  }
+  #addSource{
+    margin-top:4px;background:none;border:1px dashed var(--border);border-radius:6px;
+    padding:8px 12px;cursor:pointer;color:var(--primary);font-size:13px;
+  }
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+  input#outputPath{padding:9px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;}
+  .actions{display:flex;gap:10px;align-items:center;margin-top:20px;}
+  #generate{
+    background:var(--primary);color:var(--primary-fg);border:none;border-radius:8px;
+    padding:10px 18px;font-size:14px;cursor:pointer;
+  }
+  #status{font-size:13px;color:#2e7d32;}
+  details{font-size:13px;color:var(--text-muted);line-height:1.7;}
+  summary{cursor:pointer;font-weight:600;color:var(--text);margin-bottom:8px;}
+  code{background:#f0f0f3;padding:1px 5px;border-radius:4px;font-size:12px;}
+  table{border-collapse:collapse;width:100%;margin-top:8px;}
+  td{padding:4px 8px 4px 0;vertical-align:top;}
+  td:first-child{white-space:nowrap;font-weight:600;color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Configurar importación de marcadores</h1>
+  <p class="lead">
+    Genera el archivo <code>marcadores_config.json</code> que usa
+    <code>convertir_marcadores.py</code> para pasar tus marcadores de Chrome y/o
+    Edge a PinBoard. Esta página no lee ni escribe nada por sí sola — solo
+    prepara el archivo de configuración para que lo descargues y lo guardes
+    junto al script.
+  </p>
+
+  <div class="card">
+    <h2>Fuentes (una por cada navegador/perfil)</h2>
+    <div id="sources"></div>
+    <button type="button" id="addSource">+ Añadir fuente</button>
+  </div>
+
+  <div class="card">
+    <h2>Archivo de salida</h2>
+    <label for="outputPath">Ruta completa donde se generará el JSON importable</label>
+    <input id="outputPath" type="text" placeholder="C:\Users\...\PinBoard\marcadores_importados.json" autocomplete="off">
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>¿Dónde está mi archivo "Bookmarks"?</summary>
+      <table>
+        <tr><td>Windows · Edge</td><td><code>%LOCALAPPDATA%\Microsoft\Edge\User Data\&lt;Perfil&gt;\Bookmarks</code></td></tr>
+        <tr><td>Windows · Chrome</td><td><code>%LOCALAPPDATA%\Google\Chrome\User Data\&lt;Perfil&gt;\Bookmarks</code></td></tr>
+        <tr><td>macOS · Edge</td><td><code>~/Library/Application Support/Microsoft Edge/&lt;Perfil&gt;/Bookmarks</code></td></tr>
+        <tr><td>macOS · Chrome</td><td><code>~/Library/Application Support/Google/Chrome/&lt;Perfil&gt;/Bookmarks</code></td></tr>
+        <tr><td>Linux · Edge</td><td><code>~/.config/microsoft-edge/&lt;Perfil&gt;/Bookmarks</code></td></tr>
+        <tr><td>Linux · Chrome</td><td><code>~/.config/google-chrome/&lt;Perfil&gt;/Bookmarks</code></td></tr>
+      </table>
+      <p>
+        <code>&lt;Perfil&gt;</code> suele ser <code>Default</code> para el primer perfil,
+        y <code>Profile 1</code>, <code>Profile 2</code>... para los siguientes. Para saber
+        cuál es el tuyo, abre <code>chrome://version</code> o <code>edge://version</code> en
+        el navegador correspondiente y mira el campo "Ruta del perfil".
+      </p>
+    </details>
+  </div>
+
+  <div class="actions">
+    <button type="button" id="generate">Generar marcadores_config.json</button>
+    <span id="status"></span>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var sourcesEl = document.getElementById("sources");
+
+  function addSourceRow(browser, profile, path){
+    var row = document.createElement("div");
+    row.className = "source-row";
+    row.innerHTML =
+      '<select class="src-browser">' +
+        '<option value="Edge">Edge</option>' +
+        '<option value="Chrome">Chrome</option>' +
+        '<option value="Otro">Otro</option>' +
+      '</select>' +
+      '<input class="src-profile" type="text" placeholder="Default">' +
+      '<input class="src-path" type="text" placeholder="Ruta completa al archivo Bookmarks">' +
+      '<button type="button" class="src-remove" title="Quitar">✕</button>';
+    row.querySelector(".src-browser").value = browser || "Edge";
+    row.querySelector(".src-profile").value = profile || "Default";
+    row.querySelector(".src-path").value = path || "";
+    row.querySelector(".src-remove").addEventListener("click", function(){ row.remove(); });
+    sourcesEl.appendChild(row);
+  }
+
+  document.getElementById("addSource").addEventListener("click", function(){
+    addSourceRow("Edge", "Default", "");
+  });
+
+  addSourceRow("Edge", "Default", "");
+  addSourceRow("Chrome", "Default", "");
+
+  document.getElementById("generate").addEventListener("click", function(){
+    var status = document.getElementById("status");
+    var sources = [];
+    sourcesEl.querySelectorAll(".source-row").forEach(function(row){
+      var path = row.querySelector(".src-path").value.trim();
+      if(!path) return;
+      sources.push({
+        browser: row.querySelector(".src-browser").value,
+        profile: row.querySelector(".src-profile").value.trim() || "Default",
+        bookmarksPath: path
+      });
+    });
+    var outputPath = document.getElementById("outputPath").value.trim();
+
+    if(sources.length === 0){
+      status.style.color = "#b91c1c";
+      status.textContent = "Añade al menos una fuente con su ruta.";
+      return;
+    }
+    if(!outputPath){
+      status.style.color = "#b91c1c";
+      status.textContent = "Indica la ruta del archivo de salida.";
+      return;
+    }
+
+    var config = { sources: sources, outputPath: outputPath };
+    var blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "marcadores_config.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    status.style.color = "#2e7d32";
+    status.textContent = "Descargado. Guárdalo junto a convertir_marcadores.py (carpeta tools/).";
+  });
+})();
+</script>
+</body>
+</html>

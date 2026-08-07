@@ -20,10 +20,24 @@ activa y la añade con un clic.
 3. Ya está — todos los datos se guardan localmente en el navegador
    (`localStorage`), no hay nada más que configurar.
 
-Para pasar tus marcadores de Microsoft Edge a PinBoard, hay un script de
-apoyo en `tools/convertir_marcadores.py` (ver cabecera del archivo); genera
-un `marcadores_edge.json` que se puede cargar con el botón "Importar" de la
-app.
+PinBoard empieza completamente vacío. Si quieres ver la app con contenido de
+muestra, usa el botón **"Importar"** y selecciona
+[`examples/ejemplo-enlaces.json`](examples/ejemplo-enlaces.json).
+
+Para pasar tus marcadores de Chrome y/o Edge a PinBoard:
+
+1. Abre `tools/configurar_marcadores.html` en el navegador y rellena, para
+   cada perfil que quieras importar, el navegador y la ruta completa a su
+   archivo `Bookmarks` (la propia página indica dónde suele estar en
+   Windows/macOS/Linux), más la ruta donde quieres el JSON de salida.
+2. Pulsa "Generar marcadores_config.json" y guarda el archivo descargado
+   junto a `tools/convertir_marcadores.py`.
+3. Ejecuta `python tools/convertir_marcadores.py` — genera el JSON indicado,
+   listo para cargarlo con el botón "Importar" de la app.
+
+Ni el script ni la página de configuración llevan ninguna ruta escrita de
+antemano: todo sale del `marcadores_config.json` que generas tú (que no se
+versiona, por contener rutas de tu máquina).
 
 ## Instalación de la extensión (Chrome / Edge)
 
@@ -62,14 +76,18 @@ extensión:
 
 ```
 PinBoard/
-├── pinboard.html              # Aplicación principal
-├── extension/                 # Extensión de navegador (Chrome/Edge)
+├── pinboard.html                 # Aplicación principal
+├── extension/                    # Extensión de navegador (Chrome/Edge)
 │   ├── manifest.json
 │   ├── background.js
 │   ├── options.html / options.js
 │   └── icons/
 ├── tools/
-│   └── convertir_marcadores.py   # Importar marcadores de Edge
+│   ├── convertir_marcadores.py       # Importar marcadores de Chrome/Edge
+│   ├── configurar_marcadores.html    # Genera marcadores_config.json
+│   └── marcadores_config.example.json
+├── examples/
+│   └── ejemplo-enlaces.json      # Datos de muestra para "Importar"
 ├── docs/
 │   └── ESPECIFICACIONES.md       # Documentación técnica detallada
 ├── README.md
@@ -88,4 +106,4 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 Alberto Vázquez Martín
+[MIT](LICENSE) © 2026 Alberto Vázquez Martín ([NLevia.org](https://www.nlevia.org))
