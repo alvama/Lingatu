@@ -9,6 +9,9 @@ tools/marcadores_config.json
 # Configuración local de Claude Code (específica de esta máquina)
 .claude/settings.local.json
 
+# Notas privadas, no se publican
+SYNC-NLEVIA-ORG.md
+
 # Sistema operativo / editores
 .DS_Store
 Thumbs.db
