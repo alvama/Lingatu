@@ -7,10 +7,11 @@ activa y la añade con un clic.
 - **`pinboard.html`** — la aplicación. Se abre directamente en el navegador
   (`file://`), guarda los datos en `localStorage` y no requiere instalación
   ni conexión a internet (salvo para los favicons).
-- **`extension/`** — extensión para Chrome/Edge (Manifest V3) que captura la
-  URL, el título y la descripción de la pestaña activa, comprueba si ya
-  existe en PinBoard y, si no, abre el formulario de alta precargado con una
-  categoría sugerida.
+- **`extension/`** — [extensión publicada en la Chrome Web Store](https://chromewebstore.google.com/detail/pinboard-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
+  (Manifest V3, también compatible con otros navegadores basados en Chromium
+  como Edge o Brave) que captura la URL, el título y la descripción de la
+  pestaña activa, comprueba si ya existe en PinBoard y, si no, abre el
+  formulario de alta precargado con una categoría sugerida.
 
 ## Instalación de la app
 
@@ -39,18 +40,37 @@ Ni el script ni la página de configuración llevan ninguna ruta escrita de
 antemano: todo sale del `marcadores_config.json` que generas tú (que no se
 versiona, por contener rutas de tu máquina).
 
-## Instalación de la extensión (Chrome / Edge)
+## Instalación de la extensión (Chrome / Edge / navegadores basados en Chromium)
 
-La extensión no está publicada en ninguna tienda; se instala en modo
-desarrollador:
+La extensión está publicada en la Chrome Web Store:
+
+**[PinBoard Connector](https://chromewebstore.google.com/detail/pinboard-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)**
+
+Al estar basada en Manifest V3 y no usar APIs exclusivas de Chrome, también
+funciona en otros navegadores basados en Chromium (Edge, Brave, Opera...)
+instalándola desde esa misma URL o cargándola en modo desarrollador (ver más
+abajo).
+
+Tras instalarla, **es imprescindible** activar el acceso a archivos locales,
+ya que `pinboard.html` se abre como `file://`:
+
+1. Ve a `chrome://extensions` (o `edge://extensions`, etc.).
+2. Busca la tarjeta de **PinBoard Connector** y entra en **"Detalles"**.
+3. Activa **"Permitir acceso a las URL de archivo"**.
+
+Sin este paso, la extensión no podrá detectar ni abrir tu `pinboard.html`.
+
+### Instalación en modo desarrollador (alternativa)
+
+Si prefieres instalar la extensión directamente desde este repositorio (por
+ejemplo, para modificar el código):
 
 1. Ve a `chrome://extensions` (Chrome) o `edge://extensions` (Edge).
 2. Activa **"Modo de desarrollador"**.
 3. Pulsa **"Cargar descomprimida"** y selecciona la carpeta `extension/` de
    este repositorio.
 4. En la tarjeta de la extensión, entra en **"Detalles"** y activa
-   **"Permitir acceso a las URL de archivo"** (necesario porque
-   `pinboard.html` se abre como `file://`).
+   **"Permitir acceso a las URL de archivo"**.
 
 ### Configurar la extensión
 
