@@ -13,6 +13,10 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   de `chrome.tabs.*` en `background.js` ya queda cubierto por
   `activeTab` y `host_permissions: file:///*`. Reduce la superficie de
   permisos declarada de cara a la publicación en la Chrome Web Store.
+- README: documentada la publicación de la extensión en la Chrome Web
+  Store (enlace a la ficha, compatibilidad con otros navegadores basados
+  en Chromium y aviso de que hay que activar "Permitir acceso a las URL
+  de archivo" tras instalarla).
 
 ## [1.0.0] - 2026-08-07
 
