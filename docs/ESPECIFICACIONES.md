@@ -26,8 +26,10 @@ Página web de un solo archivo (`pinboard.html`) para gestionar una colección p
 | `enlaces_category_colors_v1` | Objeto JSON `{ "NombreCategoría": "#rrggbb" }` — colores personalizados por categoría |
 | `enlaces_tag_colors_v1` | Objeto JSON `{ "#etiqueta": "#rrggbb" }` — colores personalizados por etiqueta |
 | `enlaces_category_icons_v1` | Objeto JSON `{ "NombreCategoría": "clave-icono" }` — icono elegido de la librería fija (ver 4.15) |
+| `enlaces_excluded_tags_v1` | Array JSON de etiquetas actualmente excluidas de la vista (ver 4.17) — a diferencia del resto de filtros, se fija hasta que el usuario las desmarca |
+| `enlaces_view_profiles_v1` | Array JSON de perfiles de vista guardados `{ name, excludedTags: [...] }` (ver 4.17) |
 
-Todas estas claves son independientes; borrar una no afecta a las demás. Para reiniciar la app por completo, borrar las 9 claves (o los datos del sitio desde el navegador).
+Todas estas claves son independientes; borrar una no afecta a las demás. Para reiniciar la app por completo, borrar las 11 claves (o los datos del sitio desde el navegador).
 
 > Nota: las claves conservan el prefijo `enlaces_` heredado del nombre original del proyecto, a propósito — cambiarlas invalidaría los datos ya guardados por usuarios existentes. Es un detalle interno, no afecta al nombre público "PinBoard".
 
@@ -174,6 +176,18 @@ Ajustes visuales sobre `cardHtml()` (solo vista cómoda, no la compacta):
 - **Densidad del grid**: `.links-grid` bajó su `minmax()` de 280px a 250px, lo que combinado con `.content{max-width:1200px}` encaja 4 columnas a una resolución de escritorio normal sin dejar de ser responsive (`auto-fill` sigue recalculando columnas por el ancho disponible).
 - **Fichas más compactas**: padding de `.link-card` reducido de 16px a 12px/14px y el `gap` interno de 8px a 6px.
 
+### 4.17 Vistas guardadas (exclusión de etiquetas por nombre)
+Objetivo: poder ocultar de la vista los enlaces de un contexto (p. ej. "trabajo") sin necesidad de un campo nuevo en el modelo de datos ni de un sistema de grupos aparte — reutiliza las etiquetas ya existentes.
+
+**Exclusión de una etiqueta** (`#tagCloud` en el sidebar, no en las etiquetas de las tarjetas): cada clic cicla por 3 estados — neutra → incluida (mismo filtro `state.tags` de siempre, `.tag-chip.active`) → **excluida** (`state.excludedTags`, `.tag-chip.excluded`, con tachado y borde rojo) → neutra de nuevo. A diferencia de `state.tags`/`state.category`/`state.search` (que se resetean en cada carga de página), `state.excludedTags` se persiste en `enlaces_excluded_tags_v1` y **se mantiene fijo hasta que el usuario la desmarca**, incluso entre sesiones — es justo el comportamiento pedido ("fijar la exclusión hasta que se desmarque"). `getFilteredLinks()` descarta cualquier enlace cuyas `tags` intersequen con `state.excludedTags`.
+
+**Perfiles de vista** (sección "Vistas" del sidebar, `#viewProfileList`): un perfil es `{ name, excludedTags: [...] }`, guardado en `state.viewProfiles` (`enlaces_view_profiles_v1`), independiente de los enlaces y de la lista maestra de etiquetas — si se borra una etiqueta que un perfil usaba, el perfil simplemente deja de tener efecto sobre ese texto, sin romper nada.
+- **Guardar** (`btnSaveViewProfile`): pide un nombre (`prompt`) y guarda el conjunto de `state.excludedTags` *actual*. Si el nombre coincide (sin distinguir mayúsculas) con un perfil ya existente, pide confirmación para sobrescribirlo.
+- **Aplicar**: clic en el chip del perfil (`.view-profile-chip`) sustituye `state.excludedTags` por el conjunto guardado. `currentExcludedTagsMatchProfile()` decide si un perfil se pinta como activo (coincide exactamente con la exclusión actual).
+- **Eliminar**: botón "✕" del propio chip (`data-action="delete-profile"`), con confirmación; no toca `state.excludedTags` si ese perfil estaba aplicado en ese momento (la exclusión vigente se queda como está, solo desaparece el atajo guardado).
+
+**Interacción con la extensión** (ver sección 8): `checkDuplicate` sigue detectando bien un enlace ya guardado aunque esté oculto por una exclusión activa (consulta `state.links` directamente). `focusExisting`, en cambio, no podrá resaltarlo si su ficha no está renderizada por estar excluida — no es un fallo, es el mismo caso ya cubierto por la checklist de la sección 8.
+
 ## 5. Estructura del HTML
 
 ```
@@ -210,11 +224,14 @@ Ajustes visuales sobre `cardHtml()` (solo vista cómoda, no la compacta):
 | `loadCategoryColors()` / `saveCategoryColors()` | Ídem para el mapa de colores por categoría |
 | `loadCategoryIcons()` / `saveCategoryIcons()` | Ídem para el mapa de iconos por categoría |
 | `loadTagColors()` / `saveTagColors()` | Ídem para el mapa de colores por etiqueta |
+| `loadExcludedTags()` / `saveExcludedTags()` | Ídem para el `Set` de etiquetas excluidas de la vista (a diferencia de `state.tags`, esto sí se persiste) |
+| `loadViewProfiles()` / `saveViewProfiles()` | Ídem para el array de perfiles de vista guardados |
 | `ensureCategory(name)` / `ensureTag(tag)` | Normaliza y registra en la lista maestra (case-insensitive), único punto de verdad |
 | `getCategories()` / `getAllTags()` | Devuelven las listas con recuento de uso, a partir de las listas maestras. `getCategories()` respeta el orden manual de `state.categories`; `getAllTags()` sigue siendo alfabético |
 | `swapCategories(nameA, nameB)` | Intercambia la posición de dos categorías en `state.categories` por nombre (reordenación manual con ▲/▼ en el modal de gestión) |
 | `duplicateEditingLink()` | Duplica el enlace que se está editando (título + `" _copia"`) y hace que el modal pase a editar la copia recién creada |
-| `getFilteredLinks()` | Aplica todos los filtros activos sobre `state.links`, sin reordenar (ver nota "Orden" en sección 3) |
+| `renderViewProfileList()` / `currentExcludedTagsMatchProfile(profile)` | Pintan los chips de perfiles de vista guardados / comprueban si un perfil coincide exactamente con `state.excludedTags` (para marcarlo como activo) |
+| `getFilteredLinks()` | Aplica todos los filtros activos sobre `state.links` (categoría, activos, etiquetas incluidas, etiquetas **excluidas** — 4.17, búsqueda), sin reordenar (ver nota "Orden" en sección 3) |
 | `normalizeUrlForCompare(url)` | Normaliza una URL (trim, sin `/` final, minúsculas) para comparar duplicados |
 | `findDuplicateUrl(url, excludeId)` | Busca un enlace existente con la misma URL normalizada, excluyendo un `id` (el que se está editando) |
 | `swapLinks(idA, idB)` | Intercambia la posición de dos enlaces en `state.links` por `id` (reordenación manual con ▲/▼) |

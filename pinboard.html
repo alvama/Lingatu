@@ -146,7 +146,36 @@
   }
   .tag-chip:hover{border-color:var(--primary);}
   .tag-chip.active{background:var(--tag-active-bg);color:var(--tag-active-fg);outline:2px solid var(--primary);outline-offset:1px;}
+  .tag-chip.excluded{background:var(--surface-2);color:var(--text-muted);text-decoration:line-through;outline:2px solid var(--danger);outline-offset:1px;opacity:0.75;}
   .tag-empty{font-size:13px;color:var(--text-muted);}
+
+  .view-profile-list{display:flex;flex-wrap:wrap;gap:6px;}
+  .view-profile-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:12px;
+    padding:4px 6px 4px 10px;
+    border-radius:999px;
+    background:var(--tag-bg);
+    color:var(--tag-fg);
+    border:1px solid transparent;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .view-profile-chip:hover{border-color:var(--primary);}
+  .view-profile-chip.active{background:var(--tag-active-bg);color:var(--tag-active-fg);outline:2px solid var(--primary);outline-offset:1px;}
+  .view-profile-chip-remove{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    color:inherit;
+    opacity:0.7;
+  }
+  .view-profile-chip-remove:hover{opacity:1;background:rgba(0,0,0,0.12);}
 
   .cat-color-dot{
     display:inline-block;
@@ -631,6 +660,14 @@
       <div id="tagCloud" class="tag-cloud"></div>
     </div>
 
+    <div class="sidebar-section">
+      <div class="section-header">
+        <h2>Vistas</h2>
+        <button type="button" id="btnSaveViewProfile" class="link-btn">Guardar actual</button>
+      </div>
+      <div id="viewProfileList" class="view-profile-list"></div>
+    </div>
+
     <div class="data-actions">
       <button id="btnExport" title="Exportar todos los enlaces a un archivo JSON">Exportar</button>
       <button id="btnImport" title="Importar enlaces desde un archivo JSON">Importar</button>
@@ -740,6 +777,8 @@
   var CATEGORY_COLORS_KEY = "enlaces_category_colors_v1";
   var TAG_COLORS_KEY = "enlaces_tag_colors_v1";
   var CATEGORY_ICONS_KEY = "enlaces_category_icons_v1";
+  var EXCLUDED_TAGS_KEY = "enlaces_excluded_tags_v1";
+  var VIEW_PROFILES_KEY = "enlaces_view_profiles_v1";
 
   // Identidad de la app: versión visible y créditos. Editable a mano aquí.
   var APP_CONFIG = {
@@ -762,6 +801,8 @@
     tagColors: {},
     category: null,
     tags: new Set(),
+    excludedTags: new Set(),
+    viewProfiles: [],
     activeFilter: "active",
     search: ""
   };
@@ -821,6 +862,28 @@
   }
   function saveCollapsedCategories(){
     localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(state.collapsedCategories)));
+  }
+
+  // Etiquetas excluidas de la vista: a diferencia de state.tags (inclusión,
+  // se resetea en cada carga), esto se fija hasta que el usuario lo desmarque.
+  function loadExcludedTags(){
+    var raw = localStorage.getItem(EXCLUDED_TAGS_KEY);
+    if(raw){ try{ return new Set(JSON.parse(raw)); }catch(e){ return new Set(); } }
+    return new Set();
+  }
+  function saveExcludedTags(){
+    localStorage.setItem(EXCLUDED_TAGS_KEY, JSON.stringify(Array.from(state.excludedTags)));
+  }
+
+  // Perfiles de vista guardados: { name, excludedTags: [...] }. Independientes
+  // de los enlaces y de las listas maestras — borrar uno no afecta a nada más.
+  function loadViewProfiles(){
+    var raw = localStorage.getItem(VIEW_PROFILES_KEY);
+    if(raw){ try{ return JSON.parse(raw); }catch(e){ return []; } }
+    return [];
+  }
+  function saveViewProfiles(){
+    localStorage.setItem(VIEW_PROFILES_KEY, JSON.stringify(state.viewProfiles));
   }
 
   function loadCategoryColors(){
@@ -957,6 +1020,10 @@
         var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
         if(!hasTag) return false;
       }
+      if(state.excludedTags.size > 0){
+        var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
+        if(hasExcluded) return false;
+      }
       if(q){
         var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ")).toLowerCase();
         if(haystack.indexOf(q) === -1) return false;
@@ -1090,13 +1157,38 @@
       tagCloud.innerHTML = '<span class="tag-empty">Sin etiquetas todavía</span>';
     } else {
       tagCloud.innerHTML = tags.map(function(t){
-        var active = state.tags.has(t) ? " active" : "";
-        return '<span class="tag-chip' + active + '" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
+        var cls = "tag-chip";
+        if(state.excludedTags.has(t)) cls += " excluded";
+        else if(state.tags.has(t)) cls += " active";
+        return '<span class="' + cls + '" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
       }).join("");
     }
 
+    renderViewProfileList();
+
     var catOptions = document.getElementById("categoryOptions");
     catOptions.innerHTML = categories.map(function(c){ return '<option value="' + escapeHtml(c.name) + '">'; }).join("");
+  }
+
+  // ---------- Vistas guardadas (perfiles de etiquetas excluidas) ----------
+  function currentExcludedTagsMatchProfile(profile){
+    if(profile.excludedTags.length !== state.excludedTags.size) return false;
+    return profile.excludedTags.every(function(t){ return state.excludedTags.has(t); });
+  }
+
+  function renderViewProfileList(){
+    var list = document.getElementById("viewProfileList");
+    if(state.viewProfiles.length === 0){
+      list.innerHTML = '<span class="tag-empty">Sin vistas guardadas</span>';
+      return;
+    }
+    list.innerHTML = state.viewProfiles.map(function(p){
+      var active = currentExcludedTagsMatchProfile(p) ? " active" : "";
+      return '<span class="view-profile-chip' + active + '" data-profile="' + escapeHtml(p.name) + '">' +
+        escapeHtml(p.name) +
+        '<button type="button" class="view-profile-chip-remove" data-action="delete-profile" data-profile="' + escapeHtml(p.name) + '" title="Eliminar vista" aria-label="Eliminar vista">✕</button>' +
+      '</span>';
+    }).join("");
   }
 
   function renderCards(){
@@ -1588,6 +1680,11 @@
         });
       }
       if(state.tags.has(oldName)){ state.tags.delete(oldName); state.tags.add(canonicalTag2); }
+      if(state.excludedTags.has(oldName)){
+        state.excludedTags.delete(oldName);
+        state.excludedTags.add(canonicalTag2);
+        saveExcludedTags();
+      }
       if(state.tagColors[oldName] && !state.tagColors[canonicalTag2]){
         state.tagColors[canonicalTag2] = state.tagColors[oldName];
       }
@@ -1683,6 +1780,10 @@
         saveAllTags();
         save();
         state.tags.delete(name);
+        if(state.excludedTags.has(name)){
+          state.excludedTags.delete(name);
+          saveExcludedTags();
+        }
         delete state.tagColors[name];
         saveTagColors();
       }
@@ -1837,12 +1938,63 @@
     render();
   });
 
+  // Ciclo de 3 estados por clic: neutra -> incluida -> excluida -> neutra.
+  // La exclusión (a diferencia de la inclusión) se fija hasta que se desmarque.
   document.getElementById("tagCloud").addEventListener("click", function(e){
     var chip = e.target.closest(".tag-chip[data-tag]");
     if(!chip) return;
     var tag = chip.getAttribute("data-tag");
-    if(state.tags.has(tag)) state.tags.delete(tag);
-    else state.tags.add(tag);
+    if(state.tags.has(tag)){
+      state.tags.delete(tag);
+      state.excludedTags.add(tag);
+      saveExcludedTags();
+    } else if(state.excludedTags.has(tag)){
+      state.excludedTags.delete(tag);
+      saveExcludedTags();
+    } else {
+      state.tags.add(tag);
+    }
+    render();
+  });
+
+  document.getElementById("btnSaveViewProfile").addEventListener("click", function(){
+    if(state.excludedTags.size === 0){
+      alert("No hay ninguna etiqueta excluida ahora mismo. Excluye alguna (clic hasta dejarla tachada) antes de guardar una vista.");
+      return;
+    }
+    var name = prompt("Nombre de la vista:");
+    if(name === null) return;
+    name = name.trim();
+    if(!name) return;
+    var excluded = Array.from(state.excludedTags);
+    var existingIdx = state.viewProfiles.findIndex(function(p){ return p.name.toLowerCase() === name.toLowerCase(); });
+    if(existingIdx !== -1){
+      if(!confirm('Ya existe una vista llamada "' + state.viewProfiles[existingIdx].name + '". ¿Sobrescribirla con la exclusión actual?')) return;
+      state.viewProfiles[existingIdx].excludedTags = excluded;
+    } else {
+      state.viewProfiles.push({ name: name, excludedTags: excluded });
+    }
+    saveViewProfiles();
+    render();
+  });
+
+  document.getElementById("viewProfileList").addEventListener("click", function(e){
+    var removeBtn = e.target.closest("[data-action='delete-profile']");
+    if(removeBtn){
+      var delName = removeBtn.getAttribute("data-profile");
+      if(confirm('¿Eliminar la vista "' + delName + '"?')){
+        state.viewProfiles = state.viewProfiles.filter(function(p){ return p.name !== delName; });
+        saveViewProfiles();
+        render();
+      }
+      return;
+    }
+    var chip = e.target.closest(".view-profile-chip[data-profile]");
+    if(!chip) return;
+    var profile = state.viewProfiles.find(function(p){ return p.name === chip.getAttribute("data-profile"); });
+    if(!profile) return;
+    state.excludedTags = new Set(profile.excludedTags);
+    saveExcludedTags();
     render();
   });
 
@@ -2012,6 +2164,8 @@
   state.categoryColors = loadCategoryColors();
   state.categoryIcons = loadCategoryIcons();
   state.tagColors = loadTagColors();
+  state.excludedTags = loadExcludedTags();
+  state.viewProfiles = loadViewProfiles();
 
   state.links.forEach(function(l){
     l.category = ensureCategory(l.category);
