@@ -562,6 +562,7 @@
   /* Cabeceras de sección con acción de gestión */
   .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .section-header h2{margin:0;}
+  .section-header-actions{display:flex;align-items:center;gap:2px;}
   .link-btn{
     background:transparent;
     border:none;
@@ -674,7 +675,10 @@
     <div class="sidebar-section">
       <div class="section-header">
         <h2>Etiquetas</h2>
-        <button type="button" id="btnManageTags" class="link-btn">Gestionar</button>
+        <span class="section-header-actions">
+          <button type="button" id="btnClearTagSelection" class="icon-btn" title="Limpiar selección de etiquetas (quita las incluidas y las excluidas)">🧹</button>
+          <button type="button" id="btnManageTags" class="link-btn">Gestionar</button>
+        </span>
       </div>
       <div id="tagCloud" class="tag-cloud"></div>
     </div>
@@ -2139,6 +2143,16 @@
     render();
   });
 
+  // Quita de un golpe cualquier filtro de etiquetas activo, incluidas y
+  // excluidas por igual (el filtro de categoría no se toca).
+  document.getElementById("btnClearTagSelection").addEventListener("click", function(){
+    if(state.tags.size === 0 && state.excludedTags.size === 0) return;
+    state.tags.clear();
+    state.excludedTags.clear();
+    saveExcludedTags();
+    render();
+  });
+
   // Guarda la selección de etiquetas tal cual está ahora mismo (incluidas y
   // excluidas), aunque no haya ninguna — "todo sin filtrar" es una vista válida.
   document.getElementById("btnSaveViewProfile").addEventListener("click", function(){
@@ -2209,7 +2223,8 @@
 
   // ---------- Atajos de teclado ----------
   document.addEventListener("keydown", function(e){
-    if(e.key !== "/" && e.key !== "n") return;
+    var key = e.key.toLowerCase();
+    if(e.key !== "/" && key !== "n") return;
     var tag = (e.target.tagName || "").toLowerCase();
     var isTyping = tag === "input" || tag === "textarea" || e.target.isContentEditable;
     var anyModalOpen = !overlay.hidden || !manageOverlay.hidden || !importModalOverlay.hidden;
@@ -2217,7 +2232,7 @@
     if(e.key === "/"){
       e.preventDefault();
       document.getElementById("searchInput").focus();
-    } else if(e.key === "n"){
+    } else if(key === "n"){
       e.preventDefault();
       openModal(null);
     }

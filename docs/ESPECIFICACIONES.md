@@ -99,7 +99,7 @@ Las categorías se muestran en su orden manual (ver 4.14), no alfabético. Si se
 ### 4.3 Búsqueda y filtros
 - **Búsqueda** (`#searchInput`): coincidencia de subcadena (case-insensitive) sobre título + descripción + etiquetas concatenados.
 - **Filtro de categoría**: menú lateral tipo lista, un único valor seleccionable (`state.category`, `null` = todas).
-- **Filtro de etiquetas**: nube de etiquetas en el lateral y en cada tarjeta (`state.tags`, `Set`). Al hacer clic en una etiqueta —lateral o tarjeta— se **añade o quita** de la selección (multi-selección acumulativa); un enlace coincide si tiene *alguna* de las etiquetas seleccionadas (OR).
+- **Filtro de etiquetas**: nube de etiquetas en el lateral y en cada tarjeta (`state.tags`, `Set`). Al hacer clic en una etiqueta —lateral o tarjeta— se **añade o quita** de la selección (multi-selección acumulativa); un enlace coincide si tiene *alguna* de las etiquetas seleccionadas (OR). El icono de escoba (🧹) junto a "Etiquetas" (`#btnClearTagSelection`) vacía de un golpe tanto las etiquetas incluidas como las excluidas (4.17); no toca el filtro de categoría.
 - **Filtro de estado**: toggle "Todos / Activos" en la barra de herramientas (`state.activeFilter`). Valor por defecto: `"active"`. *(Nota: internamente `getFilteredLinks()` también reconoce el valor `"inactive"` por si se quisiera reintroducir esa opción en el futuro, pero actualmente no hay ningún control de UI que lo establezca.)*
 - Todos los filtros son combinables (AND) y se aplican antes de agrupar por categoría.
 
@@ -161,7 +161,7 @@ Junto al título de cada tarjeta/fila (en ambos modos de vista) se muestra el fa
 
 ### 4.12 Atajos de teclado
 - **`/`** — enfoca el buscador (`#searchInput`).
-- **`n`** — abre el modal de "Nuevo enlace".
+- **`n`** — abre el modal de "Nuevo enlace". Insensible a mayúsculas (compara `e.key.toLowerCase()`), así que funciona igual con Bloq Mayús activado o pulsando Mayús.
 
 Ambos se ignoran mientras el foco está en un campo de texto/`textarea`/elemento editable, o mientras hay algún modal abierto (enlace, gestión o importación), para no interferir con la escritura normal.
 
