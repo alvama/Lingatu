@@ -2143,8 +2143,14 @@
     if(!chip) return;
     var profile = state.viewProfiles.find(function(p){ return p.name === chip.getAttribute("data-profile"); });
     if(!profile) return;
-    state.tags = new Set(profile.tags);
-    state.excludedTags = new Set(profile.excludedTags);
+    if(currentSelectionMatchesProfile(profile)){
+      // Clic sobre la vista ya activa -> deseleccionar, vuelve a la vista general.
+      state.tags = new Set();
+      state.excludedTags = new Set();
+    } else {
+      state.tags = new Set(profile.tags);
+      state.excludedTags = new Set(profile.excludedTags);
+    }
     saveExcludedTags();
     render();
   });
