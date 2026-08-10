@@ -128,6 +128,8 @@
     text-align:center;
   }
   .category-item.active .count{background:rgba(255,255,255,0.25);color:var(--primary-fg);}
+  .category-item.dragging{opacity:0.4;}
+  .category-item.drag-over{outline:2px dashed var(--primary);outline-offset:-2px;}
 
   .tag-cloud{
     display:flex;
@@ -225,6 +227,15 @@
     flex-shrink:0;
   }
   .manage-row-icon-btn:hover{color:var(--text);}
+  .color-swatch-dot{display:block;width:14px;height:14px;border-radius:50%;}
+  .color-swatch-btn{
+    width:26px;
+    height:26px;
+    padding:0;
+    border:1px solid transparent;
+    border-radius:50%;
+  }
+  .color-swatch-btn.active{outline:2px solid var(--primary);outline-offset:2px;}
   .cat-name-wrap{
     display:flex;
     align-items:center;
@@ -879,8 +890,14 @@
   // de los enlaces y de las listas maestras — borrar uno no afecta a nada más.
   function loadViewProfiles(){
     var raw = localStorage.getItem(VIEW_PROFILES_KEY);
-    if(raw){ try{ return JSON.parse(raw); }catch(e){ return []; } }
-    return [];
+    if(!raw) return [];
+    try{
+      var parsed = JSON.parse(raw);
+      // Compatibilidad con perfiles guardados antes de incluir también las etiquetas incluidas.
+      return parsed.map(function(p){
+        return { name: p.name, tags: Array.isArray(p.tags) ? p.tags : [], excludedTags: Array.isArray(p.excludedTags) ? p.excludedTags : [] };
+      });
+    }catch(e){ return []; }
   }
   function saveViewProfiles(){
     localStorage.setItem(VIEW_PROFILES_KEY, JSON.stringify(state.viewProfiles));
@@ -1002,6 +1019,19 @@
     state.categories[idxB] = tmp;
     saveCategories();
     renderManageList();
+    render();
+  }
+
+  // Mueve una categoría a la posición justo antes de "beforeName" (o al final
+  // si es null). Arrastrar y soltar en la lista del sidebar (ver más abajo).
+  function moveCategoryTo(draggedName, beforeName){
+    var idx = state.categories.indexOf(draggedName);
+    if(idx === -1) return;
+    state.categories.splice(idx, 1);
+    var targetIdx = beforeName ? state.categories.indexOf(beforeName) : -1;
+    if(targetIdx === -1) state.categories.push(draggedName);
+    else state.categories.splice(targetIdx, 0, draggedName);
+    saveCategories();
     render();
   }
 
@@ -1146,7 +1176,7 @@
     var html = '<li class="category-item' + (state.category === null ? ' active' : '') + '" data-category="">' +
                  '<span>Todas</span><span class="count">' + totalCount + '</span></li>';
     categories.forEach(function(c){
-      html += '<li class="category-item' + (state.category === c.name ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '">' +
+      html += '<li class="category-item' + (state.category === c.name ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '" draggable="true" title="Arrastra para reordenar">' +
                 '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span><span class="count">' + c.count + '</span></li>';
     });
     document.getElementById("categoryList").innerHTML = html;
@@ -1171,9 +1201,14 @@
   }
 
   // ---------- Vistas guardadas (perfiles de etiquetas excluidas) ----------
-  function currentExcludedTagsMatchProfile(profile){
-    if(profile.excludedTags.length !== state.excludedTags.size) return false;
-    return profile.excludedTags.every(function(t){ return state.excludedTags.has(t); });
+  // Un perfil coincide con la selección actual si tiene exactamente las
+  // mismas etiquetas incluidas y las mismas excluidas (sin importar el orden).
+  function setsMatch(arr, set){
+    if(arr.length !== set.size) return false;
+    return arr.every(function(t){ return set.has(t); });
+  }
+  function currentSelectionMatchesProfile(profile){
+    return setsMatch(profile.tags, state.tags) && setsMatch(profile.excludedTags, state.excludedTags);
   }
 
   function renderViewProfileList(){
@@ -1183,7 +1218,7 @@
       return;
     }
     list.innerHTML = state.viewProfiles.map(function(p){
-      var active = currentExcludedTagsMatchProfile(p) ? " active" : "";
+      var active = currentSelectionMatchesProfile(p) ? " active" : "";
       return '<span class="view-profile-chip' + active + '" data-profile="' + escapeHtml(p.name) + '">' +
         escapeHtml(p.name) +
         '<button type="button" class="view-profile-chip-remove" data-action="delete-profile" data-profile="' + escapeHtml(p.name) + '" title="Eliminar vista" aria-label="Eliminar vista">✕</button>' +
@@ -1527,6 +1562,8 @@
   var manageType = null; // "category" | "tag"
   var manageEditingName = null;
   var manageIconPickerFor = null; // nombre de categoría con el selector de iconos abierto, o null
+  var manageColorPickerFor = null; // nombre (categoría o etiqueta) con el selector de color abierto, o null
+  var COLOR_PALETTE = ["#e03131","#f76707","#f59f00","#74b816","#2f9e44","#0ca678","#15aabf","#1971c2","#4263eb","#9c36b5","#e64980","#868e96"];
   var manageOverlay = document.getElementById("manageModalOverlay");
   var manageList = document.getElementById("manageList");
   var manageAddForm = document.getElementById("manageAddForm");
@@ -1536,6 +1573,7 @@
     manageType = type;
     manageEditingName = null;
     manageIconPickerFor = null;
+    manageColorPickerFor = null;
     document.getElementById("manageModalTitle").textContent = type === "category" ? "Gestionar categorías" : "Gestionar etiquetas";
     manageAddInput.placeholder = type === "category" ? "Nueva categoría..." : "Nueva etiqueta...";
     renderManageList();
@@ -1548,6 +1586,7 @@
     manageType = null;
     manageEditingName = null;
     manageIconPickerFor = null;
+    manageColorPickerFor = null;
     manageAddForm.reset();
   }
 
@@ -1577,6 +1616,22 @@
       }
       var colorMap = manageType === "category" ? state.categoryColors : state.tagColors;
       var customColor = colorMap[it.name];
+
+      var colorBtnHtml = '<button type="button" class="manage-row-icon-btn" data-action="pick-color" title="Elegir color">' +
+        '<span class="color-swatch-dot" style="background:' + (customColor || "var(--text-muted)") + ';"></span>' +
+      '</button>';
+      var colorPickerHtml = "";
+      if(manageColorPickerFor === it.name){
+        colorPickerHtml = '<div class="icon-picker">' +
+          COLOR_PALETTE.map(function(hex){
+            var active = customColor && customColor.toLowerCase() === hex.toLowerCase();
+            return '<button type="button" class="color-swatch-btn' + (active ? ' active' : '') + '" data-action="set-color" data-color="' + hex + '" style="background:' + hex + ';" title="' + hex + '"></button>';
+          }).join("") +
+          '<input type="color" class="manage-row-color" title="Color personalizado" value="' + (customColor || "#9aa0ac") + '">' +
+          (customColor ? '<button type="button" class="icon-action-plain" data-action="reset-color" title="Quitar color">✕ Quitar color</button>' : '') +
+        '</div>';
+      }
+
       // Reordenación manual ▲/▼ e icono: solo para categorías.
       var moveHtml = "";
       var iconBtnHtml = "";
@@ -1608,8 +1663,7 @@
       return '<div class="manage-row" data-name="' + escapeHtml(it.name) + '">' +
         '<span class="manage-row-name">' +
           iconBtnHtml +
-          '<input type="color" class="manage-row-color" value="' + (customColor || "#9aa0ac") + '" title="Color">' +
-          (customColor ? '<button type="button" class="icon-action-plain manage-row-color-reset" data-action="reset-color" title="Quitar color">✕</button>' : '') +
+          colorBtnHtml +
           escapeHtml(it.name) + '<span class="manage-row-count">' + it.count + '</span>' +
         '</span>' +
         '<div class="manage-row-actions">' +
@@ -1618,6 +1672,7 @@
           '<button type="button" class="btn-danger" data-action="delete">Eliminar</button>' +
         '</div>' +
         iconPickerHtml +
+        colorPickerHtml +
       '</div>';
     }).join("");
     if(manageEditingName !== null){
@@ -1793,6 +1848,18 @@
       var colorMap = manageType === "category" ? state.categoryColors : state.tagColors;
       delete colorMap[name];
       if(manageType === "category") saveCategoryColors(); else saveTagColors();
+      manageColorPickerFor = null;
+      renderManageList();
+      render();
+    } else if(action === "pick-color"){
+      manageColorPickerFor = (manageColorPickerFor === name) ? null : name;
+      renderManageList();
+    } else if(action === "set-color"){
+      var hex = btn.getAttribute("data-color");
+      var colorMap2 = manageType === "category" ? state.categoryColors : state.tagColors;
+      colorMap2[name] = hex;
+      if(manageType === "category") saveCategoryColors(); else saveTagColors();
+      manageColorPickerFor = null;
       renderManageList();
       render();
     } else if(action === "move-up" || action === "move-down"){
@@ -1819,6 +1886,7 @@
     var colorMap = manageType === "category" ? state.categoryColors : state.tagColors;
     colorMap[name] = input.value;
     if(manageType === "category") saveCategoryColors(); else saveTagColors();
+    manageColorPickerFor = null;
     renderManageList();
     render();
   });
@@ -1934,8 +2002,54 @@
     var item = e.target.closest(".category-item");
     if(!item) return;
     var cat = item.getAttribute("data-category");
-    state.category = cat === "" ? null : cat;
+    if(cat === ""){
+      state.category = null;
+    } else if(state.category === cat){
+      state.category = null; // clic sobre la ya seleccionada -> deselecciona
+    } else {
+      state.category = cat;
+    }
     render();
+  });
+
+  // ---------- Arrastrar y soltar (reordenar categorías en el sidebar) ----------
+  var draggedCategoryName = null;
+  var categoryListEl = document.getElementById("categoryList");
+
+  categoryListEl.addEventListener("dragstart", function(e){
+    var item = e.target.closest(".category-item[data-category]:not([data-category=''])");
+    if(!item) return;
+    draggedCategoryName = item.getAttribute("data-category");
+    item.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try{ e.dataTransfer.setData("text/plain", draggedCategoryName); }catch(err){}
+  });
+
+  categoryListEl.addEventListener("dragend", function(){
+    var dragging = categoryListEl.querySelector(".dragging");
+    if(dragging) dragging.classList.remove("dragging");
+    categoryListEl.querySelectorAll(".drag-over").forEach(function(el){ el.classList.remove("drag-over"); });
+    draggedCategoryName = null;
+  });
+
+  // Soltar sobre "Todas" mueve la categoría al principio de la lista.
+  categoryListEl.addEventListener("dragover", function(e){
+    if(!draggedCategoryName) return;
+    var item = e.target.closest(".category-item");
+    if(!item || item.getAttribute("data-category") === draggedCategoryName) return;
+    e.preventDefault();
+    categoryListEl.querySelectorAll(".drag-over").forEach(function(el){ el.classList.remove("drag-over"); });
+    item.classList.add("drag-over");
+  });
+
+  categoryListEl.addEventListener("drop", function(e){
+    if(!draggedCategoryName) return;
+    var item = e.target.closest(".category-item");
+    if(!item) return;
+    e.preventDefault();
+    var cat = item.getAttribute("data-category");
+    var beforeName = cat === "" ? (state.categories[0] || null) : cat;
+    if(beforeName !== draggedCategoryName) moveCategoryTo(draggedCategoryName, beforeName);
   });
 
   // Ciclo de 3 estados por clic: neutra -> incluida -> excluida -> neutra.
@@ -1957,22 +2071,22 @@
     render();
   });
 
+  // Guarda la selección de etiquetas tal cual está ahora mismo (incluidas y
+  // excluidas), aunque no haya ninguna — "todo sin filtrar" es una vista válida.
   document.getElementById("btnSaveViewProfile").addEventListener("click", function(){
-    if(state.excludedTags.size === 0){
-      alert("No hay ninguna etiqueta excluida ahora mismo. Excluye alguna (clic hasta dejarla tachada) antes de guardar una vista.");
-      return;
-    }
     var name = prompt("Nombre de la vista:");
     if(name === null) return;
     name = name.trim();
     if(!name) return;
+    var tags = Array.from(state.tags);
     var excluded = Array.from(state.excludedTags);
     var existingIdx = state.viewProfiles.findIndex(function(p){ return p.name.toLowerCase() === name.toLowerCase(); });
     if(existingIdx !== -1){
-      if(!confirm('Ya existe una vista llamada "' + state.viewProfiles[existingIdx].name + '". ¿Sobrescribirla con la exclusión actual?')) return;
+      if(!confirm('Ya existe una vista llamada "' + state.viewProfiles[existingIdx].name + '". ¿Sobrescribirla con la selección actual?')) return;
+      state.viewProfiles[existingIdx].tags = tags;
       state.viewProfiles[existingIdx].excludedTags = excluded;
     } else {
-      state.viewProfiles.push({ name: name, excludedTags: excluded });
+      state.viewProfiles.push({ name: name, tags: tags, excludedTags: excluded });
     }
     saveViewProfiles();
     render();
@@ -1993,6 +2107,7 @@
     if(!chip) return;
     var profile = state.viewProfiles.find(function(p){ return p.name === chip.getAttribute("data-profile"); });
     if(!profile) return;
+    state.tags = new Set(profile.tags);
     state.excludedTags = new Set(profile.excludedTags);
     saveExcludedTags();
     render();

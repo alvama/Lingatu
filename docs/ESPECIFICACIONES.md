@@ -27,7 +27,7 @@ Página web de un solo archivo (`pinboard.html`) para gestionar una colección p
 | `enlaces_tag_colors_v1` | Objeto JSON `{ "#etiqueta": "#rrggbb" }` — colores personalizados por etiqueta |
 | `enlaces_category_icons_v1` | Objeto JSON `{ "NombreCategoría": "clave-icono" }` — icono elegido de la librería fija (ver 4.15) |
 | `enlaces_excluded_tags_v1` | Array JSON de etiquetas actualmente excluidas de la vista (ver 4.17) — a diferencia del resto de filtros, se fija hasta que el usuario las desmarca |
-| `enlaces_view_profiles_v1` | Array JSON de perfiles de vista guardados `{ name, excludedTags: [...] }` (ver 4.17) |
+| `enlaces_view_profiles_v1` | Array JSON de perfiles de vista guardados `{ name, tags: [...], excludedTags: [...] }` (ver 4.17) |
 
 Todas estas claves son independientes; borrar una no afecta a las demás. Para reiniciar la app por completo, borrar las 11 claves (o los datos del sitio desde el navegador).
 
@@ -88,7 +88,9 @@ Los enlaces filtrados se agrupan siempre por categoría en el área principal. C
 - Cabecera (`h2.category-group-title`, con `data-category`): flecha de plegado + nombre de categoría + contador de enlaces del grupo.
 - Contenido: cuadrícula (`links-grid`) o lista (`links-list`) según el modo de vista.
 
-Las categorías se ordenan alfabéticamente. Si se filtra por una categoría concreta desde el sidebar, solo aparece un grupo.
+Las categorías se muestran en su orden manual (ver 4.14), no alfabético. Si se filtra por una categoría concreta desde el sidebar, solo aparece un grupo.
+
+**Filtro por categoría (sidebar)**: clic en un `.category-item` de `#categoryList` fija `state.category` a esa categoría. Un segundo clic sobre la **misma** categoría ya seleccionada la deselecciona (`state.category = null`), sin necesidad de volver a pulsar "Todas" — mismo resultado que clicar "Todas", pero como atajo directo sobre la categoría activa.
 
 **Plegar/expandir**: clic en la cabecera de un grupo (`toggleCategoryCollapse`) lo pliega u expande individualmente — el estado se guarda por nombre de categoría en `state.collapsedCategories` (`Set`) y persiste en `localStorage` (`enlaces_collapsed_categories_v1`), así que se recuerda entre sesiones. Visualmente, un grupo plegado oculta su `links-grid`/`links-list` vía CSS (`.category-group.collapsed`) y rota la flecha (`.group-toggle-arrow`) -90°. El botón **"Plegar todo" / "Expandir todo"** de la barra de herramientas (`#btnToggleAllGroups`) pliega o expande todas las categorías de golpe; su etiqueta se recalcula en cada `render()` (`syncToggleAllGroupsLabel`) según si *todas* las categorías están ya plegadas o no.
 
@@ -141,7 +143,12 @@ Cada tarjeta/fila incluye iconos ▲/▼ (junto a ✏️/🗑️) para mover el 
 Toda la lógica vive en `moveLinkTo(draggedId, targetCategory, beforeId)`, delegada mediante los eventos `dragstart`/`dragover`/`drop`/`dragend` en `#linksContainer` (clases `.dragging` y `.drag-over` para el feedback visual).
 
 ### 4.10 Colores personalizables por categoría y por etiqueta
-En el modal de gestión (4.5), cada fila incluye un selector `<input type="color">` (`.manage-row-color`) para asignar un color a esa categoría o etiqueta. Se guarda en un mapa `nombre → color` independiente de la lista maestra (`state.categoryColors` / `state.tagColors`, persistidos en `enlaces_category_colors_v1` / `enlaces_tag_colors_v1`), así que no hace falta tocar el modelo de datos de los enlaces. Un botón "✕" (`reset-color`) junto al selector, visible solo si hay color asignado, lo quita.
+En el modal de gestión (4.5), cada fila tiene un botón (`.manage-row-icon-btn`, con un punto del color actual) que abre/cierra un panel (`data-action="pick-color"`, mismo patrón que el selector de iconos de 4.15) con:
+- Una **paleta simplificada** de 12 colores fijos (`COLOR_PALETTE`) para elegir rápido los tonos más comunes, con un check visual (`.color-swatch-btn.active`) sobre el que esté aplicado.
+- El selector nativo `<input type="color">` (`.manage-row-color`) para cualquier color personalizado fuera de la paleta.
+- Un botón "✕ Quitar color" (`reset-color`), visible solo si hay color asignado.
+
+Elegir cualquiera de las tres opciones guarda y cierra el panel. Se guarda en un mapa `nombre → color` independiente de la lista maestra (`state.categoryColors` / `state.tagColors`, persistidos en `enlaces_category_colors_v1` / `enlaces_tag_colors_v1`), así que no hace falta tocar el modelo de datos de los enlaces.
 
 Dónde se ve el color:
 - **Categorías**: un punto de color (`categoryDotHtml`, clase `.cat-color-dot`) delante del nombre, tanto en la lista del sidebar como en la cabecera de cada grupo. Sin color personalizado, el punto usa `var(--text-muted)` como color neutro.
@@ -162,7 +169,11 @@ Ambos se ignoran mientras el foco está en un campo de texto/`textarea`/elemento
 Botón "Duplicar" (`#btnDuplicate`) en el modal de edición, oculto al crear un enlace nuevo (`openModal` hace `btnDuplicate.hidden = !link`). Al pulsarlo, `duplicateEditingLink()` crea de inmediato una copia del enlace que se está editando (nuevo `id` vía `genId()`, mismos campos, título con sufijo `" _copia"`), la guarda, y el propio modal pasa a editar esa copia. Al conservar la misma URL que el original, si se guarda sin cambiarla se dispara el aviso normal de "URL duplicada" (4.1) — es el comportamiento esperado.
 
 ### 4.14 Reordenar categorías manualmente
-Mismo mecanismo que 4.9, aplicado a `state.categories`: la posición en el array es el orden de visualización (sidebar, cabecera de grupo, listado del modal de gestión), no un orden alfabético. En el modal de gestión (4.5), cada fila de categoría tiene botones ▲/▼ (`moveHtml`, con `data-target` = nombre de la categoría vecina) que llaman a `swapCategories(nameA, nameB)`. Las etiquetas no tienen esta función (siguen alfabéticas). `performRename` conserva la posición de la categoría al renombrarla; solo se pierde si el nuevo nombre coincide con otra ya existente (fusión, la renombrada desaparece).
+Mismo mecanismo que 4.9, aplicado a `state.categories`: la posición en el array es el orden de visualización (sidebar, cabecera de grupo, listado del modal de gestión), no un orden alfabético. Las etiquetas no tienen esta función (siguen alfabéticas). `performRename` conserva la posición de la categoría al renombrarla; solo se pierde si el nuevo nombre coincide con otra ya existente (fusión, la renombrada desaparece).
+
+Dos formas de reordenar:
+- **Botones ▲/▼** en el modal de gestión (4.5): cada fila de categoría los tiene (`moveHtml`, con `data-target` = nombre de la categoría vecina), llaman a `swapCategories(nameA, nameB)` (intercambio simple con la vecina).
+- **Arrastrar y soltar** directamente en `#categoryList` (sidebar): cada `.category-item` (salvo "Todas") es `draggable="true"`. `moveCategoryTo(draggedName, beforeName)` saca la categoría arrastrada de su posición y la inserta justo antes de `beforeName` (o al final si es `null`) — a diferencia de `swapCategories`, permite moverla varias posiciones de una vez, no solo intercambiar con la vecina. Soltar sobre "Todas" la mueve al principio de la lista (`beforeName` = la categoría que hoy ocupa el primer puesto). Delegado con `dragstart`/`dragover`/`drop`/`dragend` en `#categoryList`, mismo patrón que el de los enlaces (4.9), clases `.dragging`/`.drag-over`.
 
 ### 4.15 Iconos de categoría
 En el modal de gestión, cada fila de categoría tiene un botón (`.manage-row-icon-btn`) que abre/cierra un selector (`.icon-picker`) con una librería fija de ~20 iconos SVG embebidos inline (`CATEGORY_ICONS`, sin CDN ni subida de archivos propios). Elegir uno guarda `state.categoryIcons[nombre] = clave` (mapa aparte, persistido en `enlaces_category_icons_v1`, mismo patrón que `categoryColors`); el botón "✕" del propio selector lo quita. El icono se pinta con el color personalizado de la categoría si lo tiene (`categoryIconSvg`).
@@ -181,9 +192,9 @@ Objetivo: poder ocultar de la vista los enlaces de un contexto (p. ej. "trabajo"
 
 **Exclusión de una etiqueta** (`#tagCloud` en el sidebar, no en las etiquetas de las tarjetas): cada clic cicla por 3 estados — neutra → incluida (mismo filtro `state.tags` de siempre, `.tag-chip.active`) → **excluida** (`state.excludedTags`, `.tag-chip.excluded`, con tachado y borde rojo) → neutra de nuevo. A diferencia de `state.tags`/`state.category`/`state.search` (que se resetean en cada carga de página), `state.excludedTags` se persiste en `enlaces_excluded_tags_v1` y **se mantiene fijo hasta que el usuario la desmarca**, incluso entre sesiones — es justo el comportamiento pedido ("fijar la exclusión hasta que se desmarque"). `getFilteredLinks()` descarta cualquier enlace cuyas `tags` intersequen con `state.excludedTags`.
 
-**Perfiles de vista** (sección "Vistas" del sidebar, `#viewProfileList`): un perfil es `{ name, excludedTags: [...] }`, guardado en `state.viewProfiles` (`enlaces_view_profiles_v1`), independiente de los enlaces y de la lista maestra de etiquetas — si se borra una etiqueta que un perfil usaba, el perfil simplemente deja de tener efecto sobre ese texto, sin romper nada.
-- **Guardar** (`btnSaveViewProfile`): pide un nombre (`prompt`) y guarda el conjunto de `state.excludedTags` *actual*. Si el nombre coincide (sin distinguir mayúsculas) con un perfil ya existente, pide confirmación para sobrescribirlo.
-- **Aplicar**: clic en el chip del perfil (`.view-profile-chip`) sustituye `state.excludedTags` por el conjunto guardado. `currentExcludedTagsMatchProfile()` decide si un perfil se pinta como activo (coincide exactamente con la exclusión actual).
+**Perfiles de vista** (sección "Vistas" del sidebar, `#viewProfileList`): un perfil es `{ name, tags: [...], excludedTags: [...] }` — guarda **toda** la selección de etiquetas, tanto las incluidas como las excluidas, no solo la exclusión. Guardado en `state.viewProfiles` (`enlaces_view_profiles_v1`), independiente de los enlaces y de la lista maestra de etiquetas — si se borra una etiqueta que un perfil usaba, el perfil simplemente deja de tener efecto sobre ese texto, sin romper nada. `loadViewProfiles()` normaliza perfiles guardados antes de este cambio (sin `tags`) a un array vacío, por compatibilidad.
+- **Guardar** (`btnSaveViewProfile`): pide un nombre (`prompt`) y guarda `state.tags` + `state.excludedTags` tal cual están *en ese momento* — sin exigir ningún mínimo, "todo sin filtrar" es una vista válida como cualquier otra. Si el nombre coincide (sin distinguir mayúsculas) con un perfil ya existente, pide confirmación para sobrescribirlo.
+- **Aplicar**: clic en el chip del perfil (`.view-profile-chip`) sustituye tanto `state.tags` como `state.excludedTags` por lo guardado. `currentSelectionMatchesProfile()` (vía `setsMatch()`) decide si un perfil se pinta como activo — coincide exactamente en ambos conjuntos con la selección actual.
 - **Eliminar**: botón "✕" del propio chip (`data-action="delete-profile"`), con confirmación; no toca `state.excludedTags` si ese perfil estaba aplicado en ese momento (la exclusión vigente se queda como está, solo desaparece el atajo guardado).
 
 **Interacción con la extensión** (ver sección 8): `checkDuplicate` sigue detectando bien un enlace ya guardado aunque esté oculto por una exclusión activa (consulta `state.links` directamente). `focusExisting`, en cambio, no podrá resaltarlo si su ficha no está renderizada por estar excluida — no es un fallo, es el mismo caso ya cubierto por la checklist de la sección 8.
@@ -229,8 +240,9 @@ Objetivo: poder ocultar de la vista los enlaces de un contexto (p. ej. "trabajo"
 | `ensureCategory(name)` / `ensureTag(tag)` | Normaliza y registra en la lista maestra (case-insensitive), único punto de verdad |
 | `getCategories()` / `getAllTags()` | Devuelven las listas con recuento de uso, a partir de las listas maestras. `getCategories()` respeta el orden manual de `state.categories`; `getAllTags()` sigue siendo alfabético |
 | `swapCategories(nameA, nameB)` | Intercambia la posición de dos categorías en `state.categories` por nombre (reordenación manual con ▲/▼ en el modal de gestión) |
+| `moveCategoryTo(draggedName, beforeName)` | Mueve una categoría a la posición justo antes de `beforeName` (o al final si es `null`) — arrastrar y soltar en `#categoryList` |
 | `duplicateEditingLink()` | Duplica el enlace que se está editando (título + `" _copia"`) y hace que el modal pase a editar la copia recién creada |
-| `renderViewProfileList()` / `currentExcludedTagsMatchProfile(profile)` | Pintan los chips de perfiles de vista guardados / comprueban si un perfil coincide exactamente con `state.excludedTags` (para marcarlo como activo) |
+| `renderViewProfileList()` / `currentSelectionMatchesProfile(profile)` | Pintan los chips de perfiles de vista guardados / comprueban si un perfil coincide exactamente con `state.tags` y `state.excludedTags` (para marcarlo como activo) |
 | `getFilteredLinks()` | Aplica todos los filtros activos sobre `state.links` (categoría, activos, etiquetas incluidas, etiquetas **excluidas** — 4.17, búsqueda), sin reordenar (ver nota "Orden" en sección 3) |
 | `normalizeUrlForCompare(url)` | Normaliza una URL (trim, sin `/` final, minúsculas) para comparar duplicados |
 | `findDuplicateUrl(url, excludeId)` | Busca un enlace existente con la misma URL normalizada, excluyendo un `id` (el que se está editando) |
