@@ -345,3 +345,4 @@ Todas las ideas que figuraban aquí en rondas anteriores (multi-selección de et
 - Paleta de colores predefinida para elegir rápido, en vez de (o adicional a) el selector nativo.
 - Más atajos de teclado: navegar entre enlaces con flechas, `Ctrl+E`/`Ctrl+D` para exportar/borrar, etc.
 - Progressive Web App (manifest + service worker) para poder "instalar" la página y usarla offline como una app independiente.
+- Reordenar las secciones del sidebar: actualmente es Nuevo enlace → Categorías → Etiquetas → Vistas → Exportar/Importar → créditos. Cambiar a Nuevo enlace → Categorías → **Vistas** → Etiquetas → Exportar/Importar → créditos (Vistas pasa a ir justo después de Categorías, antes de Etiquetas).
