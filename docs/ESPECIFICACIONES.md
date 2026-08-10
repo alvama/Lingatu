@@ -229,7 +229,29 @@ Recogidas aquí porque no son obvias a partir del código y explican *por qué* 
 15. **Atajos de teclado solo si no se está escribiendo ni hay un modal abierto**: `/` y `n` comprueban `e.target.tagName`/`isContentEditable` y el estado `hidden` de los tres overlays antes de actuar, para no interceptar esas teclas mientras el usuario escribe en cualquier campo (incluida una descripción que contenga la letra "n" o el carácter "/").
 16. **Favicon vía servicio externo, sin guardarlo en los datos**: se optó por pedirlo en cada render a `google.com/s2/favicons` (un servicio de terceros ampliamente usado para este propósito) en vez de descargarlo y guardarlo en base64 dentro del enlace, para no inflar el JSON de exportación ni la cuota de `localStorage`. Contrapartida: requiere conexión a internet para verse (si no hay red, simplemente no aparece ningún icono, sin romper nada) y ese servicio recibe el dominio de cada enlace que se muestra — ver limitación de privacidad en la sección 9.
 
-## 8. Estructura del repositorio
+## 8. Contrato con la extensión de Chrome
+
+`extension/background.js` nunca accede al DOM de `pinboard.html` directamente: pasa siempre por una superficie mínima y estable, `window.PinBoardBridge`, expuesta al final de la IIFE (`pinboard.html:1215-1241`). Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`, líneas 47-67) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, `background.js:69-73`), sin ningún error visible dentro de `pinboard.html`.
+
+**Superficie exacta que debe mantenerse estable:**
+
+| Elemento | Ubicación en `pinboard.html` | Para qué lo usa la extensión |
+|---|---|---|
+| `PinBoardBridge.checkDuplicate(url)` → `{id,title,category}` o `null` | líneas 1217-1220 | Detecta si la URL de la pestaña activa ya está guardada |
+| `PinBoardBridge.focusExisting(url)` | líneas 1222-1225 | Desplaza la vista y resalta la ficha si ya existe |
+| `PinBoardBridge.suggestCategory(title, description, url)` → string | línea 1228 | Sugiere una categoría existente por coincidencia de palabras |
+| `PinBoardBridge.prefillAndOpen({category,title,url,description})` | líneas 1231-1240 | Abre el modal de "Nuevo enlace" precargado |
+| Clases `.link-card` / `.link-card-compact` + atributo `data-id` en el elemento raíz de cada ficha | `highlightLink()`, líneas 1207-1213 | `focusExisting` busca la ficha por estos selectores para resaltarla; si no los encuentra (p. ej. ficha filtrada/oculta), la llamada no hace nada, sin error |
+| Ids de campo `fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription` | `openModal()`, líneas 1121-1133 | `prefillAndOpen` los rellena con `getElementById(...).value = ...` |
+
+**Regla práctica al añadir cualquier funcionalidad nueva**: si no se toca ninguno de los elementos de la tabla, la extensión no se ve afectada. Si se toca alguno (p. ej. se sustituye el campo de etiquetas por un componente de chips, o se rediseñan las fichas de enlace), hay que comprobar expresamente que lo que exige esta tabla se mantiene, y pasar la checklist manual siguiente antes de dar el cambio por cerrado.
+
+**Checklist de verificación manual** (no hay tests automatizados en el proyecto — ver sección 10):
+1. Abrir una pestaña con una URL que **no** esté guardada y pulsar el icono de la extensión → debe abrirse `pinboard.html` con el modal "Nuevo enlace" ya precargado (título, URL, descripción, categoría sugerida).
+2. Repetir con una URL que **sí** esté guardada → no debe abrirse el modal; la vista debe desplazarse hasta la ficha existente y resaltarla brevemente.
+3. Si el paso 2 no resalta nada pero tampoco da error, comprobar si hay un filtro activo (categoría, etiqueta excluida, búsqueda) ocultando esa ficha — es el comportamiento esperado, no un fallo del puente.
+
+## 9. Estructura del repositorio
 
 | Ruta | Propósito |
 |---|---|
@@ -243,7 +265,7 @@ Recogidas aquí porque no son obvias a partir del código y explican *por qué* 
 | `README.md` | Instrucciones de instalación y configuración de la app y la extensión. |
 | `LICENSE` | Licencia MIT. |
 
-## 9. Compatibilidad y limitaciones conocidas
+## 10. Compatibilidad y limitaciones conocidas
 
 - Requiere un navegador moderno con soporte de `localStorage`, `<dialog>`-like overlays manuales, `Set`, `Array.prototype.find`/`findIndex`, plantillas de cadena no usadas (se usa concatenación `+` deliberadamente por compatibilidad ES5-friendly).
 - No hay sincronización entre dispositivos/navegadores: cada `localStorage` es local a un perfil de navegador en una máquina. Exportar/Importar es el mecanismo manual de respaldo/traslado.
@@ -254,7 +276,7 @@ Recogidas aquí porque no son obvias a partir del código y explican *por qué* 
 - **Los favicons requieren internet y pasan por un tercero**: al mostrarse vía `google.com/s2/favicons`, cada dominio visible en tu lista de enlaces se envía a Google en cada carga de página (igual que hace cualquier navegador al mostrar el favicon de una pestaña, pero de forma explícita para *todos* los enlaces guardados a la vez, no solo el que estés visitando). Sin conexión, los enlaces se ven igualmente pero sin icono. Si esto es un problema, se puede sustituir `faviconUrl()` por una llamada directa a `https://<dominio>/favicon.ico` (menos fiable, pero sin intermediario).
 - Diseño responsive básico: por debajo de 780px el sidebar pasa a estar apilado sobre el contenido y las etiquetas de la vista compacta se ocultan para ahorrar espacio.
 
-## 10. Ideas para futuras ampliaciones (no implementadas)
+## 11. Ideas para futuras ampliaciones (no implementadas)
 
 Todas las ideas que figuraban aquí en rondas anteriores (multi-selección de etiquetas, plegado de categorías, edición inline, detección de duplicados, importación con fusión, reordenación manual, arrastrar y soltar, colores personalizados, atajos de teclado, plegar/expandir todo, y favicon por enlace) se implementaron — ver secciones 4.2 a 4.12 y las decisiones de la sección 7. Ideas nuevas pendientes, sin implementar todavía:
 

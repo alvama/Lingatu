@@ -1100,6 +1100,20 @@
     syncToggleAllGroupsLabel();
   }
 
+  // Cierra un modal al hacer click en su overlay, sin confundir con una
+  // selección de texto que empieza dentro del modal y se suelta fuera
+  // (el mouseup fuera dispara un click sintético sobre el overlay).
+  function bindOverlayClose(overlayEl, closeFn){
+    var mousedownOnOverlay = false;
+    overlayEl.addEventListener("mousedown", function(e){
+      mousedownOnOverlay = (e.target === overlayEl);
+    });
+    overlayEl.addEventListener("click", function(e){
+      if(e.target === overlayEl && mousedownOnOverlay) closeFn();
+      mousedownOnOverlay = false;
+    });
+  }
+
   // ---------- Modal / formulario ----------
   var overlay = document.getElementById("modalOverlay");
   var form = document.getElementById("linkForm");
@@ -1162,7 +1176,7 @@
 
   document.getElementById("btnAdd").addEventListener("click", function(){ openModal(null); });
   document.getElementById("btnCancel").addEventListener("click", closeModal);
-  overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
+  bindOverlayClose(overlay, closeModal);
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     if(!overlay.hidden) closeModal();
@@ -1175,6 +1189,17 @@
   // IIFE (p. ej. una extensión inyectando código en el "MAIN world" de esta
   // página). Reutiliza la lógica de duplicados/guardado ya existente en vez
   // de duplicarla, para que el origen de verdad siga siendo este archivo.
+  //
+  // CONTRATO ESTABLE — no cambiar sin revisar extension/background.js:
+  // (contrato completo en docs/ESPECIFICACIONES.md, sección 8)
+  //   - Firma de los 4 métodos de abajo (checkDuplicate/focusExisting/
+  //     suggestCategory/prefillAndOpen).
+  //   - Clases ".link-card"/".link-card-compact" + atributo "data-id" en el
+  //     elemento raíz de cada ficha (las usa highlightLink() más abajo).
+  //   - Ids de campo fieldCategory/fieldTitle/fieldUrl/fieldDescription
+  //     (los rellena prefillAndOpen vía getElementById(...).value).
+  // Si se rompe algo de esto, la extensión falla en silencio (solo un badge
+  // rojo "!" en su icono), sin ningún error visible aquí.
   function suggestCategory(title, description, url){
     var haystack = ((title || "") + " " + (description || "") + " " + (url || "")).toLowerCase();
     var host = "";
@@ -1381,7 +1406,7 @@
   document.getElementById("btnManageCategories").addEventListener("click", function(){ openManageModal("category"); });
   document.getElementById("btnManageTags").addEventListener("click", function(){ openManageModal("tag"); });
   document.getElementById("manageCloseBtn").addEventListener("click", closeManageModal);
-  manageOverlay.addEventListener("click", function(e){ if(e.target === manageOverlay) closeManageModal(); });
+  bindOverlayClose(manageOverlay, closeManageModal);
 
   manageAddForm.addEventListener("submit", function(e){
     e.preventDefault();
@@ -1760,7 +1785,7 @@
     }
   });
   document.getElementById("importCancelBtn").addEventListener("click", closeImportModal);
-  importModalOverlay.addEventListener("click", function(e){ if(e.target === importModalOverlay) closeImportModal(); });
+  bindOverlayClose(importModalOverlay, closeImportModal);
 
   // ---------- Inicio ----------
   var stored = load();

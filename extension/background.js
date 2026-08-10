@@ -44,6 +44,12 @@ async function getActiveTabData(tab) {
 
 // Se ejecuta en el "MAIN world" de la pestaña de pinboard.html, así que puede
 // llamar directamente a window.PinBoardBridge tal y como lo expone esa página.
+//
+// CONTRATO ESTABLE con pinboard.html — contrato completo en
+// docs/ESPECIFICACIONES.md, sección 8. Si cambia la firma de
+// PinBoardBridge.checkDuplicate/focusExisting/suggestCategory/prefillAndOpen
+// en pinboard.html, esta función deja de funcionar (normalmente en silencio,
+// solo con el badge rojo "!" de flashBadge más abajo).
 async function callBridge(tabId, payload) {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId },
