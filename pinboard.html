@@ -793,8 +793,7 @@
 
   // Identidad de la app: versión visible y créditos. Editable a mano aquí.
   var APP_CONFIG = {
-    version: "1.0.0",
-    author: "Alberto Vázquez Martín",
+    version: "1.2.0",
     siteName: "NLevia.org",
     siteUrl: "https://www.nlevia.org",
     repoUrl: "https://github.com/alvama/PinBoard"
@@ -1612,8 +1611,6 @@
     if(!el) return;
     el.innerHTML =
       '<span>PinBoard v' + escapeHtml(APP_CONFIG.version) + '</span>' +
-      '<span>·</span>' +
-      '<span>' + escapeHtml(APP_CONFIG.author) + '</span>' +
       '<span>·</span>' +
       '<a href="' + escapeHtml(APP_CONFIG.siteUrl) + '" target="_blank" rel="noopener">' + escapeHtml(APP_CONFIG.siteName) + '</a>' +
       '<span>·</span>' +
