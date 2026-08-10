@@ -5,6 +5,13 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.2.1] - 2026-08-10
+
+### Cambiado
+
+- Orden de las secciones del sidebar: "Vistas" pasa a ir justo después de
+  "Categorías" y antes de "Etiquetas" (antes iba tras Etiquetas).
+
 ## [1.2.0] - 2026-08-10
 
 ### Añadido
@@ -71,6 +78,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.2.1]: https://github.com/alvama/PinBoard/releases/tag/v1.2.1
 [1.2.0]: https://github.com/alvama/PinBoard/releases/tag/v1.2.0
 [1.1.0]: https://github.com/alvama/PinBoard/releases/tag/v1.1.0
 [1.0.0]: https://github.com/alvama/PinBoard/releases/tag/v1.0.0
