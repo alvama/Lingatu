@@ -126,7 +126,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.2.1](https://github.com/alvama/PinBoard/releases/tag/v1.2.1)
+- Última versión publicada: [v1.3.0](https://github.com/alvama/PinBoard/releases/tag/v1.3.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia

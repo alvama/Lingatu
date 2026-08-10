@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.3.0] - 2026-08-11
+
+### Añadido
+
+- Icono de escoba junto a "Etiquetas" en el sidebar que limpia de golpe
+  la selección de etiquetas (incluidas y excluidas), sin tocar el
+  filtro de categoría.
+
+### Corregido
+
+- El atajo de teclado `n` (abrir "Nuevo enlace") no funcionaba con Bloq
+  Mayús activado ni pulsando Mayús+n, solo con la `n` en minúscula
+  estricta.
+
 ## [1.2.1] - 2026-08-10
 
 ### Cambiado
@@ -78,6 +92,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.3.0]: https://github.com/alvama/PinBoard/releases/tag/v1.3.0
 [1.2.1]: https://github.com/alvama/PinBoard/releases/tag/v1.2.1
 [1.2.0]: https://github.com/alvama/PinBoard/releases/tag/v1.2.0
 [1.1.0]: https://github.com/alvama/PinBoard/releases/tag/v1.1.0
