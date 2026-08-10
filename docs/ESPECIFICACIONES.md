@@ -25,8 +25,9 @@ Página web de un solo archivo (`pinboard.html`) para gestionar una colección p
 | `enlaces_collapsed_categories_v1` | Array JSON con los nombres de las categorías actualmente plegadas |
 | `enlaces_category_colors_v1` | Objeto JSON `{ "NombreCategoría": "#rrggbb" }` — colores personalizados por categoría |
 | `enlaces_tag_colors_v1` | Objeto JSON `{ "#etiqueta": "#rrggbb" }` — colores personalizados por etiqueta |
+| `enlaces_category_icons_v1` | Objeto JSON `{ "NombreCategoría": "clave-icono" }` — icono elegido de la librería fija (ver 4.15) |
 
-Todas estas claves son independientes; borrar una no afecta a las demás. Para reiniciar la app por completo, borrar las 8 claves (o los datos del sitio desde el navegador).
+Todas estas claves son independientes; borrar una no afecta a las demás. Para reiniciar la app por completo, borrar las 9 claves (o los datos del sitio desde el navegador).
 
 > Nota: las claves conservan el prefijo `enlaces_` heredado del nombre original del proyecto, a propósito — cambiarlas invalidaría los datos ya guardados por usuarios existentes. Es un detalle interno, no afecta al nombre público "PinBoard".
 
@@ -57,6 +58,10 @@ Cada enlace es un objeto:
 | `tags` | string[] | no | Cada etiqueta se normaliza con prefijo `#`, sin espacios, deduplicada sin distinguir mayúsculas/minúsculas. Array vacío si no hay etiquetas. |
 
 **Orden**: `state.links` no se reordena nunca automáticamente (ni por título, ni por fecha). La **posición del enlace dentro del array es su orden manual** dentro de su categoría (ver 4.9 y `swapLinks`). Al crear un enlace se añade al final del array; al importar en modo fusión, los nuevos también se añaden al final.
+
+**Duplicar**: desde el modal de edición de un enlace ya guardado (botón "Duplicar", oculto al crear uno nuevo) se crea una copia inmediata — nuevo `id` vía `genId()`, mismos campos, título con sufijo `" _copia"` — y el propio modal pasa a editar esa copia (`duplicateEditingLink()`). Como conserva la misma URL que el original, al guardar sin cambiarla se disparará el aviso normal de "URL duplicada" (ver decisión 9 de la sección 7) — es el comportamiento esperado, no un error.
+
+`state.categories` sigue el mismo criterio: la **posición en el array es el orden manual** de las categorías (sidebar, cabecera de grupo en las fichas y listado del modal de gestión), no un orden alfabético. Se reordena con `swapCategories(nameA, nameB)` desde los botones ▲/▼ del modal de gestión. Renombrar una categoría conserva su posición (a menos que el nuevo nombre coincida con otra ya existente, en cuyo caso se fusionan y la que se renombra desaparece).
 
 ### Listas maestras de categorías y etiquetas
 
@@ -151,6 +156,24 @@ Junto al título de cada tarjeta/fila (en ambos modos de vista) se muestra el fa
 
 Ambos se ignoran mientras el foco está en un campo de texto/`textarea`/elemento editable, o mientras hay algún modal abierto (enlace, gestión o importación), para no interferir con la escritura normal.
 
+### 4.13 Duplicar un enlace
+Botón "Duplicar" (`#btnDuplicate`) en el modal de edición, oculto al crear un enlace nuevo (`openModal` hace `btnDuplicate.hidden = !link`). Al pulsarlo, `duplicateEditingLink()` crea de inmediato una copia del enlace que se está editando (nuevo `id` vía `genId()`, mismos campos, título con sufijo `" _copia"`), la guarda, y el propio modal pasa a editar esa copia. Al conservar la misma URL que el original, si se guarda sin cambiarla se dispara el aviso normal de "URL duplicada" (4.1) — es el comportamiento esperado.
+
+### 4.14 Reordenar categorías manualmente
+Mismo mecanismo que 4.9, aplicado a `state.categories`: la posición en el array es el orden de visualización (sidebar, cabecera de grupo, listado del modal de gestión), no un orden alfabético. En el modal de gestión (4.5), cada fila de categoría tiene botones ▲/▼ (`moveHtml`, con `data-target` = nombre de la categoría vecina) que llaman a `swapCategories(nameA, nameB)`. Las etiquetas no tienen esta función (siguen alfabéticas). `performRename` conserva la posición de la categoría al renombrarla; solo se pierde si el nuevo nombre coincide con otra ya existente (fusión, la renombrada desaparece).
+
+### 4.15 Iconos de categoría
+En el modal de gestión, cada fila de categoría tiene un botón (`.manage-row-icon-btn`) que abre/cierra un selector (`.icon-picker`) con una librería fija de ~20 iconos SVG embebidos inline (`CATEGORY_ICONS`, sin CDN ni subida de archivos propios). Elegir uno guarda `state.categoryIcons[nombre] = clave` (mapa aparte, persistido en `enlaces_category_icons_v1`, mismo patrón que `categoryColors`); el botón "✕" del propio selector lo quita. El icono se pinta con el color personalizado de la categoría si lo tiene (`categoryIconSvg`).
+
+`categoryDotHtml(name)` decide qué pintar: el icono si hay uno asignado, si no el punto de color de siempre (4.10) — por decisión explícita, **solo** en los sitios donde ya se representaba la categoría (sidebar, cabecera de grupo), no en cada ficha individual de enlace. Renombrar/fusionar y eliminar una categoría migran o borran su entrada de `categoryIcons` igual que ya hacían con `categoryColors`.
+
+### 4.16 Vista cómoda: barra de color y URL bajo el título
+Ajustes visuales sobre `cardHtml()` (solo vista cómoda, no la compacta):
+- **Barra de color superior**: `.link-card` tiene `border-top-width:4px`; `categoryTopBarStyle(name)` fija `border-top-color` al color de la categoría del enlace (o el borde neutro por defecto si no tiene).
+- **URL bajo el título**: `hostnameForDisplay(url)` (mismo patrón que `faviconUrl`, con su propio `try/catch`) muestra el `hostname` en `<div class="url">`, reutilizando una clase que ya existía en el CSS sin usar.
+- **Densidad del grid**: `.links-grid` bajó su `minmax()` de 280px a 250px, lo que combinado con `.content{max-width:1200px}` encaja 4 columnas a una resolución de escritorio normal sin dejar de ser responsive (`auto-fill` sigue recalculando columnas por el ancho disponible).
+- **Fichas más compactas**: padding de `.link-card` reducido de 16px a 12px/14px y el `gap` interno de 8px a 6px.
+
 ## 5. Estructura del HTML
 
 ```
@@ -185,17 +208,22 @@ Ambos se ignoran mientras el foco está en un campo de texto/`textarea`/elemento
 | `loadViewMode()` / `saveViewMode()` | Ídem para el modo de vista |
 | `loadCollapsedCategories()` / `saveCollapsedCategories()` | Ídem para el `Set` de categorías plegadas |
 | `loadCategoryColors()` / `saveCategoryColors()` | Ídem para el mapa de colores por categoría |
+| `loadCategoryIcons()` / `saveCategoryIcons()` | Ídem para el mapa de iconos por categoría |
 | `loadTagColors()` / `saveTagColors()` | Ídem para el mapa de colores por etiqueta |
 | `ensureCategory(name)` / `ensureTag(tag)` | Normaliza y registra en la lista maestra (case-insensitive), único punto de verdad |
-| `getCategories()` / `getAllTags()` | Devuelven listas ordenadas con recuento de uso, a partir de las listas maestras |
+| `getCategories()` / `getAllTags()` | Devuelven las listas con recuento de uso, a partir de las listas maestras. `getCategories()` respeta el orden manual de `state.categories`; `getAllTags()` sigue siendo alfabético |
+| `swapCategories(nameA, nameB)` | Intercambia la posición de dos categorías en `state.categories` por nombre (reordenación manual con ▲/▼ en el modal de gestión) |
+| `duplicateEditingLink()` | Duplica el enlace que se está editando (título + `" _copia"`) y hace que el modal pase a editar la copia recién creada |
 | `getFilteredLinks()` | Aplica todos los filtros activos sobre `state.links`, sin reordenar (ver nota "Orden" en sección 3) |
 | `normalizeUrlForCompare(url)` | Normaliza una URL (trim, sin `/` final, minúsculas) para comparar duplicados |
 | `findDuplicateUrl(url, excludeId)` | Busca un enlace existente con la misma URL normalizada, excluyendo un `id` (el que se está editando) |
 | `swapLinks(idA, idB)` | Intercambia la posición de dos enlaces en `state.links` por `id` (reordenación manual con ▲/▼) |
 | `moveLinkTo(draggedId, targetCategory, beforeId)` | Mueve un enlace (arrastrado) a una categoría, insertado antes de `beforeId` o al final si es `null` |
 | `contrastTextColor(hex)` | Elige texto blanco o negro según la luminancia de un color de fondo |
-| `categoryDotHtml(name)` / `tagChipStyle(tag)` | Generan el punto de color de una categoría / el `style` inline de una etiqueta, si tienen color personalizado |
+| `categoryDotHtml(name)` / `tagChipStyle(tag)` | Generan el icono o punto de color de una categoría / el `style` inline de una etiqueta, si tienen color personalizado |
+| `categoryIconSvg(key, color)` / `categoryTopBarStyle(name)` | Generan el `<svg>` de un icono de `CATEGORY_ICONS` con el color dado / el `style` de la barra superior de color de una ficha (vista cómoda) |
 | `faviconUrl(url)` / `faviconImgHtml(url)` | Calculan la URL del favicon (servicio de Google, por dominio) / generan el `<img>` correspondiente, o cadena vacía si la URL no es válida |
+| `hostnameForDisplay(url)` | Extrae el `hostname` de una URL para mostrarlo bajo el título (vista cómoda); cadena vacía si la URL no es válida |
 | `render()` | Orquesta `renderSidebar()` + `renderCards()` + `syncStatusToggle()` + `syncToggleAllGroupsLabel()` |
 | `renderCards()` | Agrupa por categoría (respetando plegado), calcula vecinos prev/next por grupo y genera el HTML (cómodo o compacto) |
 | `cardHtml(l, prevId, nextId)` / `cardHtmlCompact(l, prevId, nextId)` | Plantillas de tarjeta por enlace, una por modo de vista |
