@@ -1062,6 +1062,30 @@
     });
   }
 
+  // Exportar: sin categoría/etiquetas seleccionadas, exporta todo. Con alguna
+  // selección (categoría, etiquetas incluidas o excluidas — vistas son solo
+  // un atajo para fijar estas mismas), exporta únicamente esos enlaces.
+  // A propósito no tiene en cuenta la búsqueda de texto ni el toggle
+  // Todos/Activos, para que ese filtro momentáneo no recorte una exportación.
+  function hasLinkSelection(){
+    return state.category !== null || state.tags.size > 0 || state.excludedTags.size > 0;
+  }
+  function getLinksForExport(){
+    if(!hasLinkSelection()) return state.links;
+    return state.links.filter(function(l){
+      if(state.category && l.category !== state.category) return false;
+      if(state.tags.size > 0){
+        var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
+        if(!hasTag) return false;
+      }
+      if(state.excludedTags.size > 0){
+        var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
+        if(hasExcluded) return false;
+      }
+      return true;
+    });
+  }
+
   function normalizeUrlForCompare(url){
     return String(url || "").trim().replace(/\/+$/, "").toLowerCase();
   }
@@ -1390,6 +1414,17 @@
     renderCards();
     syncStatusToggle();
     syncToggleAllGroupsLabel();
+    syncExportButtonLabel();
+  }
+
+  function syncExportButtonLabel(){
+    var btn = document.getElementById("btnExport");
+    if(hasLinkSelection()){
+      var n = getLinksForExport().length;
+      btn.title = "Exportar los " + n + " enlace" + (n === 1 ? "" : "s") + " de la selección actual a un archivo JSON";
+    } else {
+      btn.title = "Exportar todos los enlaces a un archivo JSON";
+    }
   }
 
   // Cierra un modal al hacer click en su overlay, sin confundir con una
@@ -2193,7 +2228,7 @@
 
   // ---------- Exportar / Importar ----------
   document.getElementById("btnExport").addEventListener("click", function(){
-    var blob = new Blob([JSON.stringify(state.links, null, 2)], { type: "application/json" });
+    var blob = new Blob([JSON.stringify(getLinksForExport(), null, 2)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     var d = new Date();
