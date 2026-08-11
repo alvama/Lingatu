@@ -581,7 +581,7 @@
     display:flex;
     flex-direction:column;
     gap:6px;
-    max-height:320px;
+    max-height:55vh;
     overflow-y:auto;
     margin-bottom:14px;
   }
@@ -630,9 +630,10 @@
     color:var(--text);
     font-size:13px;
   }
-  .manage-add-form{display:flex;gap:8px;margin-bottom:4px;}
+  .manage-add-form{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
   .manage-add-form input{
     flex:1;
+    min-width:120px;
     padding:9px 11px;
     border-radius:8px;
     border:1px solid var(--border);
@@ -640,6 +641,7 @@
     color:var(--text);
     font-size:14px;
   }
+  .manage-add-form button{width:auto;flex-shrink:0;}
 
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
@@ -761,12 +763,10 @@
     <form id="manageAddForm" class="manage-add-form">
       <input id="manageAddInput" placeholder="Nueva categoría..." autocomplete="off">
       <button type="submit" class="btn-primary">Añadir</button>
-    </form>
-    <div id="manageCategoryIO" class="modal-actions" hidden>
-      <button type="button" id="btnExportCategories" title="Exportar categorías (nombre, icono, color y posición) a un archivo JSON">Exportar categorías</button>
-      <button type="button" id="btnImportCategories" title="Importar categorías desde un archivo JSON">Importar categorías</button>
+      <button type="button" id="btnExportCategories" title="Exportar categorías (nombre, icono, color y posición) a un archivo JSON" hidden>Exportar</button>
+      <button type="button" id="btnImportCategories" title="Importar categorías desde un archivo JSON" hidden>Importar</button>
       <input type="file" id="fileImportCategories" accept="application/json" hidden>
-    </div>
+    </form>
     <div class="modal-actions">
       <button type="button" id="manageCloseBtn">Cerrar</button>
     </div>
@@ -1670,7 +1670,8 @@
     manageColorPickerFor = null;
     document.getElementById("manageModalTitle").textContent = type === "category" ? "Gestionar categorías" : "Gestionar etiquetas";
     manageAddInput.placeholder = type === "category" ? "Nueva categoría..." : "Nueva etiqueta...";
-    document.getElementById("manageCategoryIO").hidden = type !== "category";
+    document.getElementById("btnExportCategories").hidden = type !== "category";
+    document.getElementById("btnImportCategories").hidden = type !== "category";
     renderManageList();
     manageOverlay.hidden = false;
     manageAddInput.focus();

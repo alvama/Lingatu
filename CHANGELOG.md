@@ -21,6 +21,13 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   demás; un clic normal sigue seleccionando solo una, y "Todas" limpia la
   selección.
 
+### Cambiado
+
+- Modal "Gestionar categorías": el botón "Añadir" ahora es compacto y
+  comparte fila con "Exportar"/"Importar" (sin la palabra redundante
+  "categorías" en su etiqueta), y la lista de categorías ocupa más alto
+  para verse mejor.
+
 ### Corregido
 
 - Los nombres de categoría largos ya no se cortan con "…" en el sidebar:
