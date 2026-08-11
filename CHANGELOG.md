@@ -23,10 +23,10 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
-- Modal "Gestionar categorías": el botón "Añadir" ahora es compacto y
-  comparte fila con "Exportar"/"Importar" (sin la palabra redundante
-  "categorías" en su etiqueta), y la lista de categorías ocupa más alto
-  para verse mejor.
+- Modal "Gestionar categorías": los botones "Exportar"/"Importar" (sin la
+  palabra redundante "categorías" en su etiqueta) pasan a la fila de
+  "Cerrar", dejando "Añadir" junto al campo de texto como antes, y la
+  lista de categorías ocupa más alto para verse mejor.
 
 ### Corregido
 

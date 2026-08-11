@@ -212,7 +212,7 @@ Objetivo: poder ocultar de la vista los enlaces de un contexto (p. ej. "trabajo"
 No hay un botón dedicado para vaciar la selección múltiple de categorías (a diferencia del icono de escoba de etiquetas, 4.3): clicar "Todas" ya cumple esa función.
 
 ### 4.19 Exportar/Importar categorías
-En el modal de gestión de categorías (4.5), dentro del propio `#manageAddForm` (junto al campo y al botón "Añadir"), dos botones (`btnExportCategories`/`btnImportCategories`, ocultos con `hidden` cuando `manageType === "tag"`) independientes del exportador/importador de enlaces (4.7):
+En el modal de gestión de categorías (4.5), en la fila de `.modal-actions` junto al botón "Cerrar", dos botones (`btnExportCategories`/`btnImportCategories`, ocultos con `hidden` cuando `manageType === "tag"`) independientes del exportador/importador de enlaces (4.7):
 - **Exportar** (`btnExportCategories`): descarga `pinboard_categorias_<fecha>.json`, un array en el mismo orden que `state.categories` (el orden es la posición) con `{ name, icon, color }` por categoría (`icon`/`color` a `null` si no tiene). Mismo mecanismo Blob + `URL.createObjectURL` que el exportador de enlaces.
 - **Importar** (`btnImportCategories` → `fileImportCategories`, lectura con `FileReader`): valida que sea un array de objetos con `name`, y abre `#importCategoriesModalOverlay` con el resumen y dos acciones:
   - **Fusionar** (`performImportCategoriesMerge`): aditivo — para cada entrada llama a `ensureCategory(entry.name)`; si la categoría no existía, la crea al final y le asigna `icon`/`color` del archivo (validando que la clave de icono exista en `CATEGORY_ICONS`); si ya existía, no toca su posición, color ni icono actuales.
