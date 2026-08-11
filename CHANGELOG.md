@@ -20,6 +20,10 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   Cmd+clic) añade o quita una categoría de la selección sin perder las
   demás; un clic normal sigue seleccionando solo una, y "Todas" limpia la
   selección.
+- Al pulsar "Exportar" con algún filtro activo (categoría, etiquetas o una
+  vista guardada), se pide confirmación indicando cuántos enlaces se van a
+  exportar, para no exportar por error solo la selección visible en vez
+  de todos los enlaces.
 
 ### Cambiado
 

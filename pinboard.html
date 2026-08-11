@@ -2269,7 +2269,15 @@
 
   // ---------- Exportar / Importar ----------
   document.getElementById("btnExport").addEventListener("click", function(){
-    var blob = new Blob([JSON.stringify(getLinksForExport(), null, 2)], { type: "application/json" });
+    var links = getLinksForExport();
+    if(hasLinkSelection()){
+      var n = links.length;
+      var msg = n === 1
+        ? "Tienes un filtro activo (categoría y/o etiquetas): solo se exportará el enlace visible con la selección actual, no todos tus enlaces. ¿Continuar?"
+        : "Tienes un filtro activo (categoría y/o etiquetas): solo se exportarán los " + n + " enlaces visibles con la selección actual, no todos tus enlaces. ¿Continuar?";
+      if(!confirm(msg)) return;
+    }
+    var blob = new Blob([JSON.stringify(links, null, 2)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     var d = new Date();
