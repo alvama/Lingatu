@@ -22,9 +22,11 @@ activa y la añade con un clic.
   el sidebar con Ctrl+clic; exportar/importar el conjunto completo de
   categorías (nombre, icono, color y posición) por separado de los
   enlaces.
-- **Etiquetas**: asignación libre por enlace, color propio, filtrado por
-  inclusión y exclusión (clic / clic de nuevo / clic otra vez — ciclo de
-  3 estados), icono de escoba para limpiar la selección de golpe.
+- **Etiquetas**: editor de chips con autocompletado (sugiere y reutiliza
+  las ya existentes mientras escribes, sin dejar de admitir crear una
+  nueva libremente), color propio, filtrado por inclusión y exclusión
+  (clic / clic de nuevo / clic otra vez — ciclo de 3 estados), icono de
+  escoba para limpiar la selección de golpe.
 - **Vistas guardadas**: guardar la combinación de etiquetas
   incluidas/excluidas activa con un nombre y volver a aplicarla con un
   clic.
@@ -156,7 +158,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.4.0](https://github.com/alvama/PinBoard/releases/tag/v1.4.0)
+- Última versión publicada: [v1.5.0](https://github.com/alvama/PinBoard/releases/tag/v1.5.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia

@@ -5,6 +5,22 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.5.0] - 2026-08-11
+
+### Añadido
+
+- **Editor de chips en el campo Etiquetas**: cada etiqueta ya añadida a un
+  enlace se muestra como una pastilla dentro del propio campo (en vez de
+  texto plano separado por espacios), con un desplegable de sugerencias
+  que filtra las etiquetas ya existentes mientras escribes — para
+  reutilizarlas con un clic en lugar de tener que recordarlas y
+  volver a teclearlas exactamente igual. Sigue admitiendo crear una
+  etiqueta nueva escribiendo libremente si no hay coincidencia. Se
+  confirma un chip con Enter, espacio, coma o clic en una sugerencia; se
+  borra con el botón "×" de cada chip o con Backspace sobre el campo
+  vacío; pegar texto con varias etiquetas de golpe (p. ej. `#a #b, #c`)
+  las trocea en chips independientes.
+
 ## [1.4.0] - 2026-08-11
 
 ### Añadido
@@ -127,6 +143,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.5.0]: https://github.com/alvama/PinBoard/releases/tag/v1.5.0
 [1.4.0]: https://github.com/alvama/PinBoard/releases/tag/v1.4.0
 [1.3.0]: https://github.com/alvama/PinBoard/releases/tag/v1.3.0
 [1.2.1]: https://github.com/alvama/PinBoard/releases/tag/v1.2.1

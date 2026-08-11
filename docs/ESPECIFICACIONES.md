@@ -80,7 +80,7 @@ La función `ensureCategory(name)` / `ensureTag(tag)` es el punto único de verd
 - **Crear**: botón "+ Nuevo enlace" (sidebar) → abre modal con formulario.
 - **Editar**: icono ✏️ en la tarjeta/fila del enlace.
 - **Eliminar**: icono 🗑️ en la tarjeta/fila, con `confirm()` antes de borrar.
-- Formulario: Categoría\* (con autocompletado vía `<datalist>`), Título\*, Link\* (`type="url"`), Descripción, Etiquetas (texto libre separado por espacios/comas, se autoprefija con `#`), Activo (checkbox).
+- Formulario: Categoría\* (con autocompletado vía `<datalist>`), Título\*, Link\* (`type="url"`), Descripción, Etiquetas (editor de chips con autocompletado y entrada libre — ver 4.20), Activo (checkbox).
 - Botón "Cancelar" y clic fuera del modal (overlay) cierran sin guardar. Tecla `Escape` también cierra el modal que esté abierto (enlace o gestión).
 
 ### 4.2 Agrupación por categorías
@@ -219,6 +219,26 @@ En el modal de gestión de categorías (4.5), en la fila de `.modal-actions` jun
   - **Fusionar** (`performImportCategoriesMerge`): aditivo — para cada entrada llama a `ensureCategory(entry.name)`; si la categoría no existía, la crea al final y le asigna `icon`/`color` del archivo (validando que la clave de icono exista en `CATEGORY_ICONS`); si ya existía, no toca su posición, color ni icono actuales.
   - **Sustituir todo** (`performImportCategoriesReplace`, tras `confirm()`): reemplaza `state.categories`/`categoryColors`/`categoryIcons` íntegramente por el contenido del archivo (deduplicando por nombre, el orden del array = nueva posición). Cualquier enlace cuya categoría ya no exista en la nueva lista se reasigna a `ensureCategory("Sin categoría")`, igual que hace el borrado manual de una categoría (4.5). También limpia de `state.selectedCategories` cualquier nombre que haya dejado de existir.
 
+### 4.20 Editor de chips en el campo Etiquetas
+
+Objetivo: reutilizar etiquetas ya existentes sin tener que recordarlas ni escribirlas exactamente igual, manteniendo intacta la posibilidad de crear una etiqueta nueva escribiendo libremente — mismo problema que resolvió Categoría con su `<datalist>` (4.1), pero adaptado a que un enlace puede llevar ninguna, una o varias etiquetas a la vez.
+
+**Estructura del campo** (`#tagsField`, dentro del `<label for="tagsInput">` de "Etiquetas"): un contenedor (`#tagsChipsWrap`) que combina las etiquetas ya confirmadas, pintadas como chips (`<span class="tag-chip tags-chip">`, reutilizando el mismo componente visual que la nube del sidebar — 4.10), con un `<input id="tagsInput">` de texto libre al final para seguir escribiendo. El envío del formulario sigue leyendo un `<input type="hidden" id="fieldTags">` sincronizado por JS con los chips (`syncTagsHiddenInput()`), así que `normalizeTags()`/`ensureTag()` y el resto del `submit` no cambiaron una sola línea respecto a cuando el campo era texto plano.
+
+**Confirmar una etiqueta como chip** — con Enter, espacio, coma, pegado de texto con separadores, o clic en una sugerencia:
+- `tagsFieldResolveCanonical(raw)` busca en `state.allTags` un nombre existente que coincida sin distinguir mayúsculas y lo devuelve tal cual (mismo criterio que `ensureTag`, pero de solo lectura); si no hay coincidencia, limpia el texto y le antepone `#`.
+- `tagsFieldCommitToken(raw)` añade ese nombre canónico a `tagsFieldChips` si no está ya presente (comparación case-insensitive) y repinta.
+- **A propósito no se llama a `ensureTag` real hasta el `submit`**: así, cancelar el modal (botón, clic fuera o Escape) nunca deja una etiqueta a medio escribir registrada en la lista maestra — solo se registra si el enlace se llega a guardar.
+- Pegar texto con varias etiquetas de golpe (p. ej. `#a #b, #c`) se trocea con `tagsFieldCommitFromText(raw)`, que llama a `tagsFieldCommitToken` por cada trozo.
+
+**Sugerencias mientras se escribe** (`getTagsFieldSuggestions()`): filtra `getAllTags()` por el texto actual del input (subcadena, case-insensitive, ignorando el `#`), excluyendo las etiquetas que ya son chips, limitado a 8 resultados. Se muestran en un desplegable propio (`#tagsSuggestions`, `role="listbox"`, `position:absolute`) navegable con flechas ↑/↓ y Enter, o con clic. Como `render()` no se ejecuta mientras el modal está abierto (solo tras guardar), las sugerencias leen `state.allTags` directamente en cada tecleo, sin depender de un repintado global.
+
+**Backspace y borrado**: con el input de texto vacío, Backspace quita el último chip; el botón `×` de cualquier chip (`.tags-chip-remove`, con `aria-label="Eliminar etiqueta …"`) lo quita sin importar su posición.
+
+**Tecla Escape — comportamiento distinto al del resto de la app a propósito**: el listener global de Escape (4.1) cierra cualquier modal abierto sin mirar dónde está el foco. Dentro de este campo, si hay un desplegable de sugerencias abierto o texto sin confirmar, Escape hace `e.stopPropagation()` y solo limpia ese estado local (cierra el desplegable, vacía el texto), **sin cerrar el modal** — evita perder por accidente el título/URL/descripción ya rellenados solo por cancelar una sugerencia a medio escribir. Si el campo ya está "limpio" (sin sugerencias ni texto pendiente), Escape no se intercepta y burbujea con el comportamiento heredado de siempre (cierra el modal). Es una mejora deliberada y acotada a este campo, no aplicada a los demás inputs del formulario.
+
+**Por qué el `<label>` lleva `for="tagsInput"` explícito**: un `<label>` sin `for` se asocia implícitamente con el primer elemento "labelable" que encuentra en el DOM. Como los chips (cada uno con un `<button>` interno para el `×`) se insertan **antes** que `#tagsInput` en el propio contenedor, ese primer botón pasaba a ser el control asociado implícito — y un clic en cualquier parte no interactiva de la etiqueta (por ejemplo, una sugerencia del desplegable) reenviaba, por comportamiento estándar del HTML, un clic sintético a ese botón, borrando el primer chip sin que el usuario lo pidiera. Es un caso real de la especificación (no un error del navegador), reproducible con clics reales; el `for="tagsInput"` explícito fija sin ambigüedad cuál es el control asociado y elimina el reenvío accidental.
+
 ## 5. Estructura del HTML
 
 ```
@@ -288,6 +308,10 @@ En el modal de gestión de categorías (4.5), en la fila de `.modal-actions` jun
 | `escapeHtml(str)` | Sanitiza cualquier texto antes de insertarlo como HTML (previene XSS) |
 | `normalizeTags(raw)` | Parsea el texto libre de etiquetas del formulario en un array `#etiqueta` deduplicado |
 | `genId()` | Genera IDs únicos: `Date.now().toString(36) + random` |
+| `tagsFieldSetChips(tags)` / `renderTagsChips()` | Editor de chips de etiquetas (4.20): fijan/repintan los chips confirmados a partir de un array, usado al abrir el modal (edición o alta) y al cancelarlo |
+| `tagsFieldCommitToken(raw)` / `tagsFieldCommitFromText(raw)` | Confirman un texto como chip (resolviendo el nombre canónico existente sin tocar `state.allTags`) / trocean un texto pegado con varias etiquetas y confirman cada una |
+| `tagsFieldResolveCanonical(raw)` | Versión de solo lectura de `ensureTag`: resuelve el nombre canónico ya existente (case-insensitive) o el texto limpio con `#`, sin registrar nada en la lista maestra |
+| `getTagsFieldSuggestions()` / `refreshTagsSuggestions()` | Calculan y pintan el desplegable de sugerencias filtrado por el texto actual del campo |
 
 ## 7. Decisiones de diseño relevantes (historial)
 
@@ -308,24 +332,28 @@ Recogidas aquí porque no son obvias a partir del código y explican *por qué* 
 13. **El punto de color de categoría es solo un acento, no repinta la fila entera**: se descartó teñir el fondo completo de la tarjeta o del item de categoría porque con muchas categorías de colores fuertes el listado se vuelve difícil de leer; un punto pequeño basta para identificar de un vistazo sin comprometer la legibilidad del resto.
 14. **El resaltado "activo" de una etiqueta usa `outline`, no solo `background`**: como el color personalizado de una etiqueta se aplica por `style` inline (que siempre gana a las reglas de clase), el estado "seleccionada" de una etiqueta ya no puede depender únicamente de cambiar su `background` por CSS — se añadió un `outline` en `.tag-chip.active`, que sí es una propiedad separada y por tanto visible incluso sobre un color inline.
 15. **Atajos de teclado solo si no se está escribiendo ni hay un modal abierto**: `/` y `n` comprueban `e.target.tagName`/`isContentEditable` y el estado `hidden` de los tres overlays antes de actuar, para no interceptar esas teclas mientras el usuario escribe en cualquier campo (incluida una descripción que contenga la letra "n" o el carácter "/").
-16. **Favicon vía servicio externo, sin guardarlo en los datos**: se optó por pedirlo en cada render a `google.com/s2/favicons` (un servicio de terceros ampliamente usado para este propósito) en vez de descargarlo y guardarlo en base64 dentro del enlace, para no inflar el JSON de exportación ni la cuota de `localStorage`. Contrapartida: requiere conexión a internet para verse (si no hay red, simplemente no aparece ningún icono, sin romper nada) y ese servicio recibe el dominio de cada enlace que se muestra — ver limitación de privacidad en la sección 9.
+16. **Editor de chips de etiquetas: `ensureTag` real solo en el `submit`, nunca al escribir**: `tagsFieldResolveCanonical` reimplementa la búsqueda case-insensitive de `ensureTag` pero sin escribir en `state.allTags`. Si se hubiera llamado a `ensureTag` directamente en cada chip confirmado, cancelar el modal después de escribir una etiqueta nueva la habría dejado registrada en la lista maestra (visible en "Gestionar etiquetas") aunque el enlace nunca se guardara. Duplicar la lógica de resolución era preferible a esa fuga de estado.
+17. **`<label for="tagsInput">` explícito en el campo de etiquetas**: sin el `for`, el `<label>` se asocia implícitamente con el primer elemento labelable en orden del DOM — y como los botones `×` de los chips (también `<button>`) se insertan antes que `#tagsInput`, un clic en cualquier descendiente no interactivo de la etiqueta (p. ej. una sugerencia del desplegable) reenviaba un clic sintético al primer chip y lo borraba. Comportamiento estándar de HTML, no un bug de navegador — se corrige fijando explícitamente el control asociado.
+18. **Favicon vía servicio externo, sin guardarlo en los datos**: se optó por pedirlo en cada render a `google.com/s2/favicons` (un servicio de terceros ampliamente usado para este propósito) en vez de descargarlo y guardarlo en base64 dentro del enlace, para no inflar el JSON de exportación ni la cuota de `localStorage`. Contrapartida: requiere conexión a internet para verse (si no hay red, simplemente no aparece ningún icono, sin romper nada) y ese servicio recibe el dominio de cada enlace que se muestra — ver limitación de privacidad en la sección 9.
 
 ## 8. Contrato con la extensión de Chrome
 
-`extension/background.js` nunca accede al DOM de `pinboard.html` directamente: pasa siempre por una superficie mínima y estable, `window.PinBoardBridge`, expuesta al final de la IIFE (`pinboard.html:1215-1241`). Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`, líneas 47-67) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, `background.js:69-73`), sin ningún error visible dentro de `pinboard.html`.
+`extension/background.js` nunca accede al DOM de `pinboard.html` directamente: pasa siempre por una superficie mínima y estable, `window.PinBoardBridge`, expuesta al final de la IIFE (`pinboard.html:1832-1858`). Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`, líneas 47-67) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, `background.js:69-73`), sin ningún error visible dentro de `pinboard.html`.
 
 **Superficie exacta que debe mantenerse estable:**
 
 | Elemento | Ubicación en `pinboard.html` | Para qué lo usa la extensión |
 |---|---|---|
-| `PinBoardBridge.checkDuplicate(url)` → `{id,title,category}` o `null` | líneas 1217-1220 | Detecta si la URL de la pestaña activa ya está guardada |
-| `PinBoardBridge.focusExisting(url)` | líneas 1222-1225 | Desplaza la vista y resalta la ficha si ya existe |
-| `PinBoardBridge.suggestCategory(title, description, url)` → string | línea 1228 | Sugiere una categoría existente por coincidencia de palabras |
-| `PinBoardBridge.prefillAndOpen({category,title,url,description})` | líneas 1231-1240 | Abre el modal de "Nuevo enlace" precargado |
-| Clases `.link-card` / `.link-card-compact` + atributo `data-id` en el elemento raíz de cada ficha | `highlightLink()`, líneas 1207-1213 | `focusExisting` busca la ficha por estos selectores para resaltarla; si no los encuentra (p. ej. ficha filtrada/oculta), la llamada no hace nada, sin error |
-| Ids de campo `fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription` | `openModal()`, líneas 1121-1133 | `prefillAndOpen` los rellena con `getElementById(...).value = ...` |
+| `PinBoardBridge.checkDuplicate(url)` → `{id,title,category}` o `null` | líneas 1834-1837 | Detecta si la URL de la pestaña activa ya está guardada |
+| `PinBoardBridge.focusExisting(url)` | líneas 1839-1842 | Desplaza la vista y resalta la ficha si ya existe |
+| `PinBoardBridge.suggestCategory(title, description, url)` → string | línea 1845 | Sugiere una categoría existente por coincidencia de palabras |
+| `PinBoardBridge.prefillAndOpen({category,title,url,description})` | líneas 1848-1857 | Abre el modal de "Nuevo enlace" precargado |
+| Clases `.link-card` / `.link-card-compact` + atributo `data-id` en el elemento raíz de cada ficha | `highlightLink()`, líneas 1824-1830 | `focusExisting` busca la ficha por estos selectores para resaltarla; si no los encuentra (p. ej. ficha filtrada/oculta), la llamada no hace nada, sin error |
+| Ids de campo `fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription` | `openModal()`, línea 1632 | `prefillAndOpen` los rellena con `getElementById(...).value = ...` |
 
-**Regla práctica al añadir cualquier funcionalidad nueva**: si no se toca ninguno de los elementos de la tabla, la extensión no se ve afectada. Si se toca alguno (p. ej. se sustituye el campo de etiquetas por un componente de chips, o se rediseñan las fichas de enlace), hay que comprobar expresamente que lo que exige esta tabla se mantiene, y pasar la checklist manual siguiente antes de dar el cambio por cerrado.
+**Regla práctica al añadir cualquier funcionalidad nueva**: si no se toca ninguno de los elementos de la tabla, la extensión no se ve afectada. Si se toca alguno (p. ej. se rediseñan las fichas de enlace), hay que comprobar expresamente que lo que exige esta tabla se mantiene, y pasar la checklist manual siguiente antes de dar el cambio por cerrado.
+
+*(Nota: el campo de etiquetas ya se rediseñó como editor de chips — 4.20 — precisamente porque `fieldTags` nunca formó parte de esta tabla protegida: `prefillAndOpen` no lo rellena, así que se pudo cambiar su estructura interna libremente sin tocar el contrato.)*
 
 **Checklist de verificación manual** (no hay tests automatizados en el proyecto — ver sección 10):
 1. Abrir una pestaña con una URL que **no** esté guardada y pulsar el icono de la extensión → debe abrirse `pinboard.html` con el modal "Nuevo enlace" ya precargado (título, URL, descripción, categoría sugerida).

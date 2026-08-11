@@ -532,6 +532,37 @@
     background:var(--surface-2);
   }
   #linkForm textarea{resize:vertical;}
+
+  /* Editor de chips del campo Etiquetas */
+  .tags-field{ position:relative; }
+  .tags-chips-wrap{
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    padding:6px 8px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface-2); cursor:text;
+  }
+  .tags-chips-wrap:focus-within{ border-color:var(--primary); outline:2px solid var(--primary); outline-offset:1px; }
+  .tags-chip{ cursor:default; display:inline-flex; align-items:center; gap:5px; padding:3px 4px 3px 9px; }
+  .tags-chip-remove{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; padding:0; border:none; border-radius:50%;
+    background:transparent; color:inherit; font-size:13px; line-height:1; cursor:pointer; opacity:0.7;
+  }
+  .tags-chip-remove:hover{ opacity:1; background:rgba(0,0,0,0.12); }
+  .tags-chip-remove:focus-visible{ outline:2px solid var(--primary); outline-offset:1px; opacity:1; }
+  #linkForm .tags-chips-wrap .tags-input{
+    flex:1 1 80px; min-width:80px; border:none; background:transparent;
+    padding:4px 2px; font-family:inherit; font-size:14px; font-weight:400; color:var(--text);
+  }
+  .tags-input:focus{ outline:none; }
+  .tags-suggestions{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:5;
+    margin:0; padding:4px; list-style:none;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    box-shadow:var(--shadow-lg); max-height:180px; overflow-y:auto;
+  }
+  .tags-suggestions[hidden]{ display:none; }
+  .tags-suggestion{ padding:6px 9px; border-radius:6px; font-size:13px; color:var(--text); cursor:pointer; }
+  .tags-suggestion:hover,.tags-suggestion.active{ background:var(--tag-active-bg); color:var(--tag-active-fg); }
   .checkbox-label{
     flex-direction:row !important;
     align-items:center;
@@ -736,8 +767,17 @@
         <textarea id="fieldDescription" rows="2"></textarea>
       </label>
 
-      <label>Etiquetas <span style="font-weight:400">(separadas por espacio, con o sin #)</span>
-        <input id="fieldTags" placeholder="#trabajo #referencia" autocomplete="off">
+      <label for="tagsInput">Etiquetas <span style="font-weight:400">(escribe y pulsa Enter, espacio o coma; también puedes pegar varias de golpe)</span>
+        <div id="tagsField" class="tags-field">
+          <div id="tagsChipsWrap" class="tags-chips-wrap">
+            <input id="tagsInput" type="text" class="tags-input" autocomplete="off"
+                   placeholder="Añadir etiqueta..." aria-label="Añadir etiqueta"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false"
+                   aria-controls="tagsSuggestions" aria-haspopup="listbox">
+          </div>
+          <ul id="tagsSuggestions" class="tags-suggestions" role="listbox" hidden></ul>
+        </div>
+        <input type="hidden" id="fieldTags">
       </label>
 
       <label class="checkbox-label">
@@ -817,7 +857,7 @@
 
   // Identidad de la app: versión visible y créditos. Editable a mano aquí.
   var APP_CONFIG = {
-    version: "1.4.0",
+    version: "1.5.0",
     siteName: "NLevia.org",
     siteUrl: "https://www.nlevia.org",
     repoUrl: "https://github.com/alvama/PinBoard"
@@ -1468,6 +1508,127 @@
   var overlay = document.getElementById("modalOverlay");
   var form = document.getElementById("linkForm");
 
+  var tagsChipsWrap = document.getElementById("tagsChipsWrap");
+  var tagsInput = document.getElementById("tagsInput");
+  var tagsSuggestionsEl = document.getElementById("tagsSuggestions");
+  var fieldTagsHidden = document.getElementById("fieldTags");
+
+  var tagsFieldChips = [];           // etiquetas confirmadas como chip, ej. ["#trabajo","#referencia"]
+  var tagsFieldSuggestionItems = [];  // sugerencias actualmente pintadas en el desplegable
+  var tagsFieldHighlightIndex = -1;   // índice resaltado del desplegable, -1 = ninguno
+
+  // ---------- Editor de chips de etiquetas ----------
+
+  function tagsFieldSetChips(tags){
+    tagsFieldChips = (tags || []).slice();
+    tagsInput.value = "";
+    closeTagsSuggestions();
+    renderTagsChips();
+    syncTagsHiddenInput();
+  }
+
+  function renderTagsChips(){
+    Array.prototype.slice.call(tagsChipsWrap.children).forEach(function(child){
+      if(child !== tagsInput) tagsChipsWrap.removeChild(child);
+    });
+    tagsFieldChips.forEach(function(tag){
+      var chip = document.createElement("span");
+      chip.className = "tag-chip tags-chip";
+      chip.textContent = tag;
+      var removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "tags-chip-remove";
+      removeBtn.setAttribute("aria-label", "Eliminar etiqueta " + tag);
+      removeBtn.setAttribute("data-tag", tag);
+      removeBtn.textContent = "×";
+      chip.appendChild(removeBtn);
+      tagsChipsWrap.insertBefore(chip, tagsInput);
+    });
+  }
+
+  function syncTagsHiddenInput(){
+    fieldTagsHidden.value = tagsFieldChips.join(" ");
+  }
+
+  // Resuelve el texto tecleado al nombre canónico existente (case-insensitive),
+  // SIN llamar a ensureTag: no queremos ensuciar state.allTags con chips que el
+  // usuario cancele antes de guardar (ensureTag real solo se dispara en el submit).
+  function tagsFieldResolveCanonical(raw){
+    var clean = "#" + String(raw == null ? "" : raw).trim().replace(/^#+/, "");
+    if(clean.length <= 1) return null;
+    var existing = state.allTags.find(function(t){ return t.toLowerCase() === clean.toLowerCase(); });
+    return existing || clean;
+  }
+
+  function tagsFieldCommitToken(raw){
+    // Cierra el desplegable ANTES de tocar el DOM de los chips: si se cierra
+    // después, el desplegable (position:absolute) puede reposicionarse por el
+    // crecimiento del wrap de chips justo antes de desaparecer, dejando una
+    // ventana en la que un evento tardío del propio desplegable puede acabar
+    // resolviéndose contra un elemento que ha quedado en su lugar.
+    closeTagsSuggestions();
+    var canonical = tagsFieldResolveCanonical(raw);
+    if(canonical){
+      var exists = tagsFieldChips.some(function(t){ return t.toLowerCase() === canonical.toLowerCase(); });
+      if(!exists){
+        tagsFieldChips.push(canonical);
+        renderTagsChips();
+        syncTagsHiddenInput();
+      }
+    }
+    tagsInput.value = "";
+  }
+
+  function tagsFieldCommitFromText(raw){
+    String(raw).split(/[\s,]+/).map(function(p){ return p.trim(); }).filter(Boolean).forEach(tagsFieldCommitToken);
+  }
+
+  function getTagsFieldSuggestions(){
+    var raw = tagsInput.value.trim().replace(/^#+/, "").toLowerCase();
+    if(!raw) return [];
+    var chosen = tagsFieldChips.map(function(t){ return t.toLowerCase(); });
+    return getAllTags().filter(function(t){
+      var name = t.replace(/^#+/, "").toLowerCase();
+      return name.indexOf(raw) !== -1 && chosen.indexOf(t.toLowerCase()) === -1;
+    }).slice(0, 8);
+  }
+
+  function refreshTagsSuggestions(){
+    tagsFieldSuggestionItems = getTagsFieldSuggestions();
+    tagsFieldHighlightIndex = tagsFieldSuggestionItems.length ? 0 : -1;
+    paintTagsSuggestions();
+  }
+
+  function paintTagsSuggestions(){
+    tagsSuggestionsEl.innerHTML = "";
+    if(!tagsFieldSuggestionItems.length){
+      tagsSuggestionsEl.hidden = true;
+      tagsInput.setAttribute("aria-expanded", "false");
+      return;
+    }
+    tagsFieldSuggestionItems.forEach(function(tag, i){
+      var li = document.createElement("li");
+      li.className = "tags-suggestion" + (i === tagsFieldHighlightIndex ? " active" : "");
+      li.setAttribute("role", "option");
+      li.id = "tagsSuggestion-" + i;
+      li.setAttribute("data-tag", tag);
+      li.textContent = tag;
+      tagsSuggestionsEl.appendChild(li);
+    });
+    tagsSuggestionsEl.hidden = false;
+    tagsInput.setAttribute("aria-expanded", "true");
+    tagsInput.setAttribute("aria-activedescendant", "tagsSuggestion-" + tagsFieldHighlightIndex);
+  }
+
+  function closeTagsSuggestions(){
+    tagsFieldSuggestionItems = [];
+    tagsFieldHighlightIndex = -1;
+    tagsSuggestionsEl.hidden = true;
+    tagsSuggestionsEl.innerHTML = "";
+    tagsInput.setAttribute("aria-expanded", "false");
+    tagsInput.removeAttribute("aria-activedescendant");
+  }
+
   function openModal(link){
     editingId = link ? link.id : null;
     document.getElementById("modalTitle").textContent = link ? "Editar enlace" : "Nuevo enlace";
@@ -1476,7 +1637,7 @@
     document.getElementById("fieldTitle").value = link ? link.title : "";
     document.getElementById("fieldUrl").value = link ? link.url : "";
     document.getElementById("fieldDescription").value = link ? link.description : "";
-    document.getElementById("fieldTags").value = link ? link.tags.join(" ") : "";
+    tagsFieldSetChips(link ? link.tags : []);
     document.getElementById("fieldActive").checked = link ? link.active : true;
     document.getElementById("btnDuplicate").hidden = !link;
     overlay.hidden = false;
@@ -1507,10 +1668,12 @@
     overlay.hidden = true;
     editingId = null;
     form.reset();
+    tagsFieldSetChips([]);   // los chips son DOM ajeno al form nativo; form.reset() no los toca
   }
 
   form.addEventListener("submit", function(e){
     e.preventDefault();
+    if(tagsInput.value.trim()) tagsFieldCommitToken(tagsInput.value); // red de seguridad: confirma texto pendiente si se pulsó "Guardar" sin Enter/espacio/coma
     var category = document.getElementById("fieldCategory").value.trim();
     var title = document.getElementById("fieldTitle").value.trim();
     var url = document.getElementById("fieldUrl").value.trim();
@@ -1548,6 +1711,77 @@
   document.getElementById("btnAdd").addEventListener("click", function(){ openModal(null); });
   document.getElementById("btnCancel").addEventListener("click", closeModal);
   document.getElementById("btnDuplicate").addEventListener("click", duplicateEditingLink);
+
+  tagsChipsWrap.addEventListener("click", function(e){
+    var removeBtn = e.target.closest(".tags-chip-remove");
+    if(removeBtn){
+      var tag = removeBtn.getAttribute("data-tag");
+      tagsFieldChips = tagsFieldChips.filter(function(t){ return t !== tag; });
+      renderTagsChips();
+      syncTagsHiddenInput();
+    }
+    tagsInput.focus();
+  });
+
+  tagsInput.addEventListener("input", refreshTagsSuggestions);
+
+  tagsInput.addEventListener("paste", function(e){
+    var pasted = (e.clipboardData || window.clipboardData).getData("text");
+    if(!pasted || !/[\s,]/.test(pasted)) return; // palabra suelta: comportamiento nativo
+    e.preventDefault();
+    var combined = tagsInput.value + pasted;
+    tagsInput.value = "";
+    tagsFieldCommitFromText(combined);
+  });
+
+  tagsInput.addEventListener("blur", function(){
+    if(tagsInput.value.trim()) tagsFieldCommitToken(tagsInput.value);
+    closeTagsSuggestions();
+  });
+
+  tagsInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter" || e.key === "," || e.key === " "){
+      if(!tagsInput.value.trim()) return; // deja pasar Enter para poder enviar el formulario
+      e.preventDefault();
+      if(tagsFieldHighlightIndex >= 0 && tagsFieldSuggestionItems[tagsFieldHighlightIndex]){
+        tagsFieldCommitToken(tagsFieldSuggestionItems[tagsFieldHighlightIndex]);
+      } else {
+        tagsFieldCommitToken(tagsInput.value);
+      }
+    } else if(e.key === "Backspace" && tagsInput.value === "" && tagsFieldChips.length){
+      e.preventDefault();
+      tagsFieldChips.pop();
+      renderTagsChips();
+      syncTagsHiddenInput();
+      closeTagsSuggestions();
+    } else if(e.key === "ArrowDown" && tagsFieldSuggestionItems.length){
+      e.preventDefault();
+      tagsFieldHighlightIndex = (tagsFieldHighlightIndex + 1) % tagsFieldSuggestionItems.length;
+      paintTagsSuggestions();
+    } else if(e.key === "ArrowUp" && tagsFieldSuggestionItems.length){
+      e.preventDefault();
+      tagsFieldHighlightIndex = (tagsFieldHighlightIndex - 1 + tagsFieldSuggestionItems.length) % tagsFieldSuggestionItems.length;
+      paintTagsSuggestions();
+    } else if(e.key === "Escape"){
+      if(tagsFieldSuggestionItems.length || tagsInput.value){
+        e.stopPropagation(); // no cierra el modal: solo limpia el estado local
+        closeTagsSuggestions();
+        tagsInput.value = "";
+      }
+      // si no hay nada local que cancelar, se deja burbujear: cierra el modal (comportamiento heredado del listener global)
+    }
+  });
+
+  tagsSuggestionsEl.addEventListener("mousedown", function(e){
+    e.preventDefault(); // evita el blur del input antes de procesar el click
+  });
+  tagsSuggestionsEl.addEventListener("click", function(e){
+    var li = e.target.closest(".tags-suggestion");
+    if(!li) return;
+    tagsFieldCommitToken(li.getAttribute("data-tag"));
+    tagsInput.focus();
+  });
+
   bindOverlayClose(overlay, closeModal);
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
