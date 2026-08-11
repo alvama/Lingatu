@@ -36,6 +36,9 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 - Los nombres de categoría largos ya no se cortan con "…" en el sidebar:
   ahora continúan en la línea siguiente mostrando el nombre completo.
+- Vista cómoda: el título de cada enlace se veía en azul (heredado del
+  color genérico de los enlaces); ahora usa el mismo color neutro que el
+  resto del texto, igual que ya hacía la vista compacta.
 
 ## [1.3.0] - 2026-08-11
 

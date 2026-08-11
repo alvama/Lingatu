@@ -188,6 +188,7 @@ Ajustes visuales sobre `cardHtml()` (solo vista cómoda, no la compacta):
 - **URL bajo el título**: `hostnameForDisplay(url)` (mismo patrón que `faviconUrl`, con su propio `try/catch`) muestra el `hostname` en `<div class="url">`, reutilizando una clase que ya existía en el CSS sin usar.
 - **Densidad del grid**: `.links-grid` bajó su `minmax()` de 280px a 250px, lo que combinado con `.content{max-width:1200px}` encaja 4 columnas a una resolución de escritorio normal sin dejar de ser responsive (`auto-fill` sigue recalculando columnas por el ancho disponible).
 - **Fichas más compactas**: padding de `.link-card` reducido de 16px a 12px/14px y el `gap` interno de 8px a 6px.
+- **Título en color neutro**: `.link-card h3 a` fija `color:var(--text)` explícitamente (antes heredaba el azul del `a{color:var(--primary)}` genérico), igual que ya hacía `.compact-title` en la vista compacta.
 
 ### 4.17 Vistas guardadas (exclusión de etiquetas por nombre)
 Objetivo: poder ocultar de la vista los enlaces de un contexto (p. ej. "trabajo") sin necesidad de un campo nuevo en el modelo de datos ni de un sistema de grupos aparte — reutiliza las etiquetas ya existentes.
