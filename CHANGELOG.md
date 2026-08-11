@@ -5,6 +5,27 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.4.0] - 2026-08-11
+
+### Añadido
+
+- Sección "Funcionalidades" en el README, con el listado completo de lo
+  que se puede hacer en PinBoard.
+- **Exportar/importar categorías**: en "Gestionar categorías", exportar
+  el conjunto completo de categorías (nombre, icono, color y posición) a
+  un JSON independiente de los enlaces, e importarlo de nuevo fusionando
+  (añade solo las que no existan) o sustituyendo todo (los enlaces de
+  categorías eliminadas pasan a "Sin categoría").
+- **Selección múltiple de categorías** en el sidebar: Ctrl+clic (o
+  Cmd+clic) añade o quita una categoría de la selección sin perder las
+  demás; un clic normal sigue seleccionando solo una, y "Todas" limpia la
+  selección.
+
+### Corregido
+
+- Los nombres de categoría largos ya no se cortan con "…" en el sidebar:
+  ahora continúan en la línea siguiente mostrando el nombre completo.
+
 ## [1.3.0] - 2026-08-11
 
 ### Añadido
@@ -92,6 +113,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.4.0]: https://github.com/alvama/PinBoard/releases/tag/v1.4.0
 [1.3.0]: https://github.com/alvama/PinBoard/releases/tag/v1.3.0
 [1.2.1]: https://github.com/alvama/PinBoard/releases/tag/v1.2.1
 [1.2.0]: https://github.com/alvama/PinBoard/releases/tag/v1.2.0

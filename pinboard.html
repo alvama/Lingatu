@@ -107,7 +107,7 @@
   }
   .category-item{
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:space-between;
     padding:7px 10px;
     border-radius:8px;
@@ -126,6 +126,8 @@
     padding:1px 7px;
     min-width:20px;
     text-align:center;
+    margin-top:1px;
+    flex-shrink:0;
   }
   .category-item.active .count{background:rgba(255,255,255,0.25);color:var(--primary-fg);}
   .category-item.dragging{opacity:0.4;}
@@ -240,9 +242,10 @@
     display:flex;
     align-items:center;
     gap:7px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
+    flex:1 1 auto;
+    min-width:0;
+    white-space:normal;
+    overflow-wrap:anywhere;
   }
 
   .data-actions{
@@ -759,6 +762,11 @@
       <input id="manageAddInput" placeholder="Nueva categoría..." autocomplete="off">
       <button type="submit" class="btn-primary">Añadir</button>
     </form>
+    <div id="manageCategoryIO" class="modal-actions" hidden>
+      <button type="button" id="btnExportCategories" title="Exportar categorías (nombre, icono, color y posición) a un archivo JSON">Exportar categorías</button>
+      <button type="button" id="btnImportCategories" title="Importar categorías desde un archivo JSON">Importar categorías</button>
+      <input type="file" id="fileImportCategories" accept="application/json" hidden>
+    </div>
     <div class="modal-actions">
       <button type="button" id="manageCloseBtn">Cerrar</button>
     </div>
@@ -774,6 +782,20 @@
       <div style="display:flex;gap:10px;">
         <button type="button" id="importReplaceBtn" class="btn-danger">Sustituir todo</button>
         <button type="button" id="importMergeBtn" class="btn-primary" style="width:auto;">Fusionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="importCategoriesModalOverlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2>Importar categorías</h2>
+    <p id="importCategoriesSummary" style="font-size:13px;color:var(--text-muted);margin:0 0 16px 0;"></p>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button type="button" id="importCategoriesCancelBtn">Cancelar</button>
+      <div style="display:flex;gap:10px;">
+        <button type="button" id="importCategoriesReplaceBtn" class="btn-danger">Sustituir todo</button>
+        <button type="button" id="importCategoriesMergeBtn" class="btn-primary" style="width:auto;">Fusionar</button>
       </div>
     </div>
   </div>
@@ -797,7 +819,7 @@
 
   // Identidad de la app: versión visible y créditos. Editable a mano aquí.
   var APP_CONFIG = {
-    version: "1.3.0",
+    version: "1.4.0",
     siteName: "NLevia.org",
     siteUrl: "https://www.nlevia.org",
     repoUrl: "https://github.com/alvama/PinBoard"
@@ -813,7 +835,7 @@
     categoryColors: {},
     categoryIcons: {},
     tagColors: {},
-    category: null,
+    selectedCategories: new Set(),
     tags: new Set(),
     excludedTags: new Set(),
     viewProfiles: [],
@@ -1047,7 +1069,7 @@
   function getFilteredLinks(){
     var q = state.search.trim().toLowerCase();
     return state.links.filter(function(l){
-      if(state.category && l.category !== state.category) return false;
+      if(state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
       if(state.activeFilter === "active" && !l.active) return false;
       if(state.tags.size > 0){
         var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
@@ -1071,12 +1093,12 @@
   // A propósito no tiene en cuenta la búsqueda de texto ni el toggle
   // Todos/Activos, para que ese filtro momentáneo no recorte una exportación.
   function hasLinkSelection(){
-    return state.category !== null || state.tags.size > 0 || state.excludedTags.size > 0;
+    return state.selectedCategories.size > 0 || state.tags.size > 0 || state.excludedTags.size > 0;
   }
   function getLinksForExport(){
     if(!hasLinkSelection()) return state.links;
     return state.links.filter(function(l){
-      if(state.category && l.category !== state.category) return false;
+      if(state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
       if(state.tags.size > 0){
         var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
         if(!hasTag) return false;
@@ -1236,10 +1258,10 @@
   function renderSidebar(){
     var categories = getCategories();
     var totalCount = state.links.length;
-    var html = '<li class="category-item' + (state.category === null ? ' active' : '') + '" data-category="">' +
+    var html = '<li class="category-item' + (state.selectedCategories.size === 0 ? ' active' : '') + '" data-category="">' +
                  '<span>Todas</span><span class="count">' + totalCount + '</span></li>';
     categories.forEach(function(c){
-      html += '<li class="category-item' + (state.category === c.name ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '" draggable="true" title="Arrastra para reordenar">' +
+      html += '<li class="category-item' + (state.selectedCategories.has(c.name) ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '" draggable="true" title="Arrastra para reordenar (Ctrl+clic para selección múltiple)">' +
                 '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span><span class="count">' + c.count + '</span></li>';
     });
     document.getElementById("categoryList").innerHTML = html;
@@ -1452,7 +1474,7 @@
     editingId = link ? link.id : null;
     document.getElementById("modalTitle").textContent = link ? "Editar enlace" : "Nuevo enlace";
     document.getElementById("linkId").value = link ? link.id : "";
-    document.getElementById("fieldCategory").value = link ? link.category : (state.category || "");
+    document.getElementById("fieldCategory").value = link ? link.category : (state.selectedCategories.size === 1 ? Array.from(state.selectedCategories)[0] : "");
     document.getElementById("fieldTitle").value = link ? link.title : "";
     document.getElementById("fieldUrl").value = link ? link.url : "";
     document.getElementById("fieldDescription").value = link ? link.description : "";
@@ -1648,6 +1670,7 @@
     manageColorPickerFor = null;
     document.getElementById("manageModalTitle").textContent = type === "category" ? "Gestionar categorías" : "Gestionar etiquetas";
     manageAddInput.placeholder = type === "category" ? "Nueva categoría..." : "Nueva etiqueta...";
+    document.getElementById("manageCategoryIO").hidden = type !== "category";
     renderManageList();
     manageOverlay.hidden = false;
     manageAddInput.focus();
@@ -1773,7 +1796,10 @@
         if(idx !== -1) state.categories[idx] = newName;
         state.links.forEach(function(l){ if(l.category === oldName) l.category = newName; });
       }
-      if(state.category === oldName) state.category = canonicalCat;
+      if(state.selectedCategories.has(oldName)){
+        state.selectedCategories.delete(oldName);
+        state.selectedCategories.add(canonicalCat);
+      }
       if(state.categoryColors[oldName] && !state.categoryColors[canonicalCat]){
         state.categoryColors[canonicalCat] = state.categoryColors[oldName];
       }
@@ -1888,7 +1914,7 @@
         }
         state.categories = state.categories.filter(function(c){ return c !== name; });
         saveCategories();
-        if(state.category === name) state.category = null;
+        state.selectedCategories.delete(name);
         delete state.categoryColors[name];
         saveCategoryColors();
         delete state.categoryIcons[name];
@@ -2075,11 +2101,15 @@
     if(!item) return;
     var cat = item.getAttribute("data-category");
     if(cat === ""){
-      state.category = null;
-    } else if(state.category === cat){
-      state.category = null; // clic sobre la ya seleccionada -> deselecciona
+      state.selectedCategories.clear(); // clic en "Todas" -> limpia toda la selección
+    } else if(e.ctrlKey || e.metaKey){
+      // Ctrl/Cmd+clic -> alterna esta categoría sin tocar las demás (selección múltiple)
+      if(state.selectedCategories.has(cat)) state.selectedCategories.delete(cat);
+      else state.selectedCategories.add(cat);
+    } else if(state.selectedCategories.size === 1 && state.selectedCategories.has(cat)){
+      state.selectedCategories.clear(); // clic sobre la única seleccionada -> deselecciona
     } else {
-      state.category = cat;
+      state.selectedCategories = new Set([cat]); // clic normal -> sustituye la selección
     }
     render();
   });
@@ -2253,7 +2283,7 @@
   });
 
   function resetFiltersAfterImport(){
-    state.category = null; state.tags.clear(); state.activeFilter = "all"; state.search = "";
+    state.selectedCategories.clear(); state.tags.clear(); state.activeFilter = "all"; state.search = "";
     document.getElementById("searchInput").value = "";
   }
 
@@ -2356,6 +2386,125 @@
   });
   document.getElementById("importCancelBtn").addEventListener("click", closeImportModal);
   bindOverlayClose(importModalOverlay, closeImportModal);
+
+  // ---------- Exportar / Importar categorías ----------
+  document.getElementById("btnExportCategories").addEventListener("click", function(){
+    var data = state.categories.map(function(name){
+      return {
+        name: name,
+        icon: state.categoryIcons[name] || null,
+        color: state.categoryColors[name] || null
+      };
+    });
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    var d = new Date();
+    var stamp = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    a.download = "pinboard_categorias_" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  });
+
+  function performImportCategoriesMerge(data){
+    var added = 0, skipped = 0;
+    data.forEach(function(entry){
+      var name = String(entry.name || "").trim();
+      if(!name) return;
+      var existed = state.categories.some(function(c){ return c.toLowerCase() === name.toLowerCase(); });
+      var canonical = ensureCategory(name);
+      if(existed){ skipped++; return; }
+      added++;
+      if(entry.icon && CATEGORY_ICONS.hasOwnProperty(entry.icon)) state.categoryIcons[canonical] = entry.icon;
+      if(entry.color) state.categoryColors[canonical] = String(entry.color);
+    });
+    saveCategories();
+    saveCategoryColors();
+    saveCategoryIcons();
+    renderManageList();
+    render();
+    alert("Importación completada: " + added + " categorías añadidas, " + skipped + " omitidas (ya existían).");
+  }
+
+  function performImportCategoriesReplace(data){
+    var names = [], colors = {}, icons = {};
+    data.forEach(function(entry){
+      var name = String(entry.name || "").trim();
+      if(!name || names.indexOf(name) !== -1) return;
+      names.push(name);
+      if(entry.icon && CATEGORY_ICONS.hasOwnProperty(entry.icon)) icons[name] = entry.icon;
+      if(entry.color) colors[name] = String(entry.color);
+    });
+    state.categories = names;
+    state.categoryColors = colors;
+    state.categoryIcons = icons;
+    var fallback = null;
+    state.links.forEach(function(l){
+      if(names.indexOf(l.category) === -1){
+        if(!fallback) fallback = ensureCategory("Sin categoría");
+        l.category = fallback;
+      }
+    });
+    state.selectedCategories = new Set(Array.from(state.selectedCategories).filter(function(c){
+      return state.categories.indexOf(c) !== -1;
+    }));
+    save();
+    saveCategories();
+    saveCategoryColors();
+    saveCategoryIcons();
+    renderManageList();
+    render();
+  }
+
+  var fileImportCategories = document.getElementById("fileImportCategories");
+  var pendingImportCategoriesData = null;
+  var importCategoriesModalOverlay = document.getElementById("importCategoriesModalOverlay");
+
+  function closeImportCategoriesModal(){
+    importCategoriesModalOverlay.hidden = true;
+    pendingImportCategoriesData = null;
+  }
+
+  document.getElementById("btnImportCategories").addEventListener("click", function(){ fileImportCategories.click(); });
+  fileImportCategories.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(reader.result);
+        if(!Array.isArray(data)) throw new Error("Formato inválido");
+        var valid = data.every(function(c){ return c && c.name; });
+        if(!valid) throw new Error("Formato inválido");
+        pendingImportCategoriesData = data;
+        document.getElementById("importCategoriesSummary").textContent =
+          "El archivo contiene " + data.length + " categorías. Tienes " + state.categories.length + " categorías actualmente. " +
+          '"Fusionar" añade solo las que no tengas ya (por nombre), sin tocar las existentes. "Sustituir todo" reemplaza tus categorías, iconos, colores y orden por los del archivo (los enlaces de categorías eliminadas pasan a "Sin categoría").';
+        importCategoriesModalOverlay.hidden = false;
+      }catch(err){
+        alert("No se pudo importar el archivo: " + err.message);
+      }
+      fileImportCategories.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("importCategoriesMergeBtn").addEventListener("click", function(){
+    if(pendingImportCategoriesData) performImportCategoriesMerge(pendingImportCategoriesData);
+    closeImportCategoriesModal();
+  });
+  document.getElementById("importCategoriesReplaceBtn").addEventListener("click", function(){
+    var data = pendingImportCategoriesData;
+    if(!data){ closeImportCategoriesModal(); return; }
+    if(confirm("Vas a sustituir tus " + state.categories.length + " categorías actuales por las " + data.length + " del archivo. Esta acción no se puede deshacer. ¿Continuar?")){
+      performImportCategoriesReplace(data);
+      closeImportCategoriesModal();
+    }
+  });
+  document.getElementById("importCategoriesCancelBtn").addEventListener("click", closeImportCategoriesModal);
+  bindOverlayClose(importCategoriesModalOverlay, closeImportCategoriesModal);
 
   // ---------- Inicio ----------
   var stored = load();

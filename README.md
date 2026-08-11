@@ -13,6 +13,36 @@ activa y la añade con un clic.
   pestaña activa, comprueba si ya existe en PinBoard y, si no, abre el
   formulario de alta precargado con una categoría sugerida.
 
+## Funcionalidades
+
+- **Enlaces**: alta/edición/borrado, duplicar con un clic, reordenar
+  manualmente (drag & drop o botones ▲/▼), favicon automático.
+- **Categorías**: crear, renombrar, eliminar y reordenar (drag & drop o
+  ▲/▼); color e icono propios (56 iconos a elegir); selección múltiple en
+  el sidebar con Ctrl+clic; exportar/importar el conjunto completo de
+  categorías (nombre, icono, color y posición) por separado de los
+  enlaces.
+- **Etiquetas**: asignación libre por enlace, color propio, filtrado por
+  inclusión y exclusión (clic / clic de nuevo / clic otra vez — ciclo de
+  3 estados), icono de escoba para limpiar la selección de golpe.
+- **Vistas guardadas**: guardar la combinación de etiquetas
+  incluidas/excluidas activa con un nombre y volver a aplicarla con un
+  clic.
+- **Búsqueda y filtros combinables**, con exportación que respeta la
+  selección activa (categoría/etiquetas) en vez de exportar siempre todo.
+- **Dos modos de vista**: cómoda (con barra de color y URL bajo el
+  título) y compacta.
+- **Exportar/Importar enlaces** en JSON, con opción de fusionar
+  (deduplicando por URL) o sustituir todo.
+- **Importador de marcadores** de Chrome/Edge (`tools/`).
+- Modo oscuro automático, atajos de teclado (`/` buscar, `n` nuevo
+  enlace), título de la página personalizable.
+- Cero servidor, cero cuentas: todo vive en `localStorage` de tu
+  navegador.
+
+Detalle técnico completo en
+[`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
+
 ## Instalación de la app
 
 1. Descarga o clona este repositorio.
@@ -126,7 +156,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.3.0](https://github.com/alvama/PinBoard/releases/tag/v1.3.0)
+- Última versión publicada: [v1.4.0](https://github.com/alvama/PinBoard/releases/tag/v1.4.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia

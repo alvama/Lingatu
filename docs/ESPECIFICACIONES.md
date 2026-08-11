@@ -90,7 +90,7 @@ Los enlaces filtrados se agrupan siempre por categoría en el área principal. C
 
 Las categorías se muestran en su orden manual (ver 4.14), no alfabético. Si se filtra por una categoría concreta desde el sidebar, solo aparece un grupo.
 
-**Filtro por categoría (sidebar)**: clic en un `.category-item` de `#categoryList` fija `state.category` a esa categoría. Un segundo clic sobre la **misma** categoría ya seleccionada la deselecciona (`state.category = null`), sin necesidad de volver a pulsar "Todas" — mismo resultado que clicar "Todas", pero como atajo directo sobre la categoría activa.
+**Filtro por categoría (sidebar)**: `state.selectedCategories` (`Set`) guarda la selección. Un clic normal en un `.category-item` de `#categoryList` la sustituye por esa única categoría (o la deselecciona si ya era la única seleccionada); **Ctrl+clic o Cmd+clic** (`e.ctrlKey || e.metaKey`) añade o quita esa categoría del conjunto sin tocar el resto de la selección (selección múltiple, ver 4.18); un enlace coincide si su categoría está en el conjunto (OR). Clic en "Todas" vacía `state.selectedCategories` por completo, con o sin Ctrl.
 
 **Plegar/expandir**: clic en la cabecera de un grupo (`toggleCategoryCollapse`) lo pliega u expande individualmente — el estado se guarda por nombre de categoría en `state.collapsedCategories` (`Set`) y persiste en `localStorage` (`enlaces_collapsed_categories_v1`), así que se recuerda entre sesiones. Visualmente, un grupo plegado oculta su `links-grid`/`links-list` vía CSS (`.category-group.collapsed`) y rota la flecha (`.group-toggle-arrow`) -90°. El botón **"Plegar todo" / "Expandir todo"** de la barra de herramientas (`#btnToggleAllGroups`) pliega o expande todas las categorías de golpe; su etiqueta se recalcula en cada `render()` (`syncToggleAllGroupsLabel`) según si *todas* las categorías están ya plegadas o no.
 
@@ -98,7 +98,7 @@ Las categorías se muestran en su orden manual (ver 4.14), no alfabético. Si se
 
 ### 4.3 Búsqueda y filtros
 - **Búsqueda** (`#searchInput`): coincidencia de subcadena (case-insensitive) sobre título + descripción + etiquetas concatenados.
-- **Filtro de categoría**: menú lateral tipo lista, un único valor seleccionable (`state.category`, `null` = todas).
+- **Filtro de categoría**: menú lateral tipo lista, selección múltiple (`state.selectedCategories`, `Set` vacío = todas) — ver 4.18.
 - **Filtro de etiquetas**: nube de etiquetas en el lateral y en cada tarjeta (`state.tags`, `Set`). Al hacer clic en una etiqueta —lateral o tarjeta— se **añade o quita** de la selección (multi-selección acumulativa); un enlace coincide si tiene *alguna* de las etiquetas seleccionadas (OR). El icono de escoba (🧹) junto a "Etiquetas" (`#btnClearTagSelection`) vacía de un golpe tanto las etiquetas incluidas como las excluidas (4.17); no toca el filtro de categoría.
 - **Filtro de estado**: toggle "Todos / Activos" en la barra de herramientas (`state.activeFilter`). Valor por defecto: `"active"`. *(Nota: internamente `getFilteredLinks()` también reconoce el valor `"inactive"` por si se quisiera reintroducir esa opción en el futuro, pero actualmente no hay ningún control de UI que lo establezca.)*
 - Todos los filtros son combinables (AND) y se aplican antes de agrupar por categoría.
@@ -200,6 +200,23 @@ Objetivo: poder ocultar de la vista los enlaces de un contexto (p. ej. "trabajo"
 - **Eliminar**: botón "✕" del propio chip (`data-action="delete-profile"`), con confirmación; no toca `state.excludedTags` si ese perfil estaba aplicado en ese momento (la exclusión vigente se queda como está, solo desaparece el atajo guardado).
 
 **Interacción con la extensión** (ver sección 8): `checkDuplicate` sigue detectando bien un enlace ya guardado aunque esté oculto por una exclusión activa (consulta `state.links` directamente). `focusExisting`, en cambio, no podrá resaltarlo si su ficha no está renderizada por estar excluida — no es un fallo, es el mismo caso ya cubierto por la checklist de la sección 8.
+
+### 4.18 Selección múltiple de categorías (Ctrl+clic)
+`state.selectedCategories` sustituye al antiguo `state.category` único por un `Set` de nombres, siguiendo el mismo patrón que `state.tags`/`state.excludedTags` (4.3). Listener de clic sobre `#categoryList`:
+- Clic en "Todas" (`data-category=""`): `state.selectedCategories.clear()`, siempre, tenga o no pulsado Ctrl.
+- Clic normal sobre una categoría: comportamiento de selección simple — si es la única ya seleccionada, se deselecciona (`clear()`); si no, sustituye toda la selección por esa única categoría (`new Set([cat])`).
+- **Ctrl+clic / Cmd+clic** (`e.ctrlKey || e.metaKey`) sobre una categoría: alterna solo esa categoría dentro del conjunto (`add`/`delete`) sin afectar a las demás — es el mecanismo de selección múltiple.
+
+`getFilteredLinks()`/`getLinksForExport()` consideran que un enlace pasa el filtro si `state.selectedCategories.size === 0` o su categoría está en el conjunto. El valor por defecto del campo categoría al crear un enlace nuevo (`openModal`) usa la categoría seleccionada solo si hay **exactamente una** en el conjunto; con cero o varias, el campo queda vacío. `performRename` migra la entrada del conjunto igual que hace con `categoryColors`/`categoryIcons`; eliminar una categoría la quita del conjunto si estaba presente.
+
+No hay un botón dedicado para vaciar la selección múltiple de categorías (a diferencia del icono de escoba de etiquetas, 4.3): clicar "Todas" ya cumple esa función.
+
+### 4.19 Exportar/Importar categorías
+En el modal de gestión de categorías (4.5), sección `#manageCategoryIO` (oculta cuando `manageType === "tag"`), dos botones independientes del exportador/importador de enlaces (4.7):
+- **Exportar** (`btnExportCategories`): descarga `pinboard_categorias_<fecha>.json`, un array en el mismo orden que `state.categories` (el orden es la posición) con `{ name, icon, color }` por categoría (`icon`/`color` a `null` si no tiene). Mismo mecanismo Blob + `URL.createObjectURL` que el exportador de enlaces.
+- **Importar** (`btnImportCategories` → `fileImportCategories`, lectura con `FileReader`): valida que sea un array de objetos con `name`, y abre `#importCategoriesModalOverlay` con el resumen y dos acciones:
+  - **Fusionar** (`performImportCategoriesMerge`): aditivo — para cada entrada llama a `ensureCategory(entry.name)`; si la categoría no existía, la crea al final y le asigna `icon`/`color` del archivo (validando que la clave de icono exista en `CATEGORY_ICONS`); si ya existía, no toca su posición, color ni icono actuales.
+  - **Sustituir todo** (`performImportCategoriesReplace`, tras `confirm()`): reemplaza `state.categories`/`categoryColors`/`categoryIcons` íntegramente por el contenido del archivo (deduplicando por nombre, el orden del array = nueva posición). Cualquier enlace cuya categoría ya no exista en la nueva lista se reasigna a `ensureCategory("Sin categoría")`, igual que hace el borrado manual de una categoría (4.5). También limpia de `state.selectedCategories` cualquier nombre que haya dejado de existir.
 
 ## 5. Estructura del HTML
 
