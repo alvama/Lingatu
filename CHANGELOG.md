@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **Mensaje de bienvenida en el estado vacío**: cuando no hay ningún enlace
+  guardado, `#emptyState` deja de mostrar el mensaje de "sin resultados con
+  los filtros actuales" (que ahora solo aparece cuando sí hay enlaces pero
+  el filtro activo no encuentra ninguno) y en su lugar enseña las tres
+  primeras acciones: crear el primer enlace (botón funcional que abre el
+  mismo modal que "+ Nuevo enlace"), importar los marcadores del navegador
+  o un archivo de PinBoard, y pulsar `/` para buscar.
+- **Atributo `title` en once controles** que no lo tenían: "+ Nuevo enlace",
+  "Gestionar" (categorías y etiquetas), "Guardar actual" (vistas), el
+  buscador, los botones de Todos/Activos y Cómoda/Compacta, "Plegar todo",
+  el item "Todas" de categorías, los chips de vistas guardadas y, sobre
+  todo, los chips de etiqueta del lateral, que ahora explican su ciclo de
+  tres estados (neutra → incluida → excluida) al pasar el ratón.
+
 ## [1.5.0] - 2026-08-11
 
 ### Añadido
