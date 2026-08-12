@@ -2,6 +2,8 @@
 
 Documento de referencia técnica y funcional de `pinboard.html`, para mantenimiento y futuras ampliaciones.
 
+> Este documento cita el código **por nombre de función o de elemento**, nunca por número de línea: los números caducan en cuanto alguien añade veinte líneas más arriba, y un nombre se encuentra igual de rápido buscando en el archivo. Mismo criterio que `CLAUDE.md`; si añades una referencia nueva, síguelo.
+
 ## 1. Propósito
 
 Página web de un solo archivo (`pinboard.html`) para gestionar una colección personal de enlaces (marcadores), organizados por categorías y etiquetas, con búsqueda y filtros. Se ejecuta **100% en local**, abriendo el archivo directamente en el navegador (`file://`), sin servidor, sin build y sin dependencias externas.
@@ -129,7 +131,7 @@ Icono ✏️ junto al `<h1>` del sidebar abre un `prompt()` para cambiar el text
 ### 4.8 Datos de ejemplo (primer arranque)
 Si no hay datos guardados en `localStorage`, la app arranca sin ningún enlace (`state.links = []`). Para probarla con contenido de muestra, existe un archivo aparte, [`examples/ejemplo-enlaces.json`](../examples/ejemplo-enlaces.json), cargable con el botón "Importar".
 
-`renderCards()` (`pinboard.html:1514`) distingue este caso de "sin filtros que coincidan": si `state.links.length === 0`, `#emptyState` muestra un mensaje de bienvenida (crear el primer enlace con un botón que reutiliza el manejador de `#btnAdd`, importar marcadores, o pulsar `/` para buscar) en vez del mensaje genérico de "sin resultados con los filtros actuales", que sigue mostrándose cuando sí hay enlaces pero el filtro activo no encuentra ninguno. El botón de bienvenida (`#btnEmptyStateAdd`) usa un listener delegado sobre `#emptyState`, registrado una sola vez en la inicialización (no en `render()`), porque ese elemento es estático y `render()` no lo destruye.
+`renderCards()` distingue este caso de "sin filtros que coincidan": si `state.links.length === 0`, `#emptyState` muestra un mensaje de bienvenida (crear el primer enlace con un botón que reutiliza el manejador de `#btnAdd`, importar marcadores, o pulsar `/` para buscar) en vez del mensaje genérico de "sin resultados con los filtros actuales", que sigue mostrándose cuando sí hay enlaces pero el filtro activo no encuentra ninguno. El botón de bienvenida (`#btnEmptyStateAdd`) usa un listener delegado sobre `#emptyState`, registrado una sola vez en la inicialización (no en `render()`), porque ese elemento es estático y `render()` no lo destruye.
 
 ### 4.9 Reordenar enlaces manualmente
 Cada tarjeta/fila incluye iconos ▲/▼ (junto a ✏️/🗑️) para mover el enlace un puesto arriba/abajo **dentro de su categoría y respetando el filtro/búsqueda actual** — es decir, "arriba" significa "con el enlace visible inmediatamente anterior en este mismo grupo", no con el anterior en el array completo. Detalles:
@@ -382,18 +384,18 @@ Las seis siguientes son las decisiones de la **selección múltiple y las accion
 
 ## 8. Contrato con la extensión de Chrome
 
-`extension/background.js` nunca accede al DOM de `pinboard.html` directamente: pasa siempre por una superficie mínima y estable, `window.PinBoardBridge`, expuesta al final de la IIFE (`pinboard.html:2046-2072`). Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`, líneas 47-67) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, `background.js:69-73`), sin ningún error visible dentro de `pinboard.html`.
+`extension/background.js` nunca accede al DOM de `pinboard.html` directamente: pasa siempre por una superficie mínima y estable, `window.PinBoardBridge`, expuesta al final de la IIFE. Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, en `background.js`), sin ningún error visible dentro de `pinboard.html`.
 
 **Superficie exacta que debe mantenerse estable:**
 
-| Elemento | Ubicación en `pinboard.html` | Para qué lo usa la extensión |
+| Elemento | Dónde vive en `pinboard.html` | Para qué lo usa la extensión |
 |---|---|---|
-| `PinBoardBridge.checkDuplicate(url)` → `{id,title,category}` o `null` | líneas 2048-2051 | Detecta si la URL de la pestaña activa ya está guardada |
-| `PinBoardBridge.focusExisting(url)` | líneas 2053-2056 | Desplaza la vista y resalta la ficha si ya existe |
-| `PinBoardBridge.suggestCategory(title, description, url)` → string | línea 2059 | Sugiere una categoría existente por coincidencia de palabras |
-| `PinBoardBridge.prefillAndOpen({category,title,url,description})` | líneas 2062-2071 | Abre el modal de "Nuevo enlace" precargado |
-| Clases `.link-card` / `.link-card-compact` + atributo `data-id` en el elemento raíz de cada ficha | `highlightLink()`, líneas 2038-2044 | `focusExisting` busca la ficha por estos selectores para resaltarla; si no los encuentra (p. ej. ficha filtrada/oculta), la llamada no hace nada, sin error |
-| Ids de campo `fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription` | `openModal()`, línea 1847 | `prefillAndOpen` los rellena con `getElementById(...).value = ...` |
+| `PinBoardBridge.checkDuplicate(url)` → `{id,title,category}` o `null` | Método de `window.PinBoardBridge` | Detecta si la URL de la pestaña activa ya está guardada |
+| `PinBoardBridge.focusExisting(url)` | Método de `window.PinBoardBridge`, delega en `highlightLink()` | Desplaza la vista y resalta la ficha si ya existe |
+| `PinBoardBridge.suggestCategory(title, description, url)` → string | Método de `window.PinBoardBridge`, expone la función `suggestCategory` | Sugiere una categoría existente por coincidencia de palabras |
+| `PinBoardBridge.prefillAndOpen({category,title,url,description})` | Método de `window.PinBoardBridge`, llama a `openModal(null)` | Abre el modal de "Nuevo enlace" precargado |
+| Clases `.link-card` / `.link-card-compact` + atributo `data-id` en el elemento raíz de cada ficha | `cardHtml()` / `cardHtmlCompact()`, leídas por `highlightLink()` | `focusExisting` busca la ficha por estos selectores para resaltarla; si no los encuentra (p. ej. ficha filtrada/oculta), la llamada no hace nada, sin error |
+| Ids de campo `fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription` | Formulario `#linkForm`, rellenados por `openModal()` | `prefillAndOpen` los rellena con `getElementById(...).value = ...` |
 
 **Regla práctica al añadir cualquier funcionalidad nueva**: si no se toca ninguno de los elementos de la tabla, la extensión no se ve afectada. Si se toca alguno (p. ej. se rediseñan las fichas de enlace), hay que comprobar expresamente que lo que exige esta tabla se mantiene, y pasar la checklist manual siguiente antes de dar el cambio por cerrado.
 
@@ -480,7 +482,7 @@ La extensión ya resuelve la mitad del problema sin cambios: `checkDuplicate(url
 
 **R1 — Campo nuevo, no reutilizar `description`.** Se añade `notes` (string, opcional) al modelo de datos de la sección 3. Retrocompatible sin migración: los enlaces ya guardados lo tienen `undefined`, que se trata como `""`.
 
-**R2 — Las notas no se pueden perder en ningún camino.** Requisito explícito, y hay un **fallo latente ya verificado en el código actual**: la exportación usa `JSON.stringify(links)` (`pinboard.html:2514`), que serializa el objeto completo y por tanto incluiría `notes` sola; pero **cinco lugares enumeran los campos de un enlace uno por uno**, y en todos ellos un campo nuevo se descarta en silencio: `performImportReplace` (`pinboard.html:2532-2542`), `performImportMerge` (`pinboard.html:2564-2572`), `duplicateEditingLink` (`pinboard.html:1616-1630`) y las dos ramas del `submit` del formulario —edición y creación— (`pinboard.html:1674`). Es una línea en cada uno, pero omitir cualquiera produce pérdida de datos silenciosa, que es el peor tipo. Aplica igual a la exportación autocontenida (11.6).
+**R2 — Las notas no se pueden perder en ningún camino.** Requisito explícito, y hay un **fallo latente ya verificado en el código actual**: la exportación usa `JSON.stringify(links)` (manejador de `#btnExport`), que serializa el objeto completo y por tanto incluiría `notes` sola; pero **cinco lugares enumeran los campos de un enlace uno por uno**, y en todos ellos un campo nuevo se descarta en silencio: `performImportReplace`, `performImportMerge`, `duplicateEditingLink` y las dos ramas del manejador `submit` de `#linkForm` —edición y creación—. Es una línea en cada uno, pero omitir cualquiera produce pérdida de datos silenciosa, que es el peor tipo. Aplica igual a la exportación autocontenida (11.6).
 
 **R3 — Formato y acumulación.** Las notas se añaden al final, cada una con un sello de fecha como encabezado Markdown (`## DD/MM/AAAA` y el texto debajo). Predecible, editable a mano, sin lógica de listas. Nunca se sobrescribe una nota anterior.
 
