@@ -36,7 +36,9 @@ activa y la añade con un clic.
   título) y compacta.
 - **Exportar/Importar enlaces** en JSON, con opción de fusionar
   (deduplicando por URL) o sustituir todo.
-- **Importador de marcadores** de Chrome/Edge (`tools/`).
+- **Importar marcadores de cualquier navegador**: arrastra sobre la página
+  (o usa el botón "Importar") el HTML que exporta cualquier navegador o el
+  `Bookmarks` de Chrome/Edge, sin herramientas externas.
 - Modo oscuro automático, atajos de teclado (`/` buscar, `n` nuevo
   enlace), título de la página personalizable.
 - Cero servidor, cero cuentas: todo vive en `localStorage` de tu
@@ -57,7 +59,23 @@ PinBoard empieza completamente vacío. Si quieres ver la app con contenido de
 muestra, usa el botón **"Importar"** y selecciona
 [`examples/ejemplo-enlaces.json`](examples/ejemplo-enlaces.json).
 
-Para pasar tus marcadores de Chrome y/o Edge a PinBoard:
+Para pasar tus marcadores de cualquier navegador a PinBoard, la vía
+recomendada es exportarlos y soltar el archivo sobre la página:
+
+1. En tu navegador, exporta los marcadores a HTML (en Chrome/Edge:
+   `Ctrl+Shift+O` → menú "⋮" → **Exportar marcadores**).
+2. Arrastra ese archivo `.html` sobre `pinboard.html` (o pulsa el botón
+   "Importar" y selecciónalo). PinBoard reconoce el formato
+   automáticamente, respeta la estructura de carpetas como categorías
+   (unidas con `" / "`) y abre el modal de siempre para elegir entre
+   fusionar o sustituir.
+
+También reconoce directamente el archivo `Bookmarks` de Chrome/Edge (sin
+extensión), por si lo tienes más a mano que exportar.
+
+`tools/` sigue disponible como alternativa **opcional**, útil sobre todo
+para convertir varios perfiles/navegadores de golpe desde la línea de
+comandos sin pasar por el navegador:
 
 1. Abre `tools/configurar_marcadores.html` en el navegador y rellena, para
    cada perfil que quieras importar, el navegador y la ruta completa a su
@@ -134,8 +152,10 @@ PinBoard/
 │   ├── background.js
 │   ├── options.html / options.js
 │   └── icons/
-├── tools/
-│   ├── convertir_marcadores.py       # Importar marcadores de Chrome/Edge
+├── tools/                         # Opcional: conversión por lotes desde la
+│   │                              # línea de comandos (la vía recomendada es
+│   │                              # arrastrar el HTML exportado del navegador)
+│   ├── convertir_marcadores.py       # Convierte varios perfiles Chrome/Edge de golpe
 │   ├── configurar_marcadores.html    # Genera marcadores_config.json
 │   └── marcadores_config.example.json
 ├── examples/
