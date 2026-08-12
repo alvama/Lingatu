@@ -633,6 +633,52 @@
   .tags-suggestions[hidden]{ display:none; }
   .tags-suggestion{ padding:6px 9px; border-radius:6px; font-size:13px; color:var(--text); cursor:pointer; }
   .tags-suggestion:hover,.tags-suggestion.active{ background:var(--tag-active-bg); color:var(--tag-active-fg); }
+  /* Paleta de comandos (Ctrl+K). Mismo overlay que los modales, pero anclada
+     arriba: la lista crece hacia abajo sin mover el campo de búsqueda. */
+  .palette-overlay{align-items:flex-start;padding-top:10vh;}
+  .palette{max-width:560px;padding:14px;display:flex;flex-direction:column;gap:10px;}
+  .palette-input{
+    width:100%;
+    font-family:inherit;
+    font-size:15px;
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+  }
+  .palette-input:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary);}
+  .palette-results{
+    margin:0;padding:0;list-style:none;
+    max-height:52vh;overflow-y:auto;
+  }
+  .palette-results[hidden]{display:none;}
+  .palette-group{
+    padding:8px 9px 4px 9px;
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+    color:var(--text-muted);
+  }
+  .palette-item{
+    display:flex;align-items:center;gap:8px;
+    padding:7px 9px;border-radius:6px;
+    font-size:14px;color:var(--text);cursor:pointer;
+  }
+  .palette-item:hover,.palette-item.active{background:var(--tag-active-bg);color:var(--tag-active-fg);}
+  .palette-item-label{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .palette-item-meta{
+    flex:0 0 auto;max-width:45%;
+    font-size:12px;color:var(--text-muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .palette-item.active .palette-item-meta{color:inherit;opacity:0.85;}
+  .palette-hint{
+    flex:0 0 auto;
+    padding:1px 6px;border-radius:5px;
+    border:1px solid var(--border);background:var(--surface-2);
+    font-size:11px;font-family:inherit;color:var(--text-muted);
+  }
+  .palette-empty{margin:0;padding:8px 9px;font-size:13px;color:var(--text-muted);}
+  .palette-empty[hidden]{display:none;}
   .checkbox-label{
     flex-direction:row !important;
     align-items:center;
@@ -811,6 +857,7 @@
       </div>
       <button type="button" id="btnToggleAllGroups" class="link-btn" style="white-space:nowrap;" title="Plegar o expandir todas las categorías de golpe">Plegar todo</button>
       <button type="button" id="btnSelectionMode" class="link-btn" style="white-space:nowrap;" title="Activar el modo selección para aplicar acciones a varios enlaces a la vez">Seleccionar</button>
+      <button type="button" id="btnCommandPalette" class="link-btn" style="white-space:nowrap;" title="Buscar enlaces, categorías, vistas, etiquetas y acciones (atajo: Ctrl+K)">Comandos (Ctrl+K)</button>
       <span id="resultCount"></span>
     </div>
     <div id="linksContainer" class="links-groups"></div>
@@ -918,6 +965,14 @@
         <button type="button" id="importCategoriesMergeBtn" class="btn-primary" style="width:auto;">Fusionar</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="commandPaletteOverlay" class="modal-overlay palette-overlay" hidden>
+  <div class="modal palette">
+    <input type="text" id="commandPaletteInput" class="palette-input" placeholder="Busca una acción, un enlace, una categoría, una vista o una etiqueta..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="commandPaletteResults" aria-label="Paleta de comandos">
+    <ul id="commandPaletteResults" class="palette-results" role="listbox"></ul>
+    <p id="commandPaletteEmpty" class="palette-empty" hidden>Sin resultados.</p>
   </div>
 </div>
 
@@ -3209,6 +3264,261 @@
   });
   document.getElementById("importCategoriesCancelBtn").addEventListener("click", closeImportCategoriesModal);
   registerOverlay(importCategoriesModalOverlay, closeImportCategoriesModal);
+
+  // ---------- Paleta de comandos (Ctrl+K) ----------
+  // COMMANDS es el único origen de verdad de las acciones globales de la app:
+  // cada entrada llama a la misma función con nombre que llama el botón
+  // correspondiente, nunca a una copia de su lógica. Así la paleta no puede
+  // desincronizarse con la interfaz: cambiar lo que hace un botón cambia a la
+  // vez lo que hace su comando.
+  //   label     cadena, o función que la devuelve (para etiquetas cambiantes).
+  //   hint      atajo de teclado ya existente para esa acción, si lo tiene.
+  //   available función opcional: si devuelve false, el comando no se ofrece.
+  var COMMANDS = [
+    { id: "add-link", label: "Nuevo enlace", hint: "n", run: function(){ openModal(null); } },
+    { id: "focus-search", label: "Buscar enlaces", hint: "/", run: function(){ document.getElementById("searchInput").focus(); } },
+    { id: "edit-site-title", label: "Cambiar el título de la página", run: function(){ promptSiteTitle(); } },
+    { id: "manage-categories", label: "Gestionar categorías", run: function(){ openManageModal("category"); } },
+    { id: "manage-tags", label: "Gestionar etiquetas", run: function(){ openManageModal("tag"); } },
+    // La etiqueta se lee del propio botón, que render() ya mantiene sincronizado
+    // con syncToggleAllGroupsLabel(): mismo texto que ve el usuario, sin duplicar
+    // el cálculo de "están todas plegadas".
+    { id: "toggle-all-groups", label: function(){ return document.getElementById("btnToggleAllGroups").textContent; }, run: function(){ toggleAllGroups(); } },
+    { id: "clear-tag-selection", label: "Limpiar selección de etiquetas",
+      available: function(){ return state.tags.size > 0 || state.excludedTags.size > 0; },
+      run: function(){ clearTagSelection(); } },
+    { id: "save-view-profile", label: "Guardar la vista actual", run: function(){ promptSaveViewProfile(); } },
+    { id: "status-all", label: "Ver todos los enlaces", run: function(){ setStatusFilter("all"); } },
+    { id: "status-active", label: "Ver solo los enlaces activos", run: function(){ setStatusFilter("active"); } },
+    { id: "view-comfortable", label: "Vista cómoda", run: function(){ setViewMode("comfortable"); } },
+    { id: "view-compact", label: "Vista compacta", run: function(){ setViewMode("compact"); } },
+    { id: "export-links", label: "Exportar enlaces", run: function(){ exportLinks(); } },
+    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } }
+  ];
+
+  var paletteOverlay = document.getElementById("commandPaletteOverlay");
+  var paletteInput = document.getElementById("commandPaletteInput");
+  var paletteResultsEl = document.getElementById("commandPaletteResults");
+  var paletteEmptyEl = document.getElementById("commandPaletteEmpty");
+
+  var paletteGroups = [];         // grupos con resultados, en el orden en que se pintan
+  var paletteItems = [];          // esos mismos resultados aplanados
+  var paletteHighlightIndex = -1; // índice resaltado, -1 = ninguno
+
+  function commandLabel(cmd){
+    return typeof cmd.label === "function" ? cmd.label() : cmd.label;
+  }
+
+  // Sin mayúsculas y sin acentos: "categoria" tiene que encontrar "Categorías"
+  // y "diseno" la categoría "Diseño". Se aplica igual a la consulta y al texto.
+  var COMBINING_MARKS = new RegExp("[\\u0300-\\u036f]", "g");
+
+  function paletteNormalize(str){
+    return String(str == null ? "" : str).normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase();
+  }
+
+  function paletteMatches(text, normalizedQuery){
+    return paletteNormalize(text).indexOf(normalizedQuery) !== -1;
+  }
+
+  // Los enlaces se buscan sobre state.links completo, ignorando los filtros
+  // activos: el propósito de la paleta es alcanzar algo que ahora mismo no se
+  // está viendo, así que getFilteredLinks() sería justo lo contrario.
+  function paletteLinkResults(q){
+    return state.links.filter(function(l){
+      return paletteMatches(l.title, q) ||
+        paletteMatches(l.description, q) ||
+        paletteMatches(l.url, q) ||
+        paletteMatches((l.tags || []).join(" "), q);
+    }).slice(0, 8).map(function(l){
+      return {
+        label: l.title,
+        meta: hostnameForDisplay(l.url) || l.url,
+        run: function(){ window.open(l.url, "_blank", "noopener"); }
+      };
+    });
+  }
+
+  function paletteCommandResults(q){
+    return COMMANDS.filter(function(c){
+      if(c.available && !c.available()) return false;
+      return !q || paletteMatches(commandLabel(c), q);
+    }).map(function(c){
+      return { label: commandLabel(c), hint: c.hint, run: c.run };
+    });
+  }
+
+  // Grupos en el orden en que se pintan; la cabecera solo aparece si el grupo
+  // tiene resultados. Con la consulta vacía se muestran solo los comandos, que
+  // es cuando la paleta hace de documentación de lo que sabe hacer la app.
+  function buildPaletteGroups(rawQuery){
+    var q = paletteNormalize(rawQuery.trim());
+    var groups = [{ title: "Comandos", items: paletteCommandResults(q) }];
+    if(!q) return groups.filter(function(g){ return g.items.length > 0; });
+
+    groups.push({ title: "Enlaces", items: paletteLinkResults(q) });
+
+    groups.push({ title: "Categorías", items: getCategories().filter(function(c){
+      return paletteMatches(c.name, q);
+    }).slice(0, 5).map(function(c){
+      return {
+        label: c.name,
+        meta: c.count + (c.count === 1 ? " enlace" : " enlaces"),
+        // Equivale a un clic normal en el lateral: sustituye la selección de
+        // categorías (no alterna, porque aquí se ha elegido explícitamente).
+        run: function(){
+          clearSelectionOnViewChange();
+          state.selectedCategories = new Set([c.name]);
+          render();
+        }
+      };
+    }) });
+
+    groups.push({ title: "Vistas", items: state.viewProfiles.filter(function(p){
+      return paletteMatches(p.name, q);
+    }).slice(0, 5).map(function(p){
+      return {
+        label: p.name,
+        run: function(){
+          clearSelectionOnViewChange();
+          state.tags = new Set(p.tags);
+          state.excludedTags = new Set(p.excludedTags);
+          saveExcludedTags();
+          render();
+        }
+      };
+    }) });
+
+    // Solo incluir: la paleta no replica el ciclo de tres estados del lateral.
+    groups.push({ title: "Etiquetas", items: getAllTags().filter(function(t){
+      return paletteMatches(t, q);
+    }).slice(0, 5).map(function(t){
+      return {
+        label: t,
+        run: function(){
+          clearSelectionOnViewChange();
+          state.excludedTags.delete(t);
+          state.tags.add(t);
+          saveExcludedTags();
+          render();
+        }
+      };
+    }) });
+
+    return groups.filter(function(g){ return g.items.length > 0; });
+  }
+
+  function paintPalette(){
+    var html = "";
+    var index = 0;
+    paletteItems = [];
+    paletteGroups.forEach(function(g){
+      html += '<li class="palette-group" role="presentation">' + escapeHtml(g.title) + '</li>';
+      g.items.forEach(function(item){
+        html += '<li class="palette-item' + (index === paletteHighlightIndex ? ' active' : '') + '"' +
+          ' role="option" id="paletteItem-' + index + '" data-index="' + index + '"' +
+          (index === paletteHighlightIndex ? ' aria-selected="true"' : '') + '>' +
+          '<span class="palette-item-label">' + escapeHtml(item.label) + '</span>' +
+          (item.meta ? '<span class="palette-item-meta">' + escapeHtml(item.meta) + '</span>' : '') +
+          (item.hint ? '<kbd class="palette-hint">' + escapeHtml(item.hint) + '</kbd>' : '') +
+          '</li>';
+        paletteItems.push(item);
+        index++;
+      });
+    });
+    paletteResultsEl.innerHTML = html;
+    paletteResultsEl.hidden = paletteItems.length === 0;
+    paletteEmptyEl.hidden = paletteItems.length !== 0;
+    paletteInput.setAttribute("aria-expanded", paletteItems.length ? "true" : "false");
+    if(paletteItems.length && paletteHighlightIndex >= 0){
+      paletteInput.setAttribute("aria-activedescendant", "paletteItem-" + paletteHighlightIndex);
+    } else {
+      paletteInput.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function refreshPalette(){
+    paletteGroups = buildPaletteGroups(paletteInput.value);
+    var total = paletteGroups.reduce(function(n, g){ return n + g.items.length; }, 0);
+    paletteHighlightIndex = total ? 0 : -1;
+    paintPalette();
+  }
+
+  function movePaletteHighlight(delta){
+    if(!paletteItems.length) return;
+    paletteHighlightIndex = (paletteHighlightIndex + delta + paletteItems.length) % paletteItems.length;
+    paintPalette();
+    var active = paletteResultsEl.querySelector(".palette-item.active");
+    if(active) active.scrollIntoView({ block: "nearest" });
+  }
+
+  // Se cierra antes de ejecutar: la acción puede abrir un modal o enfocar el
+  // buscador, y la paleta no debe quedar por medio. El campo se vacía siempre,
+  // para que la siguiente apertura empiece limpia.
+  function runPaletteItem(item){
+    closeCommandPalette();
+    item.run();
+  }
+
+  function openCommandPalette(){
+    paletteInput.value = "";
+    paletteOverlay.hidden = false;
+    refreshPalette();
+    paletteInput.focus();
+  }
+
+  function closeCommandPalette(){
+    paletteOverlay.hidden = true;
+    paletteInput.value = "";
+    paletteResultsEl.innerHTML = "";
+    paletteGroups = [];
+    paletteItems = [];
+    paletteHighlightIndex = -1;
+    paletteInput.setAttribute("aria-expanded", "false");
+    paletteInput.removeAttribute("aria-activedescendant");
+  }
+
+  paletteInput.addEventListener("input", refreshPalette);
+
+  paletteInput.addEventListener("keydown", function(e){
+    if(e.key === "ArrowDown"){
+      e.preventDefault();
+      movePaletteHighlight(1);
+    } else if(e.key === "ArrowUp"){
+      e.preventDefault();
+      movePaletteHighlight(-1);
+    } else if(e.key === "Enter"){
+      e.preventDefault();
+      if(paletteHighlightIndex >= 0 && paletteItems[paletteHighlightIndex]){
+        runPaletteItem(paletteItems[paletteHighlightIndex]);
+      }
+    }
+    // Escape se deja burbujear: lo cierra el manejador global de overlays.
+  });
+
+  paletteResultsEl.addEventListener("click", function(e){
+    var li = e.target.closest(".palette-item");
+    if(!li) return;
+    var item = paletteItems[Number(li.getAttribute("data-index"))];
+    if(item) runPaletteItem(item);
+  });
+
+  document.getElementById("btnCommandPalette").addEventListener("click", function(){ openCommandPalette(); });
+
+  // A diferencia de "/" y "n", Ctrl+K funciona también con el foco en un campo
+  // de texto — es lo esperable de una paleta de comandos. Lo que no hace es
+  // abrirse con otro overlay abierto. preventDefault() siempre: en Chrome y
+  // Edge, Ctrl+K enfoca la barra de direcciones, y eso tampoco debe pasar
+  // cuando la paleta decide no abrirse.
+  document.addEventListener("keydown", function(e){
+    if((e.key || "").toLowerCase() !== "k") return;
+    if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    e.preventDefault();
+    if(anyOverlayOpen()) return;
+    openCommandPalette();
+  });
+
+  registerOverlay(paletteOverlay, closeCommandPalette);
 
   // ---------- Inicio ----------
   var stored = load();

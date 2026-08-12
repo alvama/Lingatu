@@ -52,7 +52,7 @@ Esta es la parte de valor de la tarea. Está sacado de las especificaciones para
 ### Atajos
 
 - `/` enfoca el buscador · `n` crea un enlace · `?` abre esta ayuda.
-- `Ctrl+K` abre la paleta de comandos (si la tarea 04 está hecha).
+- `Ctrl+K` abre la paleta de comandos (tarea 04, ya implementada — 4.22).
 - `Escape` cierra el modal abierto.
 - En el campo de Etiquetas: Enter, espacio o coma confirman una etiqueta; Backspace con el campo vacío quita la última; las flechas navegan las sugerencias. ★
 

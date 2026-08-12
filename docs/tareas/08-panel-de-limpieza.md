@@ -48,7 +48,7 @@ URLs con parámetros de seguimiento                   11   ▸
 
 **R2.5** El modal es un overlay nuevo: necesita su regla `[hidden]{display:none}` (decisión 1 de la sección 7) y quedar registrado en la comprobación de "hay algún overlay abierto".
 
-**Coordinación con la tarea 04**, que centraliza esa comprobación en `anyOverlayOpen()`: si ya está hecha, regístrate ahí y no toques nada más. Si no, hay que añadir este overlay **a las dos listas escritas a mano** que existen hoy — el manejador de `Escape` (`pinboard.html:1786-1791`) y `anyModalOpen` (`pinboard.html:2493`) — y conviene saber que a ambas **ya les falta** `importCategoriesModalOverlay`.
+**La tarea 04 ya centralizó esa comprobación** (ver 4.22 de `ESPECIFICACIONES.md`): basta con dar de alta el overlay con `registerOverlay(el, closeFn)` — el cierre por `Escape`, el cierre por clic fuera y el bloqueo de los atajos de una tecla salen de ahí. No hay ninguna lista que actualizar a mano.
 
 **R2.6** Recalcula todo al abrir el panel. Los datos cambian entre aperturas.
 

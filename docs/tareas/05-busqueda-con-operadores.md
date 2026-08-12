@@ -107,7 +107,7 @@ Si el mensaje incluye el texto que escribió el usuario, **pásalo por `escapeHt
 
 **R5.4 — Insensible a mayúsculas y a acentos.** `cat:diseno` debe encontrar "Diseño" y `categoria` debe encontrar "Categorías". Normaliza descomponiendo y quitando las marcas diacríticas (`normalize("NFD")` y eliminar el rango de combinantes) tanto en la consulta como en el texto candidato.
 
-**La misma función normalizadora la necesita la tarea 04** (paleta de comandos). Si esa tarea ya está hecha, **reutiliza su normalizador**; si no, crea el tuyo con un nombre genérico y la 04 lo reutilizará. No acabéis con dos.
+**La tarea 04 (paleta de comandos) ya está hecha y trae su normalizador**: `paletteNormalize(str)` (4.22 de `ESPECIFICACIONES.md`). **Reutilízalo** —renombrándolo si conviene a un nombre genérico— en vez de escribir un segundo. No acabéis con dos.
 
 **R5.5 — Deja preparada la extensión para las notas.** Cuando exista el campo `notes` (tarea de notas Markdown, 11.3), habrá que añadirlo al texto de búsqueda y ofrecer un operador `note:`. Escribe el texto de búsqueda de forma que añadir un campo sea una línea. **No implementes `note:` ahora**: el campo todavía no existe.
 
