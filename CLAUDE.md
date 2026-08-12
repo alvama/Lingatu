@@ -30,6 +30,8 @@ El estilo de **sintaxis** es ES5 a propósito. Respétalo aunque tu instinto dig
 
 Las **APIs del DOM sí son modernas** (`Set`, `Array.prototype.find`/`findIndex`, `closest`, `forEach`, `padStart`): la restricción es de sintaxis y legibilidad homogénea, no de compatibilidad con navegadores antiguos.
 
+**Esto aplica solo a `pinboard.html`.** El código de `extension/` es JavaScript moderno (`const`, `async`/`await`, funciones flecha, módulos de servicio de Manifest V3) y debe seguir siéndolo: es otro entorno, con otro ciclo de vida. No lo conviertas a ES5 ni escribas ES5 nuevo ahí.
+
 Comentarios y textos de interfaz, **en español**.
 
 ## Seguridad: `escapeHtml` es el único saneador
@@ -57,7 +59,7 @@ Si algún día se decora texto (por ejemplo, un renderizador Markdown), el orden
 Dos avisos que valen más que el resto de este documento, porque el fallo **no da ningún error**:
 
 1. **El contrato con la extensión** (sección 8 de las especificaciones). Si tocas las fichas de enlace (`.link-card` / `.link-card-compact`, el atributo `data-id`), los ids de campo del formulario (`fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription`) o los métodos del puente, la extensión deja de funcionar sin avisar dentro de la app. Pasa la checklist de verificación manual de esa sección antes de dar el cambio por cerrado.
-2. **Los importadores reconstruyen los enlaces campo por campo con lista blanca** (`performImportReplace`, `pinboard.html:2532`, y `performImportMerge`, `pinboard.html:2564`). La exportación usa `JSON.stringify` y por tanto incluye todo, pero **cualquier campo nuevo del modelo de datos se descarta al importar si no lo añades a esas dos funciones**. Es pérdida de datos silenciosa.
+2. **Tres funciones reconstruyen los enlaces campo por campo con lista blanca**: `performImportReplace` (`pinboard.html:2532`), `performImportMerge` (`pinboard.html:2564`) y `duplicateEditingLink` (`pinboard.html:1616`). La exportación usa `JSON.stringify` y por tanto incluye todo, pero **cualquier campo nuevo del modelo de datos se descarta al importar o al duplicar si no lo añades a las tres**. A eso hay que sumar las dos ramas del `submit` del formulario (`pinboard.html:1674`), que también enumeran los campos: la de edición y la de creación. **Cinco sitios en total por cada campo nuevo.** Es pérdida de datos silenciosa.
 
 ## Verificación
 
