@@ -15,6 +15,9 @@ SYNC-NLEVIA-ORG.md
 # Encargos de trabajo para Claude Code (instrucciones internas, no forman parte del producto)
 encargos/
 
+# Instrucciones locales de Claude Code (no forman parte del producto)
+CLAUDE.md
+
 # Sistema operativo / editores
 .DS_Store
 Thumbs.db
