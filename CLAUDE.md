@@ -75,5 +75,6 @@ Dos avisos que valen más que el resto de este documento, porque el fallo **no d
 1. **Actualiza `docs/ESPECIFICACIONES.md`**: la funcionalidad en la sección 4, las funciones nuevas en la 6, y el *por qué* en la 7 si tomaste una decisión no obvia. Ese documento es el activo más valioso del proyecto y solo sigue siéndolo si cada cambio lo mantiene al día.
 2. **Actualiza `CHANGELOG.md`** si el cambio es funcional.
 3. **Quita del backlog** (sección 11) la entrada que acabas de implementar.
+4. **Si añadiste un atajo de teclado, un gesto de ratón o un comportamiento de filtro, añade su línea a `HELP_SECTIONS`** (el panel de ayuda "?"), en cuanto exista. La descubribilidad es el punto débil conocido de esta app: una función que nada en pantalla insinúa es una función que nadie usa.
 
 Rama de trabajo: `master`, sin pull request.
