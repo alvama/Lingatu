@@ -1726,10 +1726,20 @@
     }
   }
 
-  // Cierra un modal al hacer click en su overlay, sin confundir con una
-  // selección de texto que empieza dentro del modal y se suelta fuera
-  // (el mouseup fuera dispara un click sintético sobre el overlay).
-  function bindOverlayClose(overlayEl, closeFn){
+  // ---------- Registro de overlays ----------
+  // Único origen de verdad de "qué overlays existen y cómo se cierran".
+  // Antes esa lista estaba escrita a mano en dos sitios (el manejador de Escape
+  // y la comprobación de atajos bloqueados) y se quedó desactualizada al añadir
+  // el modal de importar categorías: Escape no lo cerraba y "n" abría el modal
+  // de nuevo enlace encima. Registrando cada overlay una sola vez, cualquier
+  // overlay futuro queda cubierto por los dos comportamientos automáticamente.
+  var OVERLAYS = [];
+
+  // Registra un overlay y, de paso, lo cierra al hacer click fuera del modal,
+  // sin confundir con una selección de texto que empieza dentro del modal y se
+  // suelta fuera (el mouseup fuera dispara un click sintético sobre el overlay).
+  function registerOverlay(overlayEl, closeFn){
+    OVERLAYS.push({ el: overlayEl, close: closeFn });
     var mousedownOnOverlay = false;
     overlayEl.addEventListener("mousedown", function(e){
       mousedownOnOverlay = (e.target === overlayEl);
@@ -1737,6 +1747,17 @@
     overlayEl.addEventListener("click", function(e){
       if(e.target === overlayEl && mousedownOnOverlay) closeFn();
       mousedownOnOverlay = false;
+    });
+  }
+
+  // ¿Hay algún overlay abierto? Los atajos de una tecla se ignoran mientras lo haya.
+  function anyOverlayOpen(){
+    return OVERLAYS.some(function(o){ return !o.el.hidden; });
+  }
+
+  function closeOpenOverlays(){
+    OVERLAYS.forEach(function(o){
+      if(!o.el.hidden) o.close();
     });
   }
 
@@ -2021,12 +2042,10 @@
     tagsInput.focus();
   });
 
-  bindOverlayClose(overlay, closeModal);
+  registerOverlay(overlay, closeModal);
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
-    if(!overlay.hidden) closeModal();
-    if(!manageOverlay.hidden) closeManageModal();
-    if(!importModalOverlay.hidden) closeImportModal();
+    closeOpenOverlays();
   });
 
   // ---------- Puente para la extensión de navegador ----------
@@ -2113,7 +2132,7 @@
       '<span>·</span>' +
       '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>';
   }
-  document.getElementById("btnEditTitle").addEventListener("click", function(){
+  function promptSiteTitle(){
     var next = prompt("Título de la página:", state.siteTitle);
     if(next === null) return;
     next = next.trim();
@@ -2121,7 +2140,9 @@
     state.siteTitle = next;
     saveSiteTitle();
     applySiteTitle();
-  });
+  }
+
+  document.getElementById("btnEditTitle").addEventListener("click", function(){ promptSiteTitle(); });
 
   // ---------- Gestión de categorías y etiquetas ----------
   var manageType = null; // "category" | "tag"
@@ -2326,7 +2347,7 @@
   document.getElementById("btnManageCategories").addEventListener("click", function(){ openManageModal("category"); });
   document.getElementById("btnManageTags").addEventListener("click", function(){ openManageModal("tag"); });
   document.getElementById("manageCloseBtn").addEventListener("click", closeManageModal);
-  bindOverlayClose(manageOverlay, closeManageModal);
+  registerOverlay(manageOverlay, closeManageModal);
 
   manageAddForm.addEventListener("submit", function(e){
     e.preventDefault();
@@ -2569,7 +2590,7 @@
     moveLinkTo(draggedLinkId, targetCategory, beforeId);
   });
 
-  document.getElementById("btnToggleAllGroups").addEventListener("click", function(){
+  function toggleAllGroups(){
     var names = getCategories().map(function(c){ return c.name; });
     var allCollapsed = names.length > 0 && names.every(function(c){ return state.collapsedCategories.has(c); });
     if(allCollapsed){
@@ -2579,7 +2600,9 @@
     }
     saveCollapsedCategories();
     render();
-  });
+  }
+
+  document.getElementById("btnToggleAllGroups").addEventListener("click", function(){ toggleAllGroups(); });
 
   document.getElementById("btnSelectionMode").addEventListener("click", function(){
     setSelectionMode(!state.selectionMode);
@@ -2678,18 +2701,20 @@
 
   // Quita de un golpe cualquier filtro de etiquetas activo, incluidas y
   // excluidas por igual (el filtro de categoría no se toca).
-  document.getElementById("btnClearTagSelection").addEventListener("click", function(){
+  function clearTagSelection(){
     if(state.tags.size === 0 && state.excludedTags.size === 0) return;
     clearSelectionOnViewChange();
     state.tags.clear();
     state.excludedTags.clear();
     saveExcludedTags();
     render();
-  });
+  }
+
+  document.getElementById("btnClearTagSelection").addEventListener("click", function(){ clearTagSelection(); });
 
   // Guarda la selección de etiquetas tal cual está ahora mismo (incluidas y
   // excluidas), aunque no haya ninguna — "todo sin filtrar" es una vista válida.
-  document.getElementById("btnSaveViewProfile").addEventListener("click", function(){
+  function promptSaveViewProfile(){
     var name = prompt("Nombre de la vista:");
     if(name === null) return;
     name = name.trim();
@@ -2706,7 +2731,9 @@
     }
     saveViewProfiles();
     render();
-  });
+  }
+
+  document.getElementById("btnSaveViewProfile").addEventListener("click", function(){ promptSaveViewProfile(); });
 
   document.getElementById("viewProfileList").addEventListener("click", function(e){
     var removeBtn = e.target.closest("[data-action='delete-profile']");
@@ -2736,21 +2763,29 @@
     render();
   });
 
+  function setStatusFilter(value){
+    clearSelectionOnViewChange();
+    state.activeFilter = value;
+    render();
+  }
+
+  function setViewMode(value){
+    clearSelectionOnViewChange();
+    state.viewMode = value;
+    saveViewMode();
+    render();
+  }
+
   document.getElementById("statusToggle").addEventListener("click", function(e){
     var btn = e.target.closest(".status-toggle-btn");
     if(!btn) return;
-    clearSelectionOnViewChange();
-    state.activeFilter = btn.getAttribute("data-value");
-    render();
+    setStatusFilter(btn.getAttribute("data-value"));
   });
 
   document.getElementById("viewToggle").addEventListener("click", function(e){
     var btn = e.target.closest(".status-toggle-btn");
     if(!btn) return;
-    clearSelectionOnViewChange();
-    state.viewMode = btn.getAttribute("data-value");
-    saveViewMode();
-    render();
+    setViewMode(btn.getAttribute("data-value"));
   });
 
   document.getElementById("searchInput").addEventListener("input", function(e){
@@ -2765,8 +2800,7 @@
     if(e.key !== "/" && key !== "n") return;
     var tag = (e.target.tagName || "").toLowerCase();
     var isTyping = tag === "input" || tag === "textarea" || e.target.isContentEditable;
-    var anyModalOpen = !overlay.hidden || !manageOverlay.hidden || !importModalOverlay.hidden;
-    if(isTyping || anyModalOpen) return;
+    if(isTyping || anyOverlayOpen()) return;
     if(e.key === "/"){
       e.preventDefault();
       document.getElementById("searchInput").focus();
@@ -2777,7 +2811,10 @@
   });
 
   // ---------- Exportar / Importar ----------
-  document.getElementById("btnExport").addEventListener("click", function(){
+  // El confirm() del filtro activo vive dentro de la función, no en el listener:
+  // así cualquier vía de exportación (botón o paleta de comandos) avisa igual de
+  // que solo se van a exportar los enlaces de la selección, no todos.
+  function exportLinks(){
     var links = getLinksForExport();
     if(hasLinkSelection()){
       var n = links.length;
@@ -2796,7 +2833,9 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-  });
+  }
+
+  document.getElementById("btnExport").addEventListener("click", function(){ exportLinks(); });
 
   function resetFiltersAfterImport(){
     clearSelectionOnViewChange();
@@ -3008,7 +3047,7 @@
     }
   });
   document.getElementById("importCancelBtn").addEventListener("click", closeImportModal);
-  bindOverlayClose(importModalOverlay, closeImportModal);
+  registerOverlay(importModalOverlay, closeImportModal);
 
   // ---------- Arrastrar y soltar un archivo de marcadores sobre la página (R1) ----------
   // Sin esto, soltar un archivo en cualquier punto de la página navega a él y la app
@@ -3169,7 +3208,7 @@
     }
   });
   document.getElementById("importCategoriesCancelBtn").addEventListener("click", closeImportCategoriesModal);
-  bindOverlayClose(importCategoriesModalOverlay, closeImportCategoriesModal);
+  registerOverlay(importCategoriesModalOverlay, closeImportCategoriesModal);
 
   // ---------- Inicio ----------
   var stored = load();
