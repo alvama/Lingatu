@@ -9,6 +9,21 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
+- **Importar marcadores de cualquier navegador arrastrando el archivo**:
+  suelta sobre la página el HTML que exporta cualquier navegador
+  (Ctrl+Shift+O → Exportar) o el propio `Bookmarks` de Chrome/Edge, y
+  PinBoard lo reconoce por contenido (sin necesidad de extensión) y lo
+  parsea en el sitio, sin herramientas externas — `DOMParser` para el
+  HTML Netscape (que es HTML deliberadamente mal formado), la misma
+  lógica ya probada de `tools/convertir_marcadores.py` para el
+  `Bookmarks` de Chromium. La ruta de carpetas se convierte en categoría
+  (unida con `" / "`), deduplicando dentro del propio archivo. El botón
+  "Importar" también acepta ya estos dos formatos, además del JSON de
+  siempre. `tools/` pasa a ser opcional. Como parte imprescindible del
+  cambio, soltar un archivo en cualquier parte de la página ya no navega
+  a él (comportamiento por defecto del navegador que antes hacía
+  desaparecer la app), sin afectar al arrastrar y soltar interno de
+  fichas y categorías.
 - **Selección múltiple de enlaces y acciones en lote**: botón "Seleccionar"
   en la barra de herramientas que activa un modo en el que cada ficha
   muestra una casilla y un clic en cualquier parte de la ficha la

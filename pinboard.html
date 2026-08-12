@@ -533,6 +533,29 @@
   .selection-bar[hidden]{display:none;}
   .selection-count{font-size:13px;font-weight:600;white-space:nowrap;margin-right:4px;}
 
+  /* Indicación visual al arrastrar un archivo (marcadores) sobre la página entera,
+     mismo lenguaje visual que .drag-over (contorno discontinuo en var(--primary)). */
+  .file-drop-indicator{
+    position:fixed;
+    inset:0;
+    z-index:200;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(61,99,221,0.12);
+    border:3px dashed var(--primary);
+    pointer-events:none;
+  }
+  .file-drop-indicator.visible{display:flex;}
+  .file-drop-indicator span{
+    background:var(--surface);
+    color:var(--text);
+    padding:10px 20px;
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-lg);
+    font-weight:600;
+  }
+
   /* Modal */
   .modal-overlay{
     position:fixed;
@@ -728,6 +751,8 @@
 </head>
 <body>
 
+<div id="fileDropIndicator" class="file-drop-indicator"><span>Suelta el archivo de marcadores para importarlo</span></div>
+
 <div class="app">
   <aside class="sidebar">
     <div class="site-title">
@@ -767,7 +792,7 @@
     <div class="data-actions">
       <button id="btnExport" title="Exportar todos los enlaces a un archivo JSON">Exportar</button>
       <button id="btnImport" title="Importar enlaces desde un archivo JSON">Importar</button>
-      <input type="file" id="fileImport" accept="application/json" hidden>
+      <input type="file" id="fileImport" accept="application/json,text/html,.json,.html,.htm" hidden>
     </div>
 
     <div class="app-footer" id="appFooter"></div>
@@ -2831,6 +2856,106 @@
     alert("Importación completada: " + added + " enlaces añadidos, " + skipped + " omitidos (URL ya existente o vacía).");
   }
 
+  // ---------- Parseo de formatos de marcadores externos (Chromium / Netscape) ----------
+  // Referencia de comportamiento para el formato Chromium: tools/convertir_marcadores.py:16-41.
+  // Deduplica dentro del propio archivo (un mismo marcador puede estar en dos carpetas):
+  // performImportReplace no dedupica por sí solo, así que sin esto "Sustituir todo"
+  // crearía duplicados (ver CLAUDE.md, apartado "Lo que se rompe en silencio").
+  function parseChromiumBookmarks(root){
+    var out = [];
+    var seen = {};
+    function walk(node, path){
+      if(!node || typeof node !== "object") return;
+      if(node.type === "url"){
+        var url = String(node.url || "").trim();
+        if(!/^https?:\/\//i.test(url)) return;
+        if(seen[url]) return;
+        seen[url] = true;
+        var title = String(node.name || "").trim() || url;
+        var category = path.filter(function(p){ return p; }).join(" / ") || "Sin categoría";
+        out.push({ category: category, title: title, url: url, description: "", active: true, tags: [] });
+        return;
+      }
+      if(node.type !== "folder") return;
+      var name = String(node.name || "").trim();
+      var newPath = name ? path.concat([name]) : path;
+      (node.children || []).forEach(function(child){ walk(child, newPath); });
+    }
+    Object.keys(root.roots || {}).forEach(function(key){
+      var rootNode = root.roots[key];
+      if(rootNode && typeof rootNode === "object" && rootNode.type === "folder") walk(rootNode, []);
+    });
+    return out;
+  }
+
+  // El HTML Netscape es deliberadamente mal formado (<DT>/<p> sin cerrar): se parsea con
+  // DOMParser (nunca metiendo el archivo en un innerHTML) y se reconstruye la ruta de
+  // carpetas subiendo desde cada <A> por sus ancestros <DL>. Comprobado empíricamente que
+  // el navegador anida cada <DL> DENTRO del <DT> que lo precede (no como hermano): la
+  // carpeta de un <DL> es el <H3> que sea hijo directo de ese mismo <DT> contenedor.
+  function netscapeFolderPath(anchor){
+    var path = [];
+    var dl = anchor.closest("dl");
+    while(dl){
+      var ownerDt = (dl.parentElement && dl.parentElement.tagName === "DT") ? dl.parentElement : null;
+      if(!ownerDt) break;
+      var heading = null;
+      for(var i = 0; i < ownerDt.children.length; i++){
+        if(ownerDt.children[i].tagName === "H3"){ heading = ownerDt.children[i].textContent.trim(); break; }
+      }
+      if(heading) path.unshift(heading);
+      dl = ownerDt.parentElement;
+    }
+    return path;
+  }
+
+  function parseNetscapeBookmarks(text){
+    var doc = new DOMParser().parseFromString(text, "text/html");
+    var anchors = doc.querySelectorAll("a[href]");
+    var out = [];
+    var seen = {};
+    anchors.forEach(function(a){
+      var url = (a.getAttribute("href") || "").trim();
+      if(!/^https?:\/\//i.test(url)) return; // omite bookmarklets (javascript:), chrome://, about:, place:...
+      if(seen[url]) return;
+      seen[url] = true;
+      var title = (a.textContent || "").trim() || url;
+      var category = netscapeFolderPath(a).join(" / ") || "Sin categoría";
+      out.push({ category: category, title: title, url: url, description: "", active: true, tags: [] });
+    });
+    return out;
+  }
+
+  var IMPORT_FORMAT_LABELS = {
+    pinboard: "JSON de PinBoard",
+    chromium: "marcadores de Chrome/Edge (Bookmarks)",
+    netscape: "HTML de marcadores exportado por un navegador"
+  };
+
+  // Enruta por contenido, no por extensión: el "Bookmarks" de Chromium no tiene ninguna.
+  function parseImportFile(text){
+    var trimmed = text.trim();
+    if(trimmed.charAt(0) === "["){
+      var data = JSON.parse(trimmed);
+      if(!Array.isArray(data)) throw new Error("Formato inválido");
+      var valid = data.every(function(l){ return l && l.category && l.title && l.url; });
+      if(!valid) throw new Error("Formato inválido");
+      return { data: data, format: "pinboard" };
+    }
+    if(trimmed.charAt(0) === "{"){
+      var obj = null;
+      try{ obj = JSON.parse(trimmed); }catch(err){ obj = null; }
+      if(!obj || typeof obj !== "object" || !obj.roots){
+        throw new Error("Formato de archivo no reconocido.");
+      }
+      return { data: parseChromiumBookmarks(obj), format: "chromium" };
+    }
+    if(trimmed.indexOf("NETSCAPE-Bookmark") !== -1 || /<DL/i.test(trimmed)){
+      return { data: parseNetscapeBookmarks(text), format: "netscape" };
+    }
+    throw new Error("Formato de archivo no reconocido. Debe ser un JSON de PinBoard, un archivo Bookmarks de Chrome/Edge o un HTML de marcadores exportado por un navegador.");
+  }
+
   var fileImport = document.getElementById("fileImport");
   var pendingImportData = null;
   var importModalOverlay = document.getElementById("importModalOverlay");
@@ -2840,25 +2965,31 @@
     pendingImportData = null;
   }
 
+  // Parte compartida entre el selector de archivo (#fileImport) y soltar un archivo sobre
+  // la página: valida, rellena el resumen y abre el modal de importación.
+  function handleImportFileText(text){
+    var result;
+    try{
+      result = parseImportFile(text);
+    }catch(err){
+      alert("No se pudo importar el archivo: " + err.message);
+      return;
+    }
+    pendingImportData = result.data;
+    document.getElementById("importSummary").textContent =
+      "Formato reconocido: " + IMPORT_FORMAT_LABELS[result.format] + ". El archivo contiene " + result.data.length +
+      " enlaces. Tienes " + state.links.length + " enlaces actualmente. " +
+      '"Fusionar" añade solo los que no tengas ya (comparando por URL). "Sustituir todo" borra tus enlaces actuales y los reemplaza por los del archivo.';
+    importModalOverlay.hidden = false;
+  }
+
   document.getElementById("btnImport").addEventListener("click", function(){ fileImport.click(); });
   fileImport.addEventListener("change", function(e){
     var file = e.target.files[0];
     if(!file) return;
     var reader = new FileReader();
     reader.onload = function(){
-      try{
-        var data = JSON.parse(reader.result);
-        if(!Array.isArray(data)) throw new Error("Formato inválido");
-        var valid = data.every(function(l){ return l && l.category && l.title && l.url; });
-        if(!valid) throw new Error("Formato inválido");
-        pendingImportData = data;
-        document.getElementById("importSummary").textContent =
-          "El archivo contiene " + data.length + " enlaces. Tienes " + state.links.length + " enlaces actualmente. " +
-          '"Fusionar" añade solo los que no tengas ya (comparando por URL). "Sustituir todo" borra tus enlaces actuales y los reemplaza por los del archivo.';
-        importModalOverlay.hidden = false;
-      }catch(err){
-        alert("No se pudo importar el archivo: " + err.message);
-      }
+      handleImportFileText(String(reader.result));
       fileImport.value = "";
     };
     reader.readAsText(file);
@@ -2878,6 +3009,48 @@
   });
   document.getElementById("importCancelBtn").addEventListener("click", closeImportModal);
   bindOverlayClose(importModalOverlay, closeImportModal);
+
+  // ---------- Arrastrar y soltar un archivo de marcadores sobre la página (R1) ----------
+  // Sin esto, soltar un archivo en cualquier punto de la página navega a él y la app
+  // desaparece: ninguno de los manejadores de #linksContainer/#categoryList llega a
+  // preventDefault() en un arrastre externo, porque ambos empiezan comprobando su propio
+  // arrastre interno (draggedLinkId/draggedCategoryName) y salen antes si no lo hay.
+  var fileDropIndicator = document.getElementById("fileDropIndicator");
+
+  function isInternalDrag(){
+    return !!(draggedLinkId || draggedCategoryName);
+  }
+
+  document.addEventListener("dragenter", function(e){
+    if(isInternalDrag()) return;
+    e.preventDefault();
+    fileDropIndicator.classList.add("visible");
+  });
+
+  document.addEventListener("dragover", function(e){
+    if(isInternalDrag()) return;
+    e.preventDefault();
+  });
+
+  document.addEventListener("dragleave", function(e){
+    if(isInternalDrag()) return;
+    // dragleave también se dispara al pasar sobre hijos; solo ocultar al salir de la ventana.
+    if(e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight){
+      fileDropIndicator.classList.remove("visible");
+    }
+  });
+
+  document.addEventListener("drop", function(e){
+    fileDropIndicator.classList.remove("visible");
+    if(isInternalDrag()) return; // deja actuar a los manejadores de #linksContainer/#categoryList
+    e.preventDefault(); // nunca dejar que el navegador navegue al archivo soltado
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if(!files || files.length === 0) return; // hueco para "arrastrar una URL" (text/uri-list), tarea aparte
+    var reader = new FileReader();
+    reader.onload = function(){ handleImportFileText(String(reader.result)); };
+    reader.onerror = function(){ alert("No se pudo leer el archivo soltado."); };
+    reader.readAsText(files[0]);
+  });
 
   // ---------- Exportar / Importar categorías ----------
   document.getElementById("btnExportCategories").addEventListener("click", function(){
