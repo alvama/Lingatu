@@ -17,7 +17,7 @@ Cualquier propuesta que rompa alguno de esos cuatro puntos se rechaza, por buena
 
 ## Estilo de código
 
-Todo el JavaScript vive dentro de **un único IIFE con `"use strict"`** (`pinboard.html:844`), para no contaminar `window`. La única excepción deliberada es `window.PinBoardBridge`, expuesta al final para la extensión.
+Todo el JavaScript vive dentro de **un único IIFE con `"use strict"`** (el `<script>` al final de `pinboard.html`), para no contaminar `window`. La única excepción deliberada es `window.PinBoardBridge`, expuesta al final para la extensión.
 
 El estilo de **sintaxis** es ES5 a propósito. Respétalo aunque tu instinto diga otra cosa:
 
@@ -59,7 +59,9 @@ Si algún día se decora texto (por ejemplo, un renderizador Markdown), el orden
 Dos avisos que valen más que el resto de este documento, porque el fallo **no da ningún error**:
 
 1. **El contrato con la extensión** (sección 8 de las especificaciones). Si tocas las fichas de enlace (`.link-card` / `.link-card-compact`, el atributo `data-id`), los ids de campo del formulario (`fieldCategory`, `fieldTitle`, `fieldUrl`, `fieldDescription`) o los métodos del puente, la extensión deja de funcionar sin avisar dentro de la app. Pasa la checklist de verificación manual de esa sección antes de dar el cambio por cerrado.
-2. **Tres funciones reconstruyen los enlaces campo por campo con lista blanca**: `performImportReplace` (`pinboard.html:2532`), `performImportMerge` (`pinboard.html:2564`) y `duplicateEditingLink` (`pinboard.html:1616`). La exportación usa `JSON.stringify` y por tanto incluye todo, pero **cualquier campo nuevo del modelo de datos se descarta al importar o al duplicar si no lo añades a las tres**. A eso hay que sumar las dos ramas del `submit` del formulario (`pinboard.html:1674`), que también enumeran los campos: la de edición y la de creación. **Cinco sitios en total por cada campo nuevo.** Es pérdida de datos silenciosa.
+2. **Tres funciones reconstruyen los enlaces campo por campo con lista blanca**: `performImportReplace`, `performImportMerge` y `duplicateEditingLink`. La exportación usa `JSON.stringify` y por tanto incluye todo, pero **cualquier campo nuevo del modelo de datos se descarta al importar o al duplicar si no lo añades a las tres**. A eso hay que sumar las dos ramas del manejador `submit` de `#linkForm`, que también enumeran los campos: la de edición y la de creación. **Cinco sitios en total por cada campo nuevo.** Es pérdida de datos silenciosa.
+
+> Este documento cita el código **por nombre de función o de elemento**, nunca por número de línea: los números caducan en cuanto alguien añade veinte líneas más arriba, y un nombre se encuentra igual de rápido buscando en el archivo. Si añades una referencia nueva, sigue el mismo criterio.
 
 ## Verificación
 
