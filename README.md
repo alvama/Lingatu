@@ -163,4 +163,4 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 Alberto Vázquez Martín ([NLevia.org](https://www.nlevia.org))
+[MIT](LICENSE) © 2026 A. Vazquez ([NLevia.org](https://www.nlevia.org))
