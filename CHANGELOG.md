@@ -9,6 +9,21 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
+- **Selección múltiple de enlaces y acciones en lote**: botón "Seleccionar"
+  en la barra de herramientas que activa un modo en el que cada ficha
+  muestra una casilla y un clic en cualquier parte de la ficha la
+  selecciona o la deselecciona. Con al menos un enlace seleccionado
+  aparece abajo una barra con el recuento y seis acciones sobre todos
+  ellos a la vez: añadir etiqueta, quitar etiqueta, cambiar de categoría
+  (creándola si no existía), activar, desactivar y eliminar (con
+  confirmación y el recuento explícito, sigue siendo irreversible).
+  Etiquetar treinta enlaces deja de ser treinta viajes al modal de
+  edición. La selección **no se guarda** entre sesiones, se vacía en
+  cuanto cambia lo que se está viendo (filtro, búsqueda o vista) y se
+  conserva tras cada acción para poder encadenar varias sobre el mismo
+  conjunto. Mientras el modo está activo, el arrastrar y soltar y los
+  iconos ▲▼✏️🗑️ de las fichas quedan desactivados; al salir, todo vuelve
+  a funcionar exactamente como antes.
 - **Mensaje de bienvenida en el estado vacío**: cuando no hay ningún enlace
   guardado, `#emptyState` deja de mostrar el mensaje de "sin resultados con
   los filtros actuales" (que ahora solo aparece cuando sí hay enlaces pero
