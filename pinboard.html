@@ -486,6 +486,53 @@
     font-size:14px;
   }
 
+  /* Modo selección múltiple (acciones en lote) */
+  .card-select{
+    width:15px;
+    height:15px;
+    margin:0;
+    flex-shrink:0;
+    cursor:pointer;
+    accent-color:var(--primary);
+  }
+  /* Empuja las acciones ▲▼✏️🗑️ a la derecha en la vista cómoda, sin cambiar
+     el justify-content de .card-header (que con un solo hijo se comportaría
+     al revés de lo que parece). */
+  .card-header .card-select{margin-right:auto;}
+  .selection-mode .link-card,
+  .selection-mode .link-card-compact{cursor:pointer;}
+  /* En modo selección, ▲▼✏️🗑️ se ocultan: un clic en cualquier parte de la
+     ficha alterna la selección, así que no puede haber zonas que hagan otra cosa. */
+  .selection-mode .card-icon-actions{display:none;}
+  .link-card.selected,
+  .link-card-compact.selected{
+    outline:2px solid var(--primary);
+    outline-offset:1px;
+    background:var(--surface-2);
+  }
+  .selection-bar{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translateX(-50%);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    max-width:calc(100% - 32px);
+    padding:10px 14px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    box-shadow:var(--shadow-lg);
+    z-index:60;
+  }
+  /* Necesario como en los overlays: .selection-bar{display:flex} (CSS de autor)
+     pisaría al display:none nativo del atributo hidden. */
+  .selection-bar[hidden]{display:none;}
+  .selection-count{font-size:13px;font-weight:600;white-space:nowrap;margin-right:4px;}
+
   /* Modal */
   .modal-overlay{
     position:fixed;
@@ -738,10 +785,20 @@
         <button type="button" class="status-toggle-btn" data-value="compact" title="Vista en lista compacta">Compacta</button>
       </div>
       <button type="button" id="btnToggleAllGroups" class="link-btn" style="white-space:nowrap;" title="Plegar o expandir todas las categorías de golpe">Plegar todo</button>
+      <button type="button" id="btnSelectionMode" class="link-btn" style="white-space:nowrap;" title="Activar el modo selección para aplicar acciones a varios enlaces a la vez">Seleccionar</button>
       <span id="resultCount"></span>
     </div>
     <div id="linksContainer" class="links-groups"></div>
     <p id="emptyState" class="empty-state" hidden>No se encontraron enlaces con los filtros actuales.</p>
+    <div id="selectionBar" class="selection-bar" role="toolbar" aria-label="Acciones sobre los enlaces seleccionados" hidden>
+      <span id="selectionCount" class="selection-count"></span>
+      <button type="button" data-action="bulk-add-tag" title="Añadir una etiqueta a todos los enlaces seleccionados">+ Etiqueta</button>
+      <button type="button" data-action="bulk-remove-tag" title="Quitar una etiqueta de los enlaces seleccionados que la tengan">− Etiqueta</button>
+      <button type="button" data-action="bulk-category" title="Asignar una categoría a todos los enlaces seleccionados (se crea si no existía)">Categoría</button>
+      <button type="button" data-action="bulk-activate" title="Marcar como activos todos los enlaces seleccionados">Activar</button>
+      <button type="button" data-action="bulk-deactivate" title="Marcar como inactivos todos los enlaces seleccionados">Desactivar</button>
+      <button type="button" data-action="bulk-delete" class="btn-danger" title="Eliminar los enlaces seleccionados (irreversible)">Eliminar</button>
+    </div>
   </main>
 </div>
 
@@ -878,7 +935,12 @@
     excludedTags: new Set(),
     viewProfiles: [],
     activeFilter: "active",
-    search: ""
+    search: "",
+    // Modo selección y enlaces seleccionados: viven solo en memoria, nunca en
+    // localStorage — recuperar al abrir la app una selección hecha ayer sería
+    // desconcertante y peligroso (acciones en lote sobre lo que ya no miras).
+    selectionMode: false,
+    selectedLinks: new Set()
   };
 
   var editingId = null;
@@ -1193,6 +1255,106 @@
     render();
   }
 
+  // ---------- Selección múltiple y acciones en lote ----------
+
+  function linkCountText(n){
+    return n + " enlace" + (n === 1 ? "" : "s");
+  }
+
+  function toggleLinkSelection(id){
+    if(state.selectedLinks.has(id)) state.selectedLinks.delete(id);
+    else state.selectedLinks.add(id);
+    render();
+  }
+
+  function setSelectionMode(on){
+    state.selectionMode = on;
+    // Salir del modo devuelve las fichas exactamente a su comportamiento anterior.
+    state.selectedLinks.clear();
+    render();
+  }
+
+  // Cualquier cambio en lo que se está viendo (filtro de categoría, etiquetas,
+  // estado, búsqueda, vista guardada o modo de vista) vacía la selección: nunca
+  // se debe poder aplicar una acción en lote a enlaces que ya no están a la vista.
+  function clearSelectionOnViewChange(){
+    state.selectedLinks.clear();
+  }
+
+  function getSelectedLinks(){
+    return state.links.filter(function(l){ return state.selectedLinks.has(l.id); });
+  }
+
+  // Todas las acciones en lote recorren la selección, mutan state.links y
+  // guardan UNA sola vez al final (no una vez por enlace), como cualquier otra
+  // operación de la app: estado -> save() -> render().
+  function bulkAddTag(){
+    var links = getSelectedLinks();
+    if(links.length === 0) return;
+    var raw = prompt("Etiqueta que añadir a los " + linkCountText(links.length) + " seleccionados:");
+    if(raw === null) return;
+    var tags = normalizeTags(raw).map(ensureTag);
+    if(tags.length === 0) return;
+    links.forEach(function(l){
+      tags.forEach(function(t){
+        var has = l.tags.some(function(x){ return x.toLowerCase() === t.toLowerCase(); });
+        if(!has) l.tags.push(t);
+      });
+    });
+    save();
+    saveAllTags();
+    render();
+  }
+
+  function bulkRemoveTag(){
+    var links = getSelectedLinks();
+    if(links.length === 0) return;
+    var raw = prompt("Etiqueta que quitar de los " + linkCountText(links.length) + " seleccionados:");
+    if(raw === null) return;
+    // Resolución de solo lectura: quitar una etiqueta de unos enlaces no la
+    // borra de la lista maestra, ni registra una nueva si no existía.
+    var tag = tagsFieldResolveCanonical(raw);
+    if(!tag) return;
+    links.forEach(function(l){
+      l.tags = l.tags.filter(function(x){ return x.toLowerCase() !== tag.toLowerCase(); });
+    });
+    save();
+    render();
+  }
+
+  function bulkSetCategory(){
+    var links = getSelectedLinks();
+    if(links.length === 0) return;
+    var raw = prompt("Categoría para los " + linkCountText(links.length) + " seleccionados:");
+    if(raw === null) return;
+    var name = raw.trim();
+    if(!name) return;
+    var cat = ensureCategory(name); // crea la categoría si no existía
+    links.forEach(function(l){ l.category = cat; });
+    save();
+    saveCategories();
+    render();
+  }
+
+  function bulkSetActive(active){
+    var links = getSelectedLinks();
+    if(links.length === 0) return;
+    links.forEach(function(l){ l.active = active; });
+    save();
+    render();
+  }
+
+  function bulkDelete(){
+    var links = getSelectedLinks();
+    if(links.length === 0) return;
+    if(!confirm("¿Eliminar los " + linkCountText(links.length) + " seleccionados? Esta acción no se puede deshacer.")) return;
+    state.links = state.links.filter(function(l){ return !state.selectedLinks.has(l.id); });
+    // Única acción tras la que la selección no se conserva: ya no existe.
+    state.selectedLinks.clear();
+    save();
+    render();
+  }
+
   // Elige texto negro o blanco según la luminancia del color de fondo, para mantener contraste legible.
   function contrastTextColor(hex){
     var c = String(hex || "").replace("#", "");
@@ -1417,14 +1579,38 @@
     );
   }
 
+  // Casilla de selección, compartida por las dos plantillas de ficha. Solo se
+  // genera con el modo selección activo; el estado visual sale siempre de
+  // state.selectedLinks (el clic se resuelve en el listener delegado y repinta).
+  function selectCheckHtml(l){
+    if(!state.selectionMode) return "";
+    var checked = state.selectedLinks.has(l.id) ? ' checked' : '';
+    return '<input type="checkbox" class="card-select" data-id="' + escapeHtml(l.id) + '"' + checked +
+           ' aria-label="Seleccionar ' + escapeHtml(l.title) + '">';
+  }
+
+  // Fuera del modo selección las fichas conservan su comportamiento de siempre
+  // (arrastrables, con su tooltip de arrastre); dentro, el arrastre se desactiva
+  // y el tooltip explica el clic. "base" es el texto informativo de la ficha
+  // (título + descripción en la vista compacta), vacío en la cómoda.
+  function cardDragAttrs(base){
+    var hint = state.selectionMode
+      ? "clic para seleccionar o quitar de la selección"
+      : "arrastra para reordenar o mover a otra categoría";
+    var title = base ? base + " — " + hint : hint.charAt(0).toUpperCase() + hint.slice(1);
+    return ' draggable="' + (state.selectionMode ? 'false' : 'true') + '" title="' + escapeHtml(title) + '"';
+  }
+
   function cardHtml(l, prevId, nextId){
     var tagsHtml = l.tags.map(function(t){
       return '<span class="tag" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
     }).join("");
     var hostname = hostnameForDisplay(l.url);
     return (
-      '<div class="link-card' + (l.active ? '' : ' inactive') + '" data-id="' + l.id + '" draggable="true" title="Arrastra para reordenar o mover a otra categoría"' + categoryTopBarStyle(l.category) + '>' +
+      '<div class="link-card' + (l.active ? '' : ' inactive') + (state.selectedLinks.has(l.id) ? ' selected' : '') + '" data-id="' + l.id + '"' +
+        cardDragAttrs("") + categoryTopBarStyle(l.category) + '>' +
         '<div class="card-header">' +
+          selectCheckHtml(l) +
           '<div class="card-icon-actions">' +
             moveButtonsHtml(l, prevId, nextId) +
             '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
@@ -1445,7 +1631,9 @@
     }).join("");
     var tooltip = l.title + (l.description ? " — " + l.description : "");
     return (
-      '<div class="link-card-compact' + (l.active ? '' : ' inactive') + '" data-id="' + l.id + '" draggable="true" title="' + escapeHtml(tooltip) + ' — arrastra para reordenar o mover a otra categoría">' +
+      '<div class="link-card-compact' + (l.active ? '' : ' inactive') + (state.selectedLinks.has(l.id) ? ' selected' : '') + '" data-id="' + l.id + '"' +
+        cardDragAttrs(tooltip) + '>' +
+        selectCheckHtml(l) +
         faviconImgHtml(l.url) +
         '<a class="compact-title" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer" draggable="false">' + escapeHtml(l.title) + '</a>' +
         (tagsHtml ? '<div class="tags compact-tags">' + tagsHtml + '</div>' : '') +
@@ -1480,12 +1668,27 @@
     document.getElementById("btnToggleAllGroups").textContent = allCollapsed ? "Expandir todo" : "Plegar todo";
   }
 
+  // Botón del modo, clase del contenedor (de la que cuelga todo el CSS del modo)
+  // y barra de acciones, que solo aparece con al menos un enlace seleccionado.
+  function syncSelectionUi(){
+    var btn = document.getElementById("btnSelectionMode");
+    btn.textContent = state.selectionMode ? "Salir de selección" : "Seleccionar";
+    btn.title = state.selectionMode
+      ? "Salir del modo selección (vacía la selección actual)"
+      : "Activar el modo selección para aplicar acciones a varios enlaces a la vez";
+    document.getElementById("linksContainer").classList.toggle("selection-mode", state.selectionMode);
+    var n = state.selectedLinks.size;
+    document.getElementById("selectionBar").hidden = !(state.selectionMode && n > 0);
+    document.getElementById("selectionCount").textContent = linkCountText(n) + (n === 1 ? " seleccionado" : " seleccionados");
+  }
+
   function render(){
     renderSidebar();
     renderCards();
     syncStatusToggle();
     syncToggleAllGroupsLabel();
     syncExportButtonLabel();
+    syncSelectionUi();
   }
 
   function syncExportButtonLabel(){
@@ -2253,6 +2456,16 @@
       toggleCategoryCollapse(groupTitle.getAttribute("data-category"));
       return;
     }
+    // En modo selección, un clic en cualquier parte de la ficha (casilla, título,
+    // etiqueta o hueco) alterna su selección, y el <a> del título no navega.
+    if(state.selectionMode){
+      var selectCard = e.target.closest(".link-card, .link-card-compact");
+      if(selectCard){
+        e.preventDefault();
+        toggleLinkSelection(selectCard.getAttribute("data-id"));
+        return;
+      }
+    }
     var btn = e.target.closest("button[data-action]");
     if(btn){
       var id = btn.getAttribute("data-id");
@@ -2288,6 +2501,9 @@
   var linksContainerEl = document.getElementById("linksContainer");
 
   linksContainerEl.addEventListener("dragstart", function(e){
+    // En modo selección no se arrastra (las fichas ya van con draggable="false";
+    // esto lo garantiza también si el arrastre lo iniciara un hijo suyo).
+    if(state.selectionMode) return;
     var card = e.target.closest(".link-card, .link-card-compact");
     if(!card) return;
     draggedLinkId = card.getAttribute("data-id");
@@ -2340,9 +2556,26 @@
     render();
   });
 
+  document.getElementById("btnSelectionMode").addEventListener("click", function(){
+    setSelectionMode(!state.selectionMode);
+  });
+
+  document.getElementById("selectionBar").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-action]");
+    if(!btn) return;
+    var action = btn.getAttribute("data-action");
+    if(action === "bulk-add-tag") bulkAddTag();
+    else if(action === "bulk-remove-tag") bulkRemoveTag();
+    else if(action === "bulk-category") bulkSetCategory();
+    else if(action === "bulk-activate") bulkSetActive(true);
+    else if(action === "bulk-deactivate") bulkSetActive(false);
+    else if(action === "bulk-delete") bulkDelete();
+  });
+
   document.getElementById("categoryList").addEventListener("click", function(e){
     var item = e.target.closest(".category-item");
     if(!item) return;
+    clearSelectionOnViewChange();
     var cat = item.getAttribute("data-category");
     if(cat === ""){
       state.selectedCategories.clear(); // clic en "Todas" -> limpia toda la selección
@@ -2403,6 +2636,7 @@
   document.getElementById("tagCloud").addEventListener("click", function(e){
     var chip = e.target.closest(".tag-chip[data-tag]");
     if(!chip) return;
+    clearSelectionOnViewChange();
     var tag = chip.getAttribute("data-tag");
     if(state.tags.has(tag)){
       state.tags.delete(tag);
@@ -2421,6 +2655,7 @@
   // excluidas por igual (el filtro de categoría no se toca).
   document.getElementById("btnClearTagSelection").addEventListener("click", function(){
     if(state.tags.size === 0 && state.excludedTags.size === 0) return;
+    clearSelectionOnViewChange();
     state.tags.clear();
     state.excludedTags.clear();
     saveExcludedTags();
@@ -2463,6 +2698,7 @@
     if(!chip) return;
     var profile = state.viewProfiles.find(function(p){ return p.name === chip.getAttribute("data-profile"); });
     if(!profile) return;
+    clearSelectionOnViewChange();
     if(currentSelectionMatchesProfile(profile)){
       // Clic sobre la vista ya activa -> deseleccionar, vuelve a la vista general.
       state.tags = new Set();
@@ -2478,6 +2714,7 @@
   document.getElementById("statusToggle").addEventListener("click", function(e){
     var btn = e.target.closest(".status-toggle-btn");
     if(!btn) return;
+    clearSelectionOnViewChange();
     state.activeFilter = btn.getAttribute("data-value");
     render();
   });
@@ -2485,12 +2722,14 @@
   document.getElementById("viewToggle").addEventListener("click", function(e){
     var btn = e.target.closest(".status-toggle-btn");
     if(!btn) return;
+    clearSelectionOnViewChange();
     state.viewMode = btn.getAttribute("data-value");
     saveViewMode();
     render();
   });
 
   document.getElementById("searchInput").addEventListener("input", function(e){
+    clearSelectionOnViewChange();
     state.search = e.target.value;
     render();
   });
@@ -2535,6 +2774,7 @@
   });
 
   function resetFiltersAfterImport(){
+    clearSelectionOnViewChange();
     state.selectedCategories.clear(); state.tags.clear(); state.activeFilter = "all"; state.search = "";
     document.getElementById("searchInput").value = "";
   }

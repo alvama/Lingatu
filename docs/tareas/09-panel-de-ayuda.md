@@ -65,6 +65,8 @@ Esta es la parte de valor de la tarea. Está sacado de las especificaciones para
 - Arrastrar una **categoría** en el lateral la reordena, y puede moverla varias posiciones de golpe (los ▲/▼ del modal solo la intercambian con la vecina). ★
 - Soltar una categoría sobre **"Todas"** la manda al principio. ★
 - Pulsar la **cabecera de un grupo** lo pliega o despliega, y se recuerda entre sesiones. ★
+- Con el **modo selección** activo ("Seleccionar", 4.21), un clic en cualquier parte de una ficha la selecciona o la deselecciona; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ están desactivados. ★
+- La selección **se vacía sola** al cambiar de filtro, de búsqueda o de vista, y se conserva tras cada acción en lote salvo al eliminar. ★
 - En pantalla táctil el arrastre no funciona (es una API de ratón): usa ▲/▼, que sí responden al toque.
 
 ### Filtros
