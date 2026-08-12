@@ -12,6 +12,9 @@ tools/marcadores_config.json
 # Notas privadas, no se publican
 SYNC-NLEVIA-ORG.md
 
+# Encargos de trabajo para Claude Code (instrucciones internas, no forman parte del producto)
+encargos/
+
 # Sistema operativo / editores
 .DS_Store
 Thumbs.db
