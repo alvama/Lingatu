@@ -77,4 +77,11 @@ Dos avisos que valen más que el resto de este documento, porque el fallo **no d
 3. **Quita del backlog** (sección 11) la entrada que acabas de implementar.
 4. **Si añadiste un atajo de teclado, un gesto de ratón o un comportamiento de filtro, añade su línea a `HELP_SECTIONS`** (el panel de ayuda "?"), en cuanto exista. La descubribilidad es el punto débil conocido de esta app: una función que nada en pantalla insinúa es una función que nadie usa.
 
-Rama de trabajo: `master`, sin pull request.
+## Flujo de trabajo en git
+
+**Todo cambio se integra mediante pull request.** No hagas `git push` directo a `master`, ni siquiera para cambios que solo tocan documentación: `master` tiene una regla de protección en GitHub que lo exige, y saltarla (aunque los permisos lo permitan) deja el aviso `Bypassed rule violations` en cada push.
+
+1. Crea una rama descriptiva a partir de `master` (`docs/…`, `feat/…`, `fix/…`).
+2. Commitea ahí.
+3. `git push -u origin <rama>` y abre el pull request (`gh pr create`).
+4. **No fusiones el PR por tu cuenta**: la decisión de integrar es del autor del repositorio.
