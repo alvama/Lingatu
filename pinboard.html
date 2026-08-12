@@ -688,12 +688,12 @@
       <h1 id="siteTitleDisplay">PinBoard</h1>
       <button type="button" id="btnEditTitle" class="icon-btn" title="Cambiar título de la página">✏️</button>
     </div>
-    <button id="btnAdd" class="btn-primary">+ Nuevo enlace</button>
+    <button id="btnAdd" class="btn-primary" title="Crear un enlace nuevo (atajo: n)">+ Nuevo enlace</button>
 
     <div class="sidebar-section">
       <div class="section-header">
         <h2>Categorías</h2>
-        <button type="button" id="btnManageCategories" class="link-btn">Gestionar</button>
+        <button type="button" id="btnManageCategories" class="link-btn" title="Renombrar, reordenar, colorear y eliminar categorías">Gestionar</button>
       </div>
       <ul id="categoryList" class="category-list"></ul>
     </div>
@@ -701,7 +701,7 @@
     <div class="sidebar-section">
       <div class="section-header">
         <h2>Vistas</h2>
-        <button type="button" id="btnSaveViewProfile" class="link-btn">Guardar actual</button>
+        <button type="button" id="btnSaveViewProfile" class="link-btn" title="Guardar la selección de etiquetas actual como vista reutilizable">Guardar actual</button>
       </div>
       <div id="viewProfileList" class="view-profile-list"></div>
     </div>
@@ -711,7 +711,7 @@
         <h2>Etiquetas</h2>
         <span class="section-header-actions">
           <button type="button" id="btnClearTagSelection" class="icon-btn" title="Limpiar selección de etiquetas (quita las incluidas y las excluidas)">🧹</button>
-          <button type="button" id="btnManageTags" class="link-btn">Gestionar</button>
+          <button type="button" id="btnManageTags" class="link-btn" title="Renombrar, colorear y eliminar etiquetas">Gestionar</button>
         </span>
       </div>
       <div id="tagCloud" class="tag-cloud"></div>
@@ -728,16 +728,16 @@
 
   <main class="content">
     <div class="toolbar">
-      <input type="search" id="searchInput" placeholder="Buscar por título, descripción o etiqueta...">
+      <input type="search" id="searchInput" placeholder="Buscar por título, descripción o etiqueta..." title="Busca en título, descripción y etiquetas (atajo: /)">
       <div class="status-toggle" id="statusToggle">
-        <button type="button" class="status-toggle-btn" data-value="all">Todos</button>
-        <button type="button" class="status-toggle-btn" data-value="active">Activos</button>
+        <button type="button" class="status-toggle-btn" data-value="all" title="Muestra todos los enlaces, activos e inactivos">Todos</button>
+        <button type="button" class="status-toggle-btn" data-value="active" title="Muestra solo los enlaces activos">Activos</button>
       </div>
       <div class="status-toggle" id="viewToggle">
-        <button type="button" class="status-toggle-btn" data-value="comfortable">Cómoda</button>
-        <button type="button" class="status-toggle-btn" data-value="compact">Compacta</button>
+        <button type="button" class="status-toggle-btn" data-value="comfortable" title="Vista en fichas de cuadrícula">Cómoda</button>
+        <button type="button" class="status-toggle-btn" data-value="compact" title="Vista en lista compacta">Compacta</button>
       </div>
-      <button type="button" id="btnToggleAllGroups" class="link-btn" style="white-space:nowrap;">Plegar todo</button>
+      <button type="button" id="btnToggleAllGroups" class="link-btn" style="white-space:nowrap;" title="Plegar o expandir todas las categorías de golpe">Plegar todo</button>
       <span id="resultCount"></span>
     </div>
     <div id="linksContainer" class="links-groups"></div>
@@ -1296,7 +1296,7 @@
   function renderSidebar(){
     var categories = getCategories();
     var totalCount = state.links.length;
-    var html = '<li class="category-item' + (state.selectedCategories.size === 0 ? ' active' : '') + '" data-category="">' +
+    var html = '<li class="category-item' + (state.selectedCategories.size === 0 ? ' active' : '') + '" data-category="" title="Quitar el filtro de categoría">' +
                  '<span>Todas</span><span class="count">' + totalCount + '</span></li>';
     categories.forEach(function(c){
       html += '<li class="category-item' + (state.selectedCategories.has(c.name) ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '" draggable="true" title="Arrastra para reordenar (Ctrl+clic para selección múltiple)">' +
@@ -1313,7 +1313,7 @@
         var cls = "tag-chip";
         if(state.excludedTags.has(t)) cls += " excluded";
         else if(state.tags.has(t)) cls += " active";
-        return '<span class="' + cls + '" data-tag="' + escapeHtml(t) + '"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
+        return '<span class="' + cls + '" data-tag="' + escapeHtml(t) + '" title="Clic para incluir, otro clic para excluir, otro clic para quitar el filtro"' + tagChipStyle(t) + '>' + escapeHtml(t) + '</span>';
       }).join("");
     }
 
@@ -1342,7 +1342,7 @@
     }
     list.innerHTML = state.viewProfiles.map(function(p){
       var active = currentSelectionMatchesProfile(p) ? " active" : "";
-      return '<span class="view-profile-chip' + active + '" data-profile="' + escapeHtml(p.name) + '">' +
+      return '<span class="view-profile-chip' + active + '" data-profile="' + escapeHtml(p.name) + '" title="Un clic aplica la vista \'' + escapeHtml(p.name) + '\'; otro clic la deselecciona">' +
         escapeHtml(p.name) +
         '<button type="button" class="view-profile-chip-remove" data-action="delete-profile" data-profile="' + escapeHtml(p.name) + '" title="Eliminar vista" aria-label="Eliminar vista">✕</button>' +
       '</span>';
@@ -1357,6 +1357,14 @@
 
     if(filtered.length === 0){
       container.innerHTML = "";
+      if(state.links.length === 0){
+        emptyState.innerHTML = '<strong>Bienvenido a PinBoard.</strong><br>' +
+          'Empieza por <button type="button" id="btnEmptyStateAdd" class="link-btn">crear tu primer enlace</button>.<br>' +
+          'También puedes importar tus marcadores del navegador con el botón "Importar" del lateral.<br>' +
+          'Y en cualquier momento, pulsa <kbd>/</kbd> para buscar.';
+      } else {
+        emptyState.innerHTML = "No se encontraron enlaces con los filtros actuales.";
+      }
       emptyState.hidden = false;
       return;
     }
@@ -1709,6 +1717,9 @@
   });
 
   document.getElementById("btnAdd").addEventListener("click", function(){ openModal(null); });
+  document.getElementById("emptyState").addEventListener("click", function(e){
+    if(e.target.closest("#btnEmptyStateAdd")) openModal(null);
+  });
   document.getElementById("btnCancel").addEventListener("click", closeModal);
   document.getElementById("btnDuplicate").addEventListener("click", duplicateEditingLink);
 
