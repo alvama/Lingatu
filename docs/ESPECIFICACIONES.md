@@ -187,8 +187,9 @@ Junto al título de cada tarjeta/fila (en ambos modos de vista) se muestra el fa
 ### 4.12 Atajos de teclado
 - **`/`** — enfoca el buscador (`#searchInput`).
 - **`n`** — abre el modal de "Nuevo enlace". Insensible a mayúsculas (compara `e.key.toLowerCase()`), así que funciona igual con Bloq Mayús activado o pulsando Mayús.
+- **`Ctrl+K` / `Cmd+K`** — abre la paleta de comandos (4.22).
 
-Ambos se ignoran mientras el foco está en un campo de texto/`textarea`/elemento editable, o mientras hay algún modal abierto (enlace, gestión o importación), para no interferir con la escritura normal.
+`/` y `n` se ignoran mientras el foco está en un campo de texto/`textarea`/elemento editable, o mientras hay algún overlay abierto (`anyOverlayOpen()`, 4.22), para no interferir con la escritura normal. `Ctrl+K` **sí** funciona con el foco en un campo de texto —es lo esperable de una paleta de comandos—, pero tampoco hace nada con un overlay abierto.
 
 ### 4.13 Duplicar un enlace
 Botón "Duplicar" (`#btnDuplicate`) en el modal de edición, oculto al crear un enlace nuevo (`openModal` hace `btnDuplicate.hidden = !link`). Al pulsarlo, `duplicateEditingLink()` crea de inmediato una copia del enlace que se está editando (nuevo `id` vía `genId()`, mismos campos, título con sufijo `" _copia"`), la guarda, y el propio modal pasa a editar esa copia. Al conservar la misma URL que el original, si se guarda sin cambiarla se dispara el aviso normal de "URL duplicada" (4.1) — es el comportamiento esperado.
@@ -291,6 +292,43 @@ Cada acción recorre la selección, muta `state.links` y **guarda una sola vez a
 
 **Vaciado de la selección** (`clearSelectionOnViewChange()`): cualquier cambio en lo que se está viendo la vacía — filtro de categoría, etiquetas del lateral (incluida la escoba), perfil de vista, toggle Todos/Activos, búsqueda, modo de vista e importación. Tras una acción en lote, en cambio, la selección **se conserva** para poder encadenar varias sobre el mismo conjunto; la única excepción es "Eliminar", donde necesariamente se vacía.
 
+### 4.22 Paleta de comandos (Ctrl+K)
+
+Objetivo: un único desplegable que busca a la vez **acciones y contenido**. "expo" saca *Exportar enlaces*, "mdn" saca el enlace, "desar" saca la categoría *Desarrollo*. Resuelve por la vía correcta lo que se descartó como "más atajos de teclado" (11.2): **un atajo en lugar de diez**, y descubrible leyendo en vez de memorizando.
+
+**Registro de overlays (requisito previo, y corrección de dos fallos)**. Antes, la lista de overlays abiertos estaba escrita a mano en dos sitios —el manejador global de `Escape` y la comprobación de atajos bloqueados (decisión 15)— y se había quedado desactualizada: `#importCategoriesModalOverlay` (4.19) se añadió sin apuntarlo en ninguna de las dos, así que **`Escape` no cerraba ese modal** y **con él abierto la tecla `n` abría el modal de nuevo enlace encima**. Ahora hay una sola estructura, `OVERLAYS`, a la que cada overlay se da de alta con `registerOverlay(el, closeFn)` —la misma llamada que ya enlazaba el cierre por clic fuera—, y de ella derivan `anyOverlayOpen()` y `closeOpenOverlays()`. Los dos fallos quedan corregidos y cualquier overlay futuro queda cubierto por el solo hecho de registrarse.
+
+**`COMMANDS`, único origen de verdad de las acciones**. Array declarado después de las funciones de acción; cada entrada llama a la misma función con nombre que llama su botón, nunca a una copia de su lógica (ver decisión 25). Forma de una entrada:
+
+```js
+{ id: "add-link", label: "Nuevo enlace", hint: "n", run: function(){ openModal(null); } }
+```
+
+- `label`: cadena **o función** que la devuelve. Hace falta para *Plegar todo* / *Expandir todo*, que es un solo comando con etiqueta cambiante; la lee del propio `#btnToggleAllGroups`, que `render()` ya mantiene sincronizado (`syncToggleAllGroupsLabel()`).
+- `hint` (opcional): el atajo que ya existe para esa acción (`n`, `/`). Es lo que convierte la paleta en documentación.
+- `available` (opcional): si devuelve `false`, el comando no se ofrece. Solo lo usa *Limpiar selección de etiquetas*, que no tiene sentido sin etiquetas incluidas o excluidas — por eso con la app recién abierta se listan **trece** comandos y catorce en cuanto hay una selección de etiquetas.
+
+Quedan **fuera del registro** las acciones que solo existen dentro de un modal (`btnDuplicate`, `btnCancel`, exportar/importar categorías): un comando debe poder ejecutarse desde la vista principal.
+
+**Cinco grupos de resultados**, cada uno con cabecera visible solo si tiene resultados:
+
+| Grupo | Origen | Qué hace `Enter` | Tope |
+|---|---|---|---|
+| Comandos | `COMMANDS` | Ejecuta `run()` | todos |
+| Enlaces | **`state.links` completo** | Abre la URL en una pestaña nueva | 8 |
+| Categorías | `getCategories()` | Filtra por esa categoría, como un clic normal en el lateral | 5 |
+| Vistas | `state.viewProfiles` | Aplica el perfil (tags incluidas y excluidas) | 5 |
+| Etiquetas | `getAllTags()` | Añade la etiqueta a `state.tags` (solo incluir) | 5 |
+
+- **Los enlaces se buscan sobre `state.links`, ignorando los filtros activos** — es el punto de la función: alcanzar algo que ahora mismo *no* se está viendo. Usar `getFilteredLinks()` aquí sería justo lo contrario. Busca sobre título, descripción, URL y etiquetas.
+- Categorías, vistas y etiquetas **aplican, no alternan**: elegirlas explícitamente por su nombre no puede significar "deseleccionar". El ciclo de tres estados de la nube de etiquetas (4.17) no se replica: la paleta hace lo simple y predecible.
+- **Con la consulta vacía se muestran solo los comandos**, todos, con su `hint`. Es el momento en que la paleta hace de ayuda.
+- Todo lo que pinta es dato de usuario (títulos, categorías, vistas, etiquetas): pasa por `escapeHtml()` sin excepción.
+
+**Coincidencia insensible a mayúsculas y acentos** (`paletteNormalize()`): `normalize("NFD")` + eliminación del rango de marcas combinantes, aplicado igual a la consulta y al texto candidato. En español no es un adorno: `categoria` encuentra *Categorías* y `diseno` encuentra *Diseño*. Subcadena, sin coincidencia difusa.
+
+**Interfaz y teclado**. Overlay propio `#commandPaletteOverlay` (registrado en `OVERLAYS`, con su regla `[hidden]` heredada de `.modal-overlay` — decisión 1), anclado arriba para que la lista crezca sin mover el campo. Se abre con `Ctrl+K`/`Cmd+K` y con el botón visible **"Comandos (Ctrl+K)"** de la barra de herramientas (`#btnCommandPalette`): si algún navegador no cediera el atajo la función sigue siendo accesible, y una función autodocumentada a la que solo se llega por un atajo que nadie te ha contado no documenta nada. `↑`/`↓` mueven la selección con el mismo patrón que las sugerencias de etiquetas (4.20), desplazando a la vista la entrada seleccionada; `Enter` ejecuta; el clic hace lo mismo que `Enter`; `Escape` cierra (vía el manejador global de overlays). Al ejecutar cualquier entrada la paleta **se cierra antes de ejecutar** —la acción puede abrir un modal o enfocar el buscador— y el campo se vacía, para que la siguiente apertura empiece limpia.
+
 ## 5. Estructura del HTML
 
 ```
@@ -305,17 +343,21 @@ Cada acción recorre la selección, muta `state.links` y **guarda una sola vez a
     Pie: versión + créditos (app-footer)
   </aside>
   <main class="content">
-    Toolbar: buscador + toggle estado + toggle vista + contador resultados
+    Toolbar: buscador + toggle estado + toggle vista + botón paleta (4.22) + contador resultados
     #linksContainer            ← agrupado por categoría (ver 4.2)
     #emptyState                ← mensaje "sin resultados"
     #selectionBar              ← barra de acciones en lote, fija abajo (ver 4.21)
   </main>
 </div>
 
-#modalOverlay         Modal de alta/edición de enlace
-#manageModalOverlay   Modal de gestión de categorías/etiquetas (genérico, reutilizado)
-#importModalOverlay   Modal de decisión al importar (Fusionar / Sustituir todo / Cancelar)
+#modalOverlay                   Modal de alta/edición de enlace
+#manageModalOverlay             Modal de gestión de categorías/etiquetas (genérico, reutilizado)
+#importModalOverlay             Modal de decisión al importar (Fusionar / Sustituir todo / Cancelar)
+#importCategoriesModalOverlay   Modal de decisión al importar categorías (4.19)
+#commandPaletteOverlay          Paleta de comandos (4.22)
 ```
+
+Los cinco overlays se dan de alta con `registerOverlay()`, que es lo que los hace cerrables con `Escape` y lo que bloquea los atajos de una tecla mientras están abiertos (4.22).
 
 ## 6. Funciones JavaScript clave
 
@@ -375,6 +417,18 @@ Cada acción recorre la selección, muta `state.links` y **guarda una sola vez a
 | `tagsFieldCommitToken(raw)` / `tagsFieldCommitFromText(raw)` | Confirman un texto como chip (resolviendo el nombre canónico existente sin tocar `state.allTags`) / trocean un texto pegado con varias etiquetas y confirman cada una |
 | `tagsFieldResolveCanonical(raw)` | Versión de solo lectura de `ensureTag`: resuelve el nombre canónico ya existente (case-insensitive) o el texto limpio con `#`, sin registrar nada en la lista maestra |
 | `getTagsFieldSuggestions()` / `refreshTagsSuggestions()` | Calculan y pintan el desplegable de sugerencias filtrado por el texto actual del campo |
+| `registerOverlay(el, closeFn)` | Da de alta un overlay en `OVERLAYS` (único origen de verdad, 4.22) y le enlaza el cierre por clic fuera. Sustituye al antiguo `bindOverlayClose()` |
+| `anyOverlayOpen()` / `closeOpenOverlays()` | Derivadas de `OVERLAYS`: si hay algún overlay abierto (bloquea `/`, `n` y `Ctrl+K`) / cierra los que lo estén (manejador global de `Escape`) |
+| `promptSiteTitle()` | Pide el título de la página y lo guarda (antes en línea en el listener de `#btnEditTitle`) |
+| `toggleAllGroups()` | Pliega o expande todas las categorías de golpe (antes en línea en `#btnToggleAllGroups`) |
+| `clearTagSelection()` | Vacía las etiquetas incluidas y excluidas (antes en línea en `#btnClearTagSelection`) |
+| `promptSaveViewProfile()` | Guarda la selección de etiquetas actual como vista, con su confirmación al sobrescribir (antes en línea en `#btnSaveViewProfile`) |
+| `setStatusFilter(value)` / `setViewMode(value)` | Aplican el filtro Todos/Activos y el modo Cómoda/Compacta (antes en línea en los listeners de los dos toggles) |
+| `exportLinks()` | Exporta a JSON **incluida la confirmación de filtro activo** (4.7): vive dentro de la función, no del listener, para que la paleta no pueda exportar una selección parcial sin avisar |
+| `COMMANDS` | Registro de las acciones globales de la app (4.22): `{id, label, hint?, available?, run}`. Único origen de verdad de la paleta; cada `run` llama a la misma función con nombre que el botón |
+| `paletteNormalize(str)` / `paletteMatches(text, q)` | Comparación insensible a mayúsculas y acentos (`normalize("NFD")` + quitar combinantes) |
+| `buildPaletteGroups(query)` / `paintPalette()` / `refreshPalette()` | Calculan los cinco grupos de resultados con sus topes / los pintan con `escapeHtml()` / recalculan y repintan tras cada tecleo |
+| `openCommandPalette()` / `closeCommandPalette()` / `runPaletteItem(item)` / `movePaletteHighlight(delta)` | Apertura y cierre (vaciando siempre el campo), ejecución de una entrada (cierra antes de ejecutar) y navegación con ↑/↓ |
 
 ## 7. Decisiones de diseño relevantes (historial)
 
@@ -394,7 +448,7 @@ Recogidas aquí porque no son obvias a partir del código y explican *por qué* 
 12. **Colores en mapas aparte, no en el modelo de datos de los enlaces**: `state.categoryColors`/`state.tagColors` son diccionarios `nombre → color` independientes de `state.links` y de las listas maestras. Así, añadir color no obliga a migrar el formato de los enlaces ya guardados (ni el JSON de exportación), y un color "huérfano" (de una categoría/etiqueta ya borrada) simplemente deja de usarse sin generar errores.
 13. **El punto de color de categoría es solo un acento, no repinta la fila entera**: se descartó teñir el fondo completo de la tarjeta o del item de categoría porque con muchas categorías de colores fuertes el listado se vuelve difícil de leer; un punto pequeño basta para identificar de un vistazo sin comprometer la legibilidad del resto.
 14. **El resaltado "activo" de una etiqueta usa `outline`, no solo `background`**: como el color personalizado de una etiqueta se aplica por `style` inline (que siempre gana a las reglas de clase), el estado "seleccionada" de una etiqueta ya no puede depender únicamente de cambiar su `background` por CSS — se añadió un `outline` en `.tag-chip.active`, que sí es una propiedad separada y por tanto visible incluso sobre un color inline.
-15. **Atajos de teclado solo si no se está escribiendo ni hay un modal abierto**: `/` y `n` comprueban `e.target.tagName`/`isContentEditable` y el estado `hidden` de los tres overlays antes de actuar, para no interceptar esas teclas mientras el usuario escribe en cualquier campo (incluida una descripción que contenga la letra "n" o el carácter "/").
+15. **Atajos de teclado solo si no se está escribiendo ni hay un modal abierto**: `/` y `n` comprueban `e.target.tagName`/`isContentEditable` y `anyOverlayOpen()` antes de actuar, para no interceptar esas teclas mientras el usuario escribe en cualquier campo (incluida una descripción que contenga la letra "n" o el carácter "/"). *(La comprobación enumeraba a mano tres overlays hasta que se centralizó en `OVERLAYS` — 4.22; la lista a mano ya se había quedado desactualizada y provocaba dos fallos reales.)*
 16. **Editor de chips de etiquetas: `ensureTag` real solo en el `submit`, nunca al escribir**: `tagsFieldResolveCanonical` reimplementa la búsqueda case-insensitive de `ensureTag` pero sin escribir en `state.allTags`. Si se hubiera llamado a `ensureTag` directamente en cada chip confirmado, cancelar el modal después de escribir una etiqueta nueva la habría dejado registrada en la lista maestra (visible en "Gestionar etiquetas") aunque el enlace nunca se guardara. Duplicar la lógica de resolución era preferible a esa fuga de estado.
 17. **`<label for="tagsInput">` explícito en el campo de etiquetas**: sin el `for`, el `<label>` se asocia implícitamente con el primer elemento labelable en orden del DOM — y como los botones `×` de los chips (también `<button>`) se insertan antes que `#tagsInput`, un clic en cualquier descendiente no interactivo de la etiqueta (p. ej. una sugerencia del desplegable) reenviaba un clic sintético al primer chip y lo borraba. Comportamiento estándar de HTML, no un bug de navegador — se corrige fijando explícitamente el control asociado.
 18. **Favicon vía servicio externo, sin guardarlo en los datos**: se optó por pedirlo en cada render a `google.com/s2/favicons` (un servicio de terceros ampliamente usado para este propósito) en vez de descargarlo y guardarlo en base64 dentro del enlace, para no inflar el JSON de exportación ni la cuota de `localStorage`. Contrapartida: requiere conexión a internet para verse (si no hay red, simplemente no aparece ningún icono, sin romper nada) y ese servicio recibe el dominio de cada enlace que se muestra — ver limitación de privacidad en la sección 9.
@@ -407,6 +461,13 @@ Las seis siguientes son las decisiones de la **selección múltiple y las accion
 22. **Cambiar de filtro, de búsqueda o de vista vacía la selección**: mismo criterio que la confirmación al exportar con un filtro activo (decisión 9), y más estricto — **nunca se debe poder aplicar una acción en lote a enlaces que el usuario no está viendo**. Se aplica también al cambio de modo de vista (cómoda/compacta), donde no cambia *qué* se ve, por no dejar ninguna excepción que razonar.
 23. **Tras una acción se conserva la selección, salvo al borrar**: encadenar "etiquetar + cambiar de categoría + desactivar" sobre el mismo conjunto es el uso normal. Al eliminar, los enlaces ya no existen y la selección se vacía. Nota: desactivar en lote con el filtro "Activos" puesto saca las fichas de la vista sin perder la selección — es deliberado, es el resultado de la acción que se acaba de pedir, no un cambio de filtro.
 24. **Los diálogos usan `prompt()`/`confirm()` nativos**: coherente con la decisión 10 (el modal nativo es la opción más simple para una acción puntual de una línea). Reutilizar el editor de chips de etiquetas (4.20) queda como posible mejora posterior.
+
+Las cuatro siguientes son las decisiones de la **paleta de comandos** (4.22):
+
+25. **`COMMANDS` es el único origen de verdad de las acciones, y la dependencia va `listener → función con nombre ← entrada del registro`**: se rechazó explícitamente la alternativa obvia —que la paleta duplicara las llamadas que hoy hacen los listeners—, que habría funcionado a la primera y habría quedado desincronizada en cuanto alguien cambiara el comportamiento de un botón: la paleta seguiría haciendo lo de antes, en silencio y sin que ningún test lo detecte (no hay tests). Con ambos lados llamando a la misma función, la desincronización es imposible por construcción. El precio es el requisito previo de extraer a funciones con nombre la lógica que vivía dentro de siete listeners (`promptSiteTitle`, `toggleAllGroups`, `clearTagSelection`, `promptSaveViewProfile`, `setStatusFilter`, `setViewMode`, `exportLinks`); se hizo como movimiento puro de código, sin aprovechar para mejorar nada, porque ahí cualquier cambio de comportamiento es una regresión en un botón que ya funcionaba.
+26. **El `confirm()` de exportar con filtro activo se movió al interior de `exportLinks()`**: si se hubiera quedado en el listener del botón, la paleta se habría convertido en una vía para exportar una selección parcial **sin avisar** — justo lo que esa confirmación existe para evitar (4.7, decisión 22). Regla general que deja el caso: al extraer una función para el registro, se lleva consigo sus confirmaciones, no solo su "parte útil".
+27. **Los enlaces de la paleta se buscan sobre `state.links` completo, no sobre `getFilteredLinks()`**: leyendo el código lo natural es reutilizar el filtrado que ya existe, y es un error de diseño — el propósito de la paleta es alcanzar algo que los filtros activos están ocultando ahora mismo. Es también la razón de que los resultados de enlace solo abran la URL: ejecutar acciones (editar, borrar) sobre un enlace que no se está viendo es otra decisión, y no se toma aquí.
+28. **`Ctrl+K` llama siempre a `preventDefault()`, incluso cuando decide no abrirse**: en Chrome y Edge ese atajo enfoca la barra de direcciones. Prevenirlo solo al abrir dejaría un caso raro —con un modal abierto, `Ctrl+K` sacaría el foco del navegador de la página— cuando lo esperado es que no haga absolutamente nada. A diferencia de `/` y `n` (decisión 15), sí actúa con el foco dentro de un campo de texto, porque es lo esperable de una paleta de comandos.
 
 ## 8. Contrato con la extensión de Chrome
 
@@ -471,11 +532,10 @@ Cualquier idea de esta lista debe respetar la restricción de arquitectura de la
 
 | Prioridad | Idea | Notas de implementación |
 |---|---|---|
-| **Alta** | **Paleta de comandos (Ctrl+K)** | Un único desplegable que busca a la vez enlaces y *acciones* ("Exportar", "Gestionar categorías", "Ir a categoría X"), navegable con flechas y Enter. Es la forma correcta de resolver lo que se descartó como "más atajos de teclado" (11.2): **un atajo en lugar de diez**, y descubrible leyendo en vez de memorizando. Reutiliza `getFilteredLinks()` y el patrón de navegación por flechas ya escrito para las sugerencias de etiquetas (4.20). Efecto secundario valioso: al listar cada acción por su nombre, es en sí mismo un sistema de ayuda. **Requisitos listos para acometer en [`docs/tareas/04-paleta-de-comandos.md`](tareas/04-paleta-de-comandos.md)**, incluida la decisión de arquitectura del registro de comandos y un requisito previo que corrige dos fallos vivos en la comprobación de overlays abiertos. |
 | **Alta** | **Búsqueda con operadores** | El mismo `#searchInput`, entendiendo `cat:desarrollo`, `#referencia`, `-#trabajo`, `site:github.com` y `"frase exacta"`. Un parser de ~40 líneas dentro de `getFilteredLinks()`; sin texto con operadores sigue funcionando como la subcadena de siempre (4.3), así que no hay UI nueva ni comportamiento que desaprender. Pegar una URL en el buscador encuentra su enlace sin ningún caso especial, con solo añadir la URL al texto sobre el que se busca (hoy no se incluye). **Requisitos listos para acometer en [`docs/tareas/05-busqueda-con-operadores.md`](tareas/05-busqueda-con-operadores.md)**, con un cambio de comportamiento deliberado: varias palabras pasan a combinarse en AND en vez de exigir la secuencia literal. |
 | **Alta** | **Notas Markdown por enlace, capturadas desde la página** | Campo `notes` acumulativo por enlace, alimentado desde la extensión (incluida la captura de la selección de texto como cita). Convierte PinBoard de "donde guardo enlaces" en "donde guardo lo que sé sobre esos enlaces". **Requisitos funcionales en 11.3 y tarea completa en [`docs/tareas/06-notas-markdown.md`](tareas/06-notas-markdown.md)** — leer antes de implementar: hay cinco lugares que enumeran los campos de un enlace y omitir cualquiera destruye datos en silencio. |
 | **Alta** | **Post-its en la propia página del enlace (fase 1)** | Al visitar una página que ya está en PinBoard, ver sus notas sin abrir PinBoard: panel plegable en una esquina, **sin anclar a ningún punto del contenido**. **Acometer a continuación de las notas (11.3)**, de las que depende directamente: no añade modelo de datos nuevo, son las mismas notas en una segunda superficie. **Análisis de las dos fases en 11.4** — la versión anclada al contenido es mucho más cara de lo que parece y rompe una premisa de la arquitectura; la fase 1 da la mayor parte del valor sin pagarla, y con el recuento en el badge del icono evita incluso el permiso `<all_urls>`. **Requisitos listos para acometer en [`docs/tareas/07-postits-fase1.md`](tareas/07-postits-fase1.md).** |
-| **Alta** | **Ayuda: panel "?" con la chuleta de atajos y gestos** | Un modal con cuatro bloques (atajos, gestos de arrastre, filtros —los tres estados de etiqueta y Ctrl+clic—, datos). Se abre con `?`, que está libre: el manejador actual compara `e.key === "/"` y con Shift la tecla es `?`. Contenido en un único array `HELP_SECTIONS` en el JS, junto al código, porque tiene coste de mantenimiento real (cada función nueva pide su línea). Debe ser **conductual y corto**, nunca un espejo de este documento. **Acometer después de la paleta de comandos**: la paleta ya documenta las *acciones* por su nombre, así que lo que quedará por cubrir son los *gestos*, que no son comandos y no pueden salir en una paleta — y así el panel cabe en una pantalla. Ver 11.5. **Requisitos listos para acometer en [`docs/tareas/09-panel-de-ayuda.md`](tareas/09-panel-de-ayuda.md)**, que incluye el inventario completo de lo que hay que documentar, marcando lo que hoy es indescubrible. |
+| **Alta** | **Ayuda: panel "?" con la chuleta de gestos** | Un modal con los **gestos** de arrastre, los filtros (los tres estados de etiqueta y Ctrl+clic) y el comportamiento de los datos. Se abre con `?`, que está libre: el manejador actual compara `e.key === "/"` y con Shift la tecla es `?`. Contenido en un único array `HELP_SECTIONS` en el JS, junto al código, porque tiene coste de mantenimiento real. Debe ser **conductual y corto**, nunca un espejo de este documento. **Alcance ya reducido por la paleta de comandos (4.22)**: las *acciones* y sus atajos ya están documentados ahí, listadas por su nombre con la consulta vacía, así que a este panel solo le quedan los gestos —que no son comandos y no pueden salir en una paleta— y con eso cabe en una pantalla. Ver 11.5. **Requisitos listos para acometer en [`docs/tareas/09-panel-de-ayuda.md`](tareas/09-panel-de-ayuda.md)**, que incluye el inventario completo de lo que hay que documentar, marcando lo que hoy es indescubrible. |
 | **Alta** | **Corregir: el `id` de un enlace se inserta en el HTML sin escapar** | Fallo latente ya verificado. `cardHtml`, `cardHtmlCompact` y `moveButtonsHtml` concatenan `data-id="' + l.id + '"` (y `data-target`) **sin pasar por `escapeHtml()`**, saltándose la regla de que todo dato de usuario que entra como HTML se sanea. Con los `id` que genera la app (`genId()`, alfanuméricos) no puede pasar nada, pero **`performImportReplace` conserva el `id` que venga en el archivo importado** (`id: l.id || genId()`): basta un JSON ajeno con un `id` que contenga una comilla para romper el atributo y, desde ahí, inyectar atributos o marcado en la ficha. Efecto colateral en la misma línea: rompe el elemento raíz de la ficha y con él el contrato de la sección 8, y `highlightLink()` construye un selector con el `id` que lanzaría excepción. **Arreglo por los dos lados**: escapar el `id` allí donde se pinta (es la corrección real, ~4 líneas) y, además, sanear o regenerar los `id` no válidos al importar. Comprobar de paso el resto de valores que se concatenan como atributo sin escapar (`data-target`). |
 | **Media** | **Exportación autocontenida: la app con los datos dentro** | Segundo formato en el botón "Exportar" existente (no un botón nuevo): un `pinboard.html` con **todo el estado** incrustado en un `<script type="application/json">` — enlaces, categorías con su orden/color/icono, etiquetas y sus colores, perfiles de vista, título y modo de vista. Un solo archivo que es programa y datos: USB, correo, equipo nuevo, sin paso de importación. Se serializa el DOM vivo con `document.documentElement.outerHTML` sobre un clon limpio (vaciando los ocho contenedores que se repintan: `#categoryList`, `#tagCloud`, el `<datalist>`, `#viewProfileList`, `#linksContainer`, sugerencias y chips de etiquetas, `#manageList`) — no hace falta leer el archivo del disco, imposible en `file://`. **Regla de compatibilidad**: el JSON de enlaces sigue siendo el canal oficial para mover datos entre versiones; este formato congela también el código de la app, así que el seed lleva sello de versión y fecha, y **nunca se aplica solo si ya hay datos** (reglas de siembra en 11.6). |
 | **Media** | **Panel de limpieza** | Botón "Revisar" en el sidebar junto a Exportar/Importar (es mantenimiento, misma familia) que abre un modal con comprobaciones, cada una plegable con su recuento: URLs duplicadas ya guardadas, enlaces con URL inválida, enlaces sin etiquetas, etiquetas sin uso, categorías con un solo enlace, títulos repetidos con URL distinta, dominios repartidos entre varias categorías, URLs con parámetros de seguimiento. **El panel no modifica nada por sí mismo**: cada fila ofrece "Ver estos N", que cierra el modal y deja la vista filtrada en ese conjunto para arreglarlo con la UI normal — con la selección en lote (4.21), de un gesto. Eso es lo que lo mantiene en ~150 líneas. Cálculo puro sobre `state.links`, sin tocar el modelo. Dos comprobaciones lo justifican solas: las **URLs inválidas** hoy fallan en silencio (solo se manifiestan como falta de favicon, 4.11) y los **duplicados ya dentro** nunca se listan, porque el dedupe solo actúa al guardar e importar. Sitio natural para alojar más adelante el aviso de backup. **Requisitos listos para acometer en [`docs/tareas/08-panel-de-limpieza.md`](tareas/08-panel-de-limpieza.md).** |
@@ -552,7 +612,7 @@ Y PinBoard acumula mucha potencia invisible. Hoy nada en pantalla insinúa que e
 
 **Asimetría estructural que decide la cuestión**: la ayuda alojada en GitHub no se puede leer desde la app, que corre en `file://`. La ayuda embebida **viaja dentro del archivo** — y eso pesa mucho más si se implementa la exportación autocontenida (11.6) y los archivos empiezan a pasar de mano en mano. Un `pinboard.html` que alguien te pasa y se explica solo es un producto; uno que remite a un repositorio, no.
 
-Decisión adoptada, por orden de retorno: **estados vacíos que enseñan y `title` en todo lo interactivo** (prioridad muy alta, media hora cada uno, ninguna decisión que tomar); **panel "?" con la chuleta** (prioridad alta, después de la paleta de comandos, que ya cubre las acciones y deja solo los gestos por documentar); **tour interactivo guiado, descartado** (11.2).
+Decisión adoptada, por orden de retorno: **estados vacíos que enseñan y `title` en todo lo interactivo** (prioridad muy alta, media hora cada uno, ninguna decisión que tomar); **panel "?" con la chuleta** (prioridad alta; la paleta de comandos —4.22, ya implementada— cubre las acciones y deja solo los gestos por documentar); **tour interactivo guiado, descartado** (11.2).
 
 ### 11.6 Exportación autocontenida — reglas de siembra
 

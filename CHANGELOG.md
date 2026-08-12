@@ -9,6 +9,19 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
+- **Paleta de comandos (Ctrl+K)**: un único desplegable que busca a la vez
+  acciones y contenido. Escribe "expo" y sale *Exportar enlaces*; "mdn" y
+  sale el enlace; "desar" y sale la categoría *Desarrollo*. Cinco grupos de
+  resultados —comandos, enlaces, categorías, vistas y etiquetas—, navegables
+  con ↑/↓ y Enter (o con el ratón). Se abre con `Ctrl+K`/`Cmd+K`, y también
+  con el botón "Comandos (Ctrl+K)" de la barra de herramientas, para que la
+  función no dependa de un atajo que nadie te ha contado. Con el campo vacío
+  lista **todas** las acciones de la app con su atajo, así que hace además de
+  chuleta. Los enlaces se buscan sobre la colección completa, ignorando los
+  filtros activos: el propósito es alcanzar algo que ahora mismo *no* estás
+  viendo. La coincidencia ignora mayúsculas **y acentos**: "categoria"
+  encuentra *Categorías* y "diseno" encuentra *Diseño*.
+
 - **Importar marcadores de cualquier navegador arrastrando el archivo**:
   suelta sobre la página el HTML que exporta cualquier navegador
   (Ctrl+Shift+O → Exportar) o el propio `Bookmarks` de Chrome/Edge, y
@@ -52,6 +65,17 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   el item "Todas" de categorías, los chips de vistas guardadas y, sobre
   todo, los chips de etiqueta del lateral, que ahora explican su ciclo de
   tres estados (neutra → incluida → excluida) al pasar el ratón.
+
+### Corregido
+
+- **`Escape` no cerraba el modal de importar categorías**, y **con ese modal
+  abierto la tecla `n` abría el modal de nuevo enlace encima**. Los dos
+  fallos tenían la misma causa: la lista de modales abiertos estaba escrita
+  a mano en dos sitios y el modal de importar categorías se añadió sin
+  apuntarlo en ninguno de los dos. Ahora los overlays se registran en una
+  sola estructura, de la que derivan tanto el cierre con `Escape` como el
+  bloqueo de los atajos de una tecla, así que cualquier modal futuro queda
+  cubierto por el solo hecho de registrarse.
 
 ## [1.5.0] - 2026-08-11
 
