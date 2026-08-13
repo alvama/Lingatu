@@ -584,7 +584,24 @@
   /* Más ancho que el resto de modales: la fila de categoría acumula color,
      icono, orden ▲/▼ y acciones; a 440px se ve forzada a partirse en dos líneas. */
   #manageModalOverlay .modal{max-width:560px;}
+  /* El modal de enlace es el doble de ancho que el resto: el formulario va a dos
+     columnas, con las notas ocupando la derecha entera. Es lo que evita que un
+     campo que puede crecer mucho deje el modal con scroll. */
+  #modalOverlay .modal{max-width:880px;}
   #linkForm{display:flex;flex-direction:column;gap:12px;}
+  .form-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .form-column{display:flex;flex-direction:column;gap:12px;min-width:0;}
+  /* La columna de notas se estira hasta el alto de la otra y el textarea ocupa
+     todo lo que sobra, sea cual sea el número de campos de la izquierda. */
+  .form-column-notes,.form-column-notes label{height:100%;}
+  #fieldNotes{flex:1;min-height:280px;}
+  /* Con poco ancho no caben dos columnas: se apilan, y las notas vuelven a un
+     alto moderado para no empujar los botones fuera de la vista. */
+  @media (max-width: 940px){
+    .form-columns{grid-template-columns:1fr;}
+    .form-column-notes,.form-column-notes label{height:auto;}
+    #fieldNotes{min-height:140px;}
+  }
   #linkForm label{
     display:flex;
     flex-direction:column;
@@ -694,6 +711,94 @@
     margin-top:6px;
   }
   #btnDuplicate{margin-right:auto;}
+  /* .btn-primary es de ancho completo (lo pide "+ Nuevo enlace" del lateral);
+     en un modal de 880px eso deja un botón "Guardar" desproporcionado. */
+  #linkForm .modal-actions .btn-primary{width:auto;min-width:140px;}
+
+  /* Visor de notas: leer, no editar (ver 4.23). El texto se muestra tal cual,
+     con pre-wrap para conservar los saltos de línea del Markdown. */
+  #notesViewerOverlay .modal{max-width:640px;}
+  #notesViewerOverlay .modal-actions .btn-primary{width:auto;min-width:120px;}
+  .notes-viewer-meta{font-size:12px;color:var(--text-muted);margin:-8px 0 12px 0;}
+  .notes-viewer-body{
+    overflow-wrap:anywhere;
+    font-size:13px;
+    line-height:1.55;
+    color:var(--text);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    max-height:60vh;
+    overflow-y:auto;
+  }
+  /* Escala contenida a propósito: un h1 de tamaño real descuadraría el visor,
+     y el encabezado más habitual es el ## de fecha que genera la propia app. */
+  .notes-viewer-body .note-h{margin:14px 0 6px 0;line-height:1.3;}
+  .notes-viewer-body > .note-h:first-child{margin-top:0;}
+  .notes-viewer-body h1.note-h{font-size:17px;}
+  .notes-viewer-body h2.note-h{font-size:15px;}
+  .notes-viewer-body h3.note-h{font-size:14px;}
+  .notes-viewer-body h4.note-h,
+  .notes-viewer-body h5.note-h,
+  .notes-viewer-body h6.note-h{font-size:13px;color:var(--text-muted);}
+  .notes-viewer-body .note-p{margin:0 0 10px 0;}
+  .notes-viewer-body .note-quote{
+    margin:0 0 10px 0;
+    padding:2px 0 2px 12px;
+    border-left:3px solid var(--border);
+    color:var(--text-muted);
+  }
+  .notes-viewer-body .note-list{margin:0 0 10px 0;padding-left:22px;}
+  .notes-viewer-body .note-list li{margin:2px 0;}
+  .notes-viewer-body .note-code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px;
+    background:var(--tag-bg);
+    color:var(--tag-fg);
+    padding:1px 5px;
+    border-radius:4px;
+    white-space:pre-wrap;
+  }
+  /* Bloque de código: no se parte en líneas, se desplaza en horizontal. Envolver
+     código copiado es peor que un scroll, porque cambia dónde acaba cada línea.
+     El envoltorio existe para anclar el botón de copiar sin que se desplace con
+     ese scroll ni entre en la selección del texto. */
+  .notes-viewer-body .note-pre-wrap{position:relative;margin:0 0 10px 0;}
+  .notes-viewer-body .note-pre{
+    margin:0;
+    padding:10px 12px;
+    padding-right:44px;
+    background:var(--tag-bg);
+    border-radius:6px;
+    overflow-x:auto;
+  }
+  .notes-viewer-body .note-copy{
+    position:absolute;
+    top:6px;
+    right:6px;
+    z-index:1;
+    padding:2px 6px;
+    font-size:12px;
+    line-height:1.3;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--surface);
+    opacity:0.6;
+    user-select:none;
+  }
+  .notes-viewer-body .note-pre-wrap:hover .note-copy,
+  .notes-viewer-body .note-copy:focus{opacity:1;}
+  .notes-viewer-body .note-copy.ok{color:var(--success);border-color:var(--success);opacity:1;}
+  .notes-viewer-body .note-copy.ko{color:var(--danger);border-color:var(--danger);opacity:1;}
+  .notes-viewer-body .note-pre code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px;
+    line-height:1.45;
+    color:var(--tag-fg);
+    white-space:pre;
+  }
+  .notes-viewer-body > :last-child{margin-bottom:0;}
   .field-error{font-size:12px;color:var(--danger);font-weight:400;display:none;}
 
   /* Título del sitio */
@@ -848,7 +953,7 @@
 
   <main class="content">
     <div class="toolbar">
-      <input type="search" id="searchInput" placeholder="Buscar por título, descripción o etiqueta..." title="Busca en título, descripción y etiquetas (atajo: /)">
+      <input type="search" id="searchInput" placeholder="Buscar por título, descripción, etiqueta o nota..." title="Busca en título, descripción, etiquetas y notas (atajo: /)">
       <div class="status-toggle" id="statusToggle">
         <button type="button" class="status-toggle-btn" data-value="all" title="Muestra todos los enlaces, activos e inactivos">Todos</button>
         <button type="button" class="status-toggle-btn" data-value="active" title="Muestra solo los enlaces activos">Activos</button>
@@ -882,40 +987,50 @@
     <h2 id="modalTitle">Nuevo enlace</h2>
     <form id="linkForm">
       <input type="hidden" id="linkId">
-      <label>Categoría *
-        <input id="fieldCategory" list="categoryOptions" required autocomplete="off">
-      </label>
-      <datalist id="categoryOptions"></datalist>
+      <div class="form-columns">
+        <div class="form-column">
+          <label>Categoría *
+            <input id="fieldCategory" list="categoryOptions" required autocomplete="off">
+          </label>
+          <datalist id="categoryOptions"></datalist>
 
-      <label>Título *
-        <input id="fieldTitle" required autocomplete="off">
-      </label>
+          <label>Título *
+            <input id="fieldTitle" required autocomplete="off">
+          </label>
 
-      <label>Link *
-        <input id="fieldUrl" type="url" required placeholder="https://ejemplo.com" autocomplete="off">
-      </label>
+          <label>Link *
+            <input id="fieldUrl" type="url" required placeholder="https://ejemplo.com" autocomplete="off">
+          </label>
 
-      <label>Descripción
-        <textarea id="fieldDescription" rows="2"></textarea>
-      </label>
+          <label>Descripción
+            <textarea id="fieldDescription" rows="2"></textarea>
+          </label>
 
-      <label for="tagsInput">Etiquetas <span style="font-weight:400">(escribe y pulsa Enter, espacio o coma; también puedes pegar varias de golpe)</span>
-        <div id="tagsField" class="tags-field">
-          <div id="tagsChipsWrap" class="tags-chips-wrap">
-            <input id="tagsInput" type="text" class="tags-input" autocomplete="off"
-                   placeholder="Añadir etiqueta..." aria-label="Añadir etiqueta"
-                   role="combobox" aria-autocomplete="list" aria-expanded="false"
-                   aria-controls="tagsSuggestions" aria-haspopup="listbox">
-          </div>
-          <ul id="tagsSuggestions" class="tags-suggestions" role="listbox" hidden></ul>
+          <label for="tagsInput">Etiquetas <span style="font-weight:400">(escribe y pulsa Enter, espacio o coma; también puedes pegar varias de golpe)</span>
+            <div id="tagsField" class="tags-field">
+              <div id="tagsChipsWrap" class="tags-chips-wrap">
+                <input id="tagsInput" type="text" class="tags-input" autocomplete="off"
+                       placeholder="Añadir etiqueta..." aria-label="Añadir etiqueta"
+                       role="combobox" aria-autocomplete="list" aria-expanded="false"
+                       aria-controls="tagsSuggestions" aria-haspopup="listbox">
+              </div>
+              <ul id="tagsSuggestions" class="tags-suggestions" role="listbox" hidden></ul>
+            </div>
+            <input type="hidden" id="fieldTags">
+          </label>
+
+          <label class="checkbox-label">
+            <input type="checkbox" id="fieldActive" checked>
+            Activo
+          </label>
         </div>
-        <input type="hidden" id="fieldTags">
-      </label>
 
-      <label class="checkbox-label">
-        <input type="checkbox" id="fieldActive" checked>
-        Activo
-      </label>
+        <div class="form-column form-column-notes">
+          <label for="fieldNotes">Notas <span style="font-weight:400">(se guardan tal cual; puedes escribir en Markdown)</span>
+            <textarea id="fieldNotes" placeholder="Lo que sepas o pienses sobre este enlace..."></textarea>
+          </label>
+        </div>
+      </div>
 
       <div class="modal-actions">
         <button type="button" id="btnDuplicate" hidden>Duplicar</button>
@@ -923,6 +1038,18 @@
         <button type="submit" class="btn-primary">Guardar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div id="notesViewerOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notesViewerTitle">
+    <h2 id="notesViewerTitle">Notas</h2>
+    <div id="notesViewerMeta" class="notes-viewer-meta"></div>
+    <div id="notesViewerBody" class="notes-viewer-body"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnNotesViewerEdit">Editar notas</button>
+      <button type="button" id="btnNotesViewerClose" class="btn-primary">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -997,7 +1124,7 @@
 
   // Identidad de la app: versión visible y créditos. Editable a mano aquí.
   var APP_CONFIG = {
-    version: "1.7.0",
+    version: "1.8.0",
     siteName: "NLevia.org",
     siteUrl: "https://www.nlevia.org",
     repoUrl: "https://github.com/alvama/PinBoard"
@@ -1206,6 +1333,32 @@
     return out;
   }
 
+  // ---------- Notas por enlace ----------
+  // Las notas se acumulan: cada anotación entra como un bloque nuevo al final,
+  // encabezado por su fecha, y nunca se sobrescribe lo anterior (ver 4.23).
+  // El texto se guarda tal cual —el Markdown es una convención de escritura,
+  // no un formato de salida—, así que aquí no se renderiza nada.
+  function formatNoteBlock(text){
+    var d = new Date();
+    var stamp = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+    return "## " + stamp + "\n\n" + String(text == null ? "" : text).replace(/\s+$/, "");
+  }
+
+  // Añade un bloque al final del texto de notas existente, con una línea en
+  // blanco de separación y sin espacios sobrantes al final.
+  function appendNoteToText(existing, block){
+    var base = String(existing == null ? "" : existing).replace(/\s+$/, "");
+    return base ? base + "\n\n" + block : block;
+  }
+
+  // Cuenta los bloques con encabezado de fecha. Lo devuelve appendNote para que
+  // la extensión pueda decir "3 notas en este enlace" al confirmar: ver subir el
+  // número es lo que evita repetir la captura creyendo que no funcionó.
+  function countNoteBlocks(text){
+    var found = String(text == null ? "" : text).match(/^## /gm);
+    return found ? found.length : 0;
+  }
+
   // Devuelve el nombre canónico ya existente (comparación sin distinguir mayúsculas)
   // o registra "name" como nueva categoría si no existía.
   function ensureCategory(name){
@@ -1283,7 +1436,7 @@
         if(hasExcluded) return false;
       }
       if(q){
-        var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ")).toLowerCase();
+        var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ") + " " + (l.notes||"")).toLowerCase();
         if(haystack.indexOf(q) === -1) return false;
       }
       return true;
@@ -1701,6 +1854,21 @@
     );
   }
 
+  // Indicador de notas, compartido por las dos plantillas de ficha: es la única
+  // forma de saber que un enlace tiene algo escrito sin abrir nada (la nota no
+  // se pinta en la ficha, puede tener cientos de líneas). Es un botón, y abre el
+  // **visor** de notas, no el formulario: leer y editar son cosas distintas y el
+  // lápiz ya cubre la edición (decisión 37). El tooltip lleva el recuento.
+  // Va dentro de .card-icon-actions a propósito: así el modo selección lo oculta
+  // con el mismo criterio que ▲▼✏️🗑️ (decisión 21).
+  function notesIndicatorHtml(l){
+    if(!l.notes) return "";
+    var n = countNoteBlocks(l.notes);
+    var texto = n > 1 ? "Ver las " + n + " notas de este enlace" : "Ver las notas de este enlace";
+    return '<button class="icon-action-plain" data-action="notes" data-id="' + escapeHtml(l.id) +
+           '" title="' + escapeHtml(texto) + '" aria-label="' + escapeHtml(texto + ": " + l.title) + '">📝</button>';
+  }
+
   // Casilla de selección, compartida por las dos plantillas de ficha. Solo se
   // genera con el modo selección activo; el estado visual sale siempre de
   // state.selectedLinks (el clic se resuelve en el listener delegado y repinta).
@@ -1734,6 +1902,7 @@
         '<div class="card-header">' +
           selectCheckHtml(l) +
           '<div class="card-icon-actions">' +
+            notesIndicatorHtml(l) +
             moveButtonsHtml(l, prevId, nextId) +
             '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
             '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
@@ -1760,6 +1929,7 @@
         '<a class="compact-title" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer" draggable="false">' + escapeHtml(l.title) + '</a>' +
         (tagsHtml ? '<div class="tags compact-tags">' + tagsHtml + '</div>' : '') +
         '<div class="card-icon-actions">' +
+          notesIndicatorHtml(l) +
           moveButtonsHtml(l, prevId, nextId) +
           '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
           '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
@@ -1983,7 +2153,9 @@
     tagsInput.removeAttribute("aria-activedescendant");
   }
 
-  function openModal(link){
+  // "focusNotes" solo lo usa el indicador 📝 de las fichas (4.23): abre el modal
+  // directamente donde está el contenido, en vez de dejar el foco en Categoría.
+  function openModal(link, focusNotes){
     editingId = link ? link.id : null;
     document.getElementById("modalTitle").textContent = link ? "Editar enlace" : "Nuevo enlace";
     document.getElementById("linkId").value = link ? link.id : "";
@@ -1992,10 +2164,19 @@
     document.getElementById("fieldUrl").value = link ? link.url : "";
     document.getElementById("fieldDescription").value = link ? link.description : "";
     tagsFieldSetChips(link ? link.tags : []);
+    // Siempre se fija: al crear queda vacío, para que no arrastre las notas del
+    // enlace editado justo antes (invariante 5 de la tarea de notas).
+    document.getElementById("fieldNotes").value = link ? (link.notes || "") : "";
     document.getElementById("fieldActive").checked = link ? link.active : true;
     document.getElementById("btnDuplicate").hidden = !link;
     overlay.hidden = false;
-    document.getElementById("fieldCategory").focus();
+    if(focusNotes){
+      var notesEl = document.getElementById("fieldNotes");
+      notesEl.focus();
+      notesEl.setSelectionRange(notesEl.value.length, notesEl.value.length); // el cursor al final: lo normal es seguir escribiendo
+    } else {
+      document.getElementById("fieldCategory").focus();
+    }
   }
 
   // Crea una copia del enlace que se está editando (título + " _copia") y
@@ -2012,6 +2193,7 @@
       active: original.active,
       tags: original.tags.slice()
     };
+    if(original.notes) copy.notes = original.notes;
     state.links.push(copy);
     save();
     render();
@@ -2033,6 +2215,7 @@
     var url = document.getElementById("fieldUrl").value.trim();
     var description = document.getElementById("fieldDescription").value.trim();
     var tags = normalizeTags(document.getElementById("fieldTags").value);
+    var notes = document.getElementById("fieldNotes").value.replace(/\s+$/, "");
     var active = document.getElementById("fieldActive").checked;
 
     if(!category || !title || !url) return;
@@ -2051,9 +2234,14 @@
       if(link){
         link.category = category; link.title = title; link.url = url;
         link.description = description; link.tags = tags; link.active = active;
+        // "notes" solo existe si tiene contenido: sin notas, se borra el campo
+        // en vez de dejarlo como "" (ver 4.23 de las especificaciones).
+        if(notes) link.notes = notes; else delete link.notes;
       }
     } else {
-      state.links.push({ id: genId(), category: category, title: title, url: url, description: description, active: active, tags: tags });
+      var nuevo = { id: genId(), category: category, title: title, url: url, description: description, active: active, tags: tags };
+      if(notes) nuevo.notes = notes;
+      state.links.push(nuevo);
     }
     save();
     saveCategories();
@@ -2145,6 +2333,271 @@
     closeOpenOverlays();
   });
 
+  // ---------- Render de notas ----------
+  // Convierte el texto de una nota en nodos del DOM: encabezados (#..######),
+  // citas (>), listas con viñeta (-) y numeradas, párrafos, y dentro de cada
+  // línea código (`así`), **negrita** y *cursiva*.
+  //
+  // **Nunca construye HTML a partir de una cadena**: todo texto entra por
+  // textContent y el resto son createElement. Así la seguridad es estructural y
+  // no depende de acordarse de escapar — que importa, porque este texto suele
+  // venir copiado de páginas web arbitrarias. Es también la razón de que no haya
+  // enlaces ni imágenes: un href obligaría a validar esquemas (javascript:) y a
+  // volver a innerHTML, y eso es otra decisión (ver decisión 38).
+  //
+  // Todo se procesa **línea a línea**: ningún marcador cruza un salto, así que
+  // un asterisco sin cerrar solo puede descolocar su propia línea.
+  function isNoteBlockStart(linea){
+    return /^\s*```/.test(linea) || /^\s*#{1,6}\s+/.test(linea) || /^\s*>/.test(linea) ||
+           /^\s*-\s+/.test(linea) || /^\s*\d+[.)]\s+/.test(linea);
+  }
+
+  // **negrita** y *cursiva*. Dos reglas para que no formatee lo que no debe:
+  // el delimitador tiene que abrazar texto sin espacio pegado por dentro
+  // (*así* sí, * así * no), y el de apertura no puede ir pegado a una palabra
+  // — desviación deliberada de CommonMark, que en "2*3*4" pone el 3 en cursiva.
+  function renderEmphasisInto(el, texto){
+    var resto = String(texto);
+    var re = /\*\*(?=\S)(.*?\S)\*\*|\*(?=\S)([^*]*?\S)\*/;
+    var m;
+    while((m = re.exec(resto)) !== null){
+      var anterior = m.index > 0 ? resto.charAt(m.index - 1) : "";
+      var fin = m.index + m[0].length;
+      if(anterior && !/[\s(\[{"'¡¿—–-]/.test(anterior)){
+        el.appendChild(document.createTextNode(resto.slice(0, fin))); // asterisco pegado a una palabra: texto normal
+        resto = resto.slice(fin);
+        continue;
+      }
+      if(m.index > 0) el.appendChild(document.createTextNode(resto.slice(0, m.index)));
+      var fuerte = m[1] !== undefined;
+      var nodo = document.createElement(fuerte ? "strong" : "em");
+      nodo.textContent = fuerte ? m[1] : m[2];
+      el.appendChild(nodo);
+      resto = resto.slice(fin);
+    }
+    if(resto) el.appendChild(document.createTextNode(resto));
+  }
+
+  // El código va primero y su contenido no se vuelve a tocar: es la forma
+  // estándar de escapar de la ambigüedad de los asteriscos al escribir algo
+  // técnico (`a*b` se lee tal cual).
+  function renderInlineInto(el, texto){
+    var partes = String(texto).split(/(`[^`]+`)/);
+    partes.forEach(function(parte){
+      if(!parte) return;
+      if(parte.length > 2 && parte.charAt(0) === "`" && parte.charAt(parte.length - 1) === "`"){
+        var code = document.createElement("code");
+        code.className = "note-code";
+        code.textContent = parte.slice(1, -1);
+        el.appendChild(code);
+      } else {
+        renderEmphasisInto(el, parte);
+      }
+    });
+  }
+
+  // Un salto de línea simple es un salto de línea real, no una continuación del
+  // párrafo como en Markdown estricto: en notas personales lo que escribes es lo
+  // que quieres ver, y así se conserva lo que ya hacía el visor con pre-wrap.
+  // Eso hace innecesaria la regla de "dos espacios al final" — invisible y que
+  // cualquier editor recorta sin avisar.
+  function renderNoteLinesInto(el, lineas){
+    lineas.forEach(function(linea, idx){
+      if(idx > 0) el.appendChild(document.createElement("br"));
+      renderInlineInto(el, linea);
+    });
+  }
+
+  function renderNotesInto(container, text){
+    container.textContent = "";
+    var lineas = String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
+    var i = 0;
+    while(i < lineas.length){
+      var linea = lineas[i];
+
+      if(/^\s*$/.test(linea)){ i++; continue; }     // las líneas en blanco solo separan bloques
+
+      // Valla de código: todo lo de dentro es literal, ni siquiera se mira. Es
+      // la construcción menos ambigua de todas, y la que hace falta al pegar un
+      // fragmento de varias líneas copiado de una página. El identificador de
+      // lenguaje (```js) se acepta y se ignora: aquí no hay resaltado.
+      if(/^\s*```/.test(linea)){
+        i++;
+        var lineasCodigo = [];
+        while(i < lineas.length && !/^\s*```/.test(lineas[i])){
+          lineasCodigo.push(lineas[i]);
+          i++;
+        }
+        if(i < lineas.length) i++;                  // la valla de cierre; si falta, el bloque llega hasta el final
+        var pre = document.createElement("pre");
+        pre.className = "note-pre";
+        var codeBlock = document.createElement("code");
+        codeBlock.textContent = lineasCodigo.join("\n");
+        pre.appendChild(codeBlock);
+        // El botón va fuera del <pre> (en el envoltorio) por dos razones: dentro
+        // se desplazaría con el scroll horizontal del código, y entraría en la
+        // selección al arrastrar el ratón sobre el bloque.
+        var wrap = document.createElement("div");
+        wrap.className = "note-pre-wrap";
+        var copiar = document.createElement("button");
+        copiar.type = "button";
+        copiar.className = "note-copy";
+        copiar.setAttribute("data-action", "copy-code");
+        copiar.title = "Copiar el código";
+        copiar.setAttribute("aria-label", "Copiar el código");
+        copiar.textContent = "📋";
+        wrap.appendChild(copiar);
+        wrap.appendChild(pre);
+        container.appendChild(wrap);
+        continue;
+      }
+
+      var encabezado = /^\s*(#{1,6})\s+(.*)$/.exec(linea);
+      if(encabezado){
+        var h = document.createElement("h" + encabezado[1].length);
+        h.className = "note-h";
+        renderInlineInto(h, encabezado[2]);
+        container.appendChild(h);
+        i++;
+        continue;
+      }
+
+      if(/^\s*>/.test(linea)){
+        var cita = document.createElement("blockquote");
+        cita.className = "note-quote";
+        var lineasCita = [];
+        while(i < lineas.length && /^\s*>/.test(lineas[i])){
+          lineasCita.push(lineas[i].replace(/^\s*>\s?/, ""));
+          i++;
+        }
+        renderNoteLinesInto(cita, lineasCita);
+        container.appendChild(cita);
+        continue;
+      }
+
+      // Solo el guion abre viñeta: aceptar también el asterisco chocaría con la cursiva.
+      if(/^\s*-\s+/.test(linea)){
+        var ul = document.createElement("ul");
+        ul.className = "note-list";
+        while(i < lineas.length && /^\s*-\s+/.test(lineas[i])){
+          var li = document.createElement("li");
+          renderInlineInto(li, lineas[i].replace(/^\s*-\s+/, ""));
+          ul.appendChild(li);
+          i++;
+        }
+        container.appendChild(ul);
+        continue;
+      }
+
+      if(/^\s*\d+[.)]\s+/.test(linea)){
+        var ol = document.createElement("ol");
+        ol.className = "note-list";
+        var primero = /^\s*(\d+)/.exec(linea)[1];
+        if(primero !== "1") ol.setAttribute("start", primero); // una lista que empieza en 3 empieza en 3
+        while(i < lineas.length && /^\s*\d+[.)]\s+/.test(lineas[i])){
+          var liNum = document.createElement("li");
+          renderInlineInto(liNum, lineas[i].replace(/^\s*\d+[.)]\s+/, ""));
+          ol.appendChild(liNum);
+          i++;
+        }
+        container.appendChild(ol);
+        continue;
+      }
+
+      var lineasParrafo = [];
+      while(i < lineas.length && !/^\s*$/.test(lineas[i]) && !isNoteBlockStart(lineas[i])){
+        lineasParrafo.push(lineas[i]);
+        i++;
+      }
+      var p = document.createElement("p");
+      p.className = "note-p";
+      renderNoteLinesInto(p, lineasParrafo);
+      container.appendChild(p);
+    }
+  }
+
+  // ---------- Copiar al portapapeles ----------
+  // En file:// no basta con navigator.clipboard: existe, pero puede fallar según
+  // el navegador y el estado del foco, así que se cae al execCommand de siempre
+  // sobre un <textarea> temporal. El feedback va en el propio botón, que es
+  // donde está mirando el usuario cuando lo pulsa.
+  function flashCopyButton(btn, ok){
+    if(!btn) return;
+    var previo = btn.textContent;
+    btn.textContent = ok ? "✓" : "✕";
+    btn.classList.add(ok ? "ok" : "ko");
+    setTimeout(function(){
+      btn.textContent = previo;
+      btn.classList.remove("ok");
+      btn.classList.remove("ko");
+    }, 1500);
+  }
+
+  function copyTextToClipboard(text, btn){
+    function fallback(){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:0;left:-9999px;";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+      document.body.removeChild(ta);
+      flashCopyButton(btn, ok);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ flashCopyButton(btn, true); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // ---------- Visor de notas ----------
+  // Leer no es editar (decisión 37). El indicador 📝 de las fichas abre esto:
+  // las notas en solo lectura, tal cual se guardaron —fase 1, sin renderizar el
+  // Markdown—, con los saltos de línea conservados por CSS (white-space:pre-wrap).
+  // El texto entra con textContent, nunca como HTML: viene de páginas web
+  // arbitrarias y es la entrada menos confiable de la app.
+  var notesViewerOverlay = document.getElementById("notesViewerOverlay");
+  var notesViewerId = null;
+
+  function openNotesViewer(id){
+    var link = state.links.find(function(l){ return l.id === id; });
+    if(!link) return;
+    notesViewerId = id;
+    document.getElementById("notesViewerTitle").textContent = link.title;
+    var host = hostnameForDisplay(link.url);
+    document.getElementById("notesViewerMeta").textContent = link.category + (host ? " · " + host : "");
+    var body = document.getElementById("notesViewerBody");
+    if(link.notes) renderNotesInto(body, link.notes);
+    else body.textContent = "Este enlace todavía no tiene notas.";
+    notesViewerOverlay.hidden = false;
+    document.getElementById("btnNotesViewerClose").focus();
+  }
+
+  function closeNotesViewer(){
+    notesViewerOverlay.hidden = true;
+    notesViewerId = null;
+  }
+
+  // Delegado, y registrado una sola vez: el cuerpo del visor se repinta entero
+  // en cada apertura, así que los botones de copiar no pueden llevar listener propio.
+  document.getElementById("notesViewerBody").addEventListener("click", function(e){
+    var btn = e.target.closest('[data-action="copy-code"]');
+    if(!btn) return;
+    var code = btn.parentNode.querySelector("code");
+    if(code) copyTextToClipboard(code.textContent, btn);
+  });
+
+  registerOverlay(notesViewerOverlay, closeNotesViewer);
+  document.getElementById("btnNotesViewerClose").addEventListener("click", closeNotesViewer);
+  document.getElementById("btnNotesViewerEdit").addEventListener("click", function(){
+    var link = state.links.find(function(l){ return l.id === notesViewerId; });
+    closeNotesViewer();   // primero cerrar: dos overlays abiertos a la vez no es un estado válido
+    if(link) openModal(link, true);
+  });
+
   // ---------- Puente para la extensión de navegador ----------
   // Superficie mínima y estable pensada para ser llamada desde fuera de esta
   // IIFE (p. ej. una extensión inyectando código en el "MAIN world" de esta
@@ -2153,12 +2606,13 @@
   //
   // CONTRATO ESTABLE — no cambiar sin revisar extension/background.js:
   // (contrato completo en docs/ESPECIFICACIONES.md, sección 8)
-  //   - Firma de los 4 métodos de abajo (checkDuplicate/focusExisting/
-  //     suggestCategory/prefillAndOpen).
+  //   - Firma de los 5 métodos de abajo (checkDuplicate/focusExisting/
+  //     suggestCategory/prefillAndOpen/appendNote).
   //   - Clases ".link-card"/".link-card-compact" + atributo "data-id" en el
   //     elemento raíz de cada ficha (las usa highlightLink() más abajo).
   //   - Ids de campo fieldCategory/fieldTitle/fieldUrl/fieldDescription
-  //     (los rellena prefillAndOpen vía getElementById(...).value).
+  //     (los rellena prefillAndOpen vía getElementById(...).value) y fieldNotes
+  //     (lo rellena appendNote cuando el enlace todavía no existe).
   // Si se rompe algo de esto, la extensión falla en silencio (solo un badge
   // rojo "!" en su icono), sin ningún error visible aquí.
   function suggestCategory(title, description, url){
@@ -2184,6 +2638,21 @@
     setTimeout(function(){ el.classList.remove("bridge-highlight"); }, 2000);
   }
 
+  // Abre el modal de "Nuevo enlace" con los campos precargados; el usuario
+  // sigue confirmando y pulsando "Guardar" como en el flujo manual.
+  // Función con nombre (y no un método anónimo del objeto de abajo) porque
+  // appendNote la reutiliza para el caso "la URL todavía no existe".
+  function prefillAndOpen(data){
+    data = data || {};
+    openModal(null);
+    document.getElementById("fieldCategory").value = data.category || "";
+    document.getElementById("fieldTitle").value = data.title || "";
+    document.getElementById("fieldUrl").value = data.url || "";
+    document.getElementById("fieldDescription").value = data.description || "";
+    window.focus();
+    document.getElementById("fieldTitle").focus();
+  }
+
   window.PinBoardBridge = {
     // Comprueba si la URL ya existe. Devuelve {id, title, category} o null.
     checkDuplicate: function(url){
@@ -2198,17 +2667,36 @@
     // Heurística simple: propone una categoría ya existente según coincidencias
     // de palabras en título/descripción/dominio. No inventa categorías nuevas.
     suggestCategory: suggestCategory,
-    // Abre el modal de "Nuevo enlace" con los campos precargados; el usuario
-    // sigue confirmando y pulsando "Guardar" como en el flujo manual.
-    prefillAndOpen: function(data){
+    prefillAndOpen: prefillAndOpen,
+    // Añade una nota al enlace de esa URL. El texto llega ya formateado como el
+    // usuario lo quiere ver (una selección capturada llega como cita "> ..."):
+    // aquí solo se le pone el encabezado de fecha y se acumula al final.
+    //
+    // Asimetría deliberada (decisión 33): si la URL ya existe, la nota se añade
+    // sin modal ni confirmación —es aditivo sobre un enlace que el usuario ya
+    // curó—; si no existe, se abre el modal precargado y la crea él, porque la
+    // categoría es una heurística que puede fallar. Devuelve
+    // {ok, created, id?, title?, category?, noteCount?} para que la extensión
+    // sepa si tiene que saltar a esta pestaña (creación) o basta con avisar en
+    // la página donde está el usuario (añadido), y con qué recuento.
+    appendNote: function(data){
       data = data || {};
-      openModal(null);
-      document.getElementById("fieldCategory").value = data.category || "";
-      document.getElementById("fieldTitle").value = data.title || "";
-      document.getElementById("fieldUrl").value = data.url || "";
-      document.getElementById("fieldDescription").value = data.description || "";
-      window.focus();
-      document.getElementById("fieldTitle").focus();
+      var url = String(data.url == null ? "" : data.url).trim();
+      var note = String(data.note == null ? "" : data.note).trim();
+      if(!url || !note) return { ok: false, reason: "empty-note" };
+      var block = formatNoteBlock(note);
+      var existing = findDuplicateUrl(url, null);
+      if(existing){
+        existing.notes = appendNoteToText(existing.notes, block);
+        save();
+        render();
+        highlightLink(existing.id);
+        return { ok: true, created: false, id: existing.id, title: existing.title, category: existing.category, noteCount: countNoteBlocks(existing.notes) };
+      }
+      var category = suggestCategory(data.title, data.description, url);
+      prefillAndOpen({ category: category, title: data.title, url: url, description: data.description });
+      document.getElementById("fieldNotes").value = block;
+      return { ok: true, created: true, category: category };
     }
   };
 
@@ -2616,6 +3104,8 @@
       if(action === "edit"){
         var link = state.links.find(function(l){ return l.id === id; });
         if(link) openModal(link);
+      } else if(action === "notes"){
+        openNotesViewer(id);
       } else if(action === "delete"){
         var target = state.links.find(function(l){ return l.id === id; });
         var label = target ? target.title : "este enlace";
@@ -2992,7 +3482,7 @@
 
   function performImportReplace(data){
     state.links = data.map(function(l){
-      return {
+      var link = {
         id: l.id || genId(),
         category: String(l.category),
         title: String(l.title),
@@ -3001,6 +3491,8 @@
         active: l.active !== false,
         tags: Array.isArray(l.tags) ? normalizeTags(l.tags.join(" ")) : []
       };
+      if(l.notes) link.notes = String(l.notes);
+      return link;
     });
     state.links.forEach(function(l){
       l.category = ensureCategory(l.category);
@@ -3023,7 +3515,7 @@
       if(!url || existingUrls[key]){ skipped++; return; }
       existingUrls[key] = true;
       var tags = Array.isArray(raw.tags) ? normalizeTags(raw.tags.join(" ")).map(ensureTag) : [];
-      state.links.push({
+      var link = {
         id: genId(),
         category: ensureCategory(String(raw.category || "Sin categoría")),
         title: String(raw.title || url),
@@ -3031,7 +3523,9 @@
         description: raw.description ? String(raw.description) : "",
         active: raw.active !== false,
         tags: tags
-      });
+      };
+      if(raw.notes) link.notes = String(raw.notes);
+      state.links.push(link);
       added++;
     });
     save();

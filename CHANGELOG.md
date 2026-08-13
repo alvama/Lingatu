@@ -7,6 +7,55 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.8.0] - 2026-08-13
+
+### Añadido
+
+- **Notas por enlace, que también puedes capturar desde la página que estás
+  leyendo**: cada enlace gana un campo de notas donde escribir lo que sabes o
+  piensas sobre él. No es la descripción —esa es un resumen de una línea que
+  se ve en la ficha—, sino texto largo que se acumula con el tiempo. Las notas
+  **nunca se sobrescriben**: cada anotación entra como un bloque nuevo al
+  final, encabezado por su fecha (`## 13/08/2026`).
+  Las fichas con notas muestran un 📝 en los dos modos de vista, con el
+  recuento en su tooltip: pulsarlo abre un **visor de solo lectura** con las
+  notas de ese enlace —leer no es editar, y para editar sigue estando el
+  lápiz de siempre—, con un botón "Editar notas" para pasar de una cosa a la
+  otra. Y sobre todo, **la búsqueda las encuentra**: escribir en el buscador
+  una palabra que solo aparece en una nota saca ese enlace.
+- **El Markdown de las notas se ve formateado al leerlo**: encabezados (`#` a
+  `######`), citas (`>`), listas con viñeta y numeradas, `**negrita**`,
+  `*cursiva*`, `código` entre acentos graves y bloques de código enteros con
+  la valla de tres acentos graves (lo de dentro se respeta literal, tal cual
+  lo pegaste), **con un botón para copiar el bloque entero**. Se escribe en crudo —el campo
+  del modal sigue siendo texto, siempre ves lo que guardaste— y se lee en
+  limpio en el visor. Un salto de línea es un salto de línea, sin trucos de
+  dos espacios al final. Los enlaces y las imágenes quedan fuera a propósito.
+- **Menús contextuales en la extensión**: clic derecho en cualquier página →
+  *"Guardar en PinBoard"* hace lo mismo que pulsar el icono. Y seleccionando
+  texto → *"Añadir selección como nota en PinBoard"* guarda lo seleccionado
+  como cita, con la fecha del día. Si la página ya está guardada, **la nota se
+  añade sin cambiar de pestaña** —sigues leyendo, y un aviso en la esquina de
+  la propia página confirma a qué enlace ha ido y cuántas notas lleva ya—; si
+  no lo está, se abre PinBoard con el formulario ya relleno y la nota puesta,
+  para que confirmes el alta.
+- **El formulario de enlace pasa a dos columnas**, con las notas ocupando la
+  derecha entera: es el único campo que puede crecer mucho, y así tiene sitio
+  de sobra sin que aparezca scroll en el modal. En ventanas estrechas las dos
+  columnas se apilan como antes.
+
+### Cambiado
+
+- El **formato de datos gana un campo opcional**, `notes`. Es
+  retrocompatible en las dos direcciones y no hay ninguna migración: los
+  enlaces que ya tenías siguen igual, y el campo solo se escribe en los
+  enlaces que tienen algo anotado. Se conserva al exportar, al importar
+  (fusionando y sustituyendo) y al duplicar un enlace.
+- La **extensión sube a la versión 1.2.0** y pide un permiso nuevo,
+  `contextMenus`, que es lo que le permite añadir sus dos entradas al menú del
+  clic derecho. Al ser un permiso nuevo, **hay que recargar la extensión**
+  después de actualizarla.
+
 ## [1.7.0] - 2026-08-13
 
 ### Añadido
@@ -255,6 +304,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.8.0]: https://github.com/alvama/PinBoard/releases/tag/v1.8.0
 [1.7.0]: https://github.com/alvama/PinBoard/releases/tag/v1.7.0
 [1.6.0]: https://github.com/alvama/PinBoard/releases/tag/v1.6.0
 [1.5.0]: https://github.com/alvama/PinBoard/releases/tag/v1.5.0

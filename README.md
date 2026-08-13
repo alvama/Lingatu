@@ -31,6 +31,13 @@ activa y la añade con un clic.
   etiquetas incluidas/excluidas con un nombre y volver a aplicarla con un
   clic. Una vista también puede ser **una lista concreta de enlaces**,
   creada desde el modo selección con "Crear vista".
+- **Notas por enlace**: texto largo que se acumula con el tiempo (cada
+  anotación entra como un bloque nuevo con su fecha, nunca se sobrescribe
+  lo anterior), escrito en Markdown y **formateado al leerlo** en un visor
+  de solo lectura —encabezados, citas, listas, negrita, cursiva y bloques
+  de código con botón para copiarlos—. Se pueden capturar desde cualquier
+  página con el menú del clic derecho de la extensión, y **la búsqueda las
+  encuentra**.
 - **Búsqueda y filtros combinables**, con exportación que respeta la
   selección activa (categoría, etiquetas o los enlaces de una vista) en
   vez de exportar siempre todo.
@@ -141,13 +148,25 @@ ejemplo, para modificar el código):
 ### Uso
 
 Con `pinboard.html` ya configurado, en cualquier página pulsa el icono de la
-extensión:
+extensión (o usa el menú del clic derecho → **"Guardar en PinBoard"**, que
+hace exactamente lo mismo):
 
 - Si la URL ya está guardada en PinBoard, se abre/enfoca la pestaña de
   PinBoard y resalta brevemente el enlace existente.
 - Si no existe, abre el formulario de alta con la categoría, el título, la
   URL y la descripción precargados (la categoría es solo una sugerencia,
   siempre editable antes de guardar).
+
+**Guardar una cita como nota**: selecciona texto en cualquier página y usa el
+menú del clic derecho → **"Añadir selección como nota en PinBoard"**. Se
+guarda como cita, con la fecha del día, en las notas de ese enlace.
+
+- Si la página **ya está** en PinBoard, la nota se añade sin cambiar de
+  pestaña: sigues leyendo, y un aviso en la esquina superior derecha confirma
+  a qué enlace ha ido y cuántas notas lleva ya. Cada nota nueva se añade al
+  final, sin borrar las anteriores.
+- Si **no está**, se abre PinBoard con el formulario de alta y la nota ya
+  puesta, para que confirmes el alta como siempre.
 
 ## Estructura del repositorio
 
@@ -185,7 +204,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.7.0](https://github.com/alvama/PinBoard/releases/tag/v1.7.0)
+- Última versión publicada: [v1.8.0](https://github.com/alvama/PinBoard/releases/tag/v1.8.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia
