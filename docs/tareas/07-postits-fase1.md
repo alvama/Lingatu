@@ -62,6 +62,8 @@ Esa es la justificación real del panel frente al popup, y conviene tenerla clar
 
 **R2.4 — Contenido**: título del enlace, su categoría, y las notas. Fase 1 muestra el Markdown **como texto plano** con `white-space: pre-wrap`, igual que hace PinBoard con el campo de notas (4.23).
 
+**Esto ya existe dentro de PinBoard**: el visor de notas (`#notesViewerOverlay`, decisión 37) muestra exactamente eso — título, categoría y dominio arriba, el texto debajo con `pre-wrap` y metido con `textContent`. **Míralo antes de diseñar el panel y parécete a él**: no se puede compartir el código (son dos entornos), pero sí el criterio y el aspecto, y así el día que se renderice el Markdown (fase 2) se hace en los dos sitios con la misma regla. La técnica de inyección también está resuelta: el aviso efímero de la extensión (`showPageToast`, decisión 36) ya usa shadow DOM cerrado con `activeTab` y sin permisos nuevos; el panel es lo mismo con contenido persistente.
+
 **R2.5 — Construye el contenido con `textContent`, nunca con `innerHTML`.** Las notas pueden contener HTML porque a menudo *proceden* de selecciones de páginas web. Usando `textContent` la seguridad es estructural y no depende de acordarse de escapar.
 
 **R2.6 — El segundo disparo cierra el panel** (comportamiento de alternancia). Si ya está inyectado, se quita en vez de duplicarse.

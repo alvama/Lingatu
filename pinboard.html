@@ -714,6 +714,25 @@
   /* .btn-primary es de ancho completo (lo pide "+ Nuevo enlace" del lateral);
      en un modal de 880px eso deja un botón "Guardar" desproporcionado. */
   #linkForm .modal-actions .btn-primary{width:auto;min-width:140px;}
+
+  /* Visor de notas: leer, no editar (ver 4.23). El texto se muestra tal cual,
+     con pre-wrap para conservar los saltos de línea del Markdown. */
+  #notesViewerOverlay .modal{max-width:640px;}
+  #notesViewerOverlay .modal-actions .btn-primary{width:auto;min-width:120px;}
+  .notes-viewer-meta{font-size:12px;color:var(--text-muted);margin:-8px 0 12px 0;}
+  .notes-viewer-body{
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+    font-size:13px;
+    line-height:1.55;
+    color:var(--text);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    max-height:60vh;
+    overflow-y:auto;
+  }
   .field-error{font-size:12px;color:var(--danger);font-weight:400;display:none;}
 
   /* Título del sitio */
@@ -953,6 +972,18 @@
         <button type="submit" class="btn-primary">Guardar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div id="notesViewerOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notesViewerTitle">
+    <h2 id="notesViewerTitle">Notas</h2>
+    <div id="notesViewerMeta" class="notes-viewer-meta"></div>
+    <div id="notesViewerBody" class="notes-viewer-body"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnNotesViewerEdit">Editar notas</button>
+      <button type="button" id="btnNotesViewerClose" class="btn-primary">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -1758,15 +1789,18 @@
   }
 
   // Indicador de notas, compartido por las dos plantillas de ficha: es la única
-  // forma de saber que un enlace tiene algo escrito sin abrir el modal (la nota
-  // no se pinta en la ficha, puede tener cientos de líneas). Es un botón, y
-  // abre el modal directamente con el foco en el campo de notas.
+  // forma de saber que un enlace tiene algo escrito sin abrir nada (la nota no
+  // se pinta en la ficha, puede tener cientos de líneas). Es un botón, y abre el
+  // **visor** de notas, no el formulario: leer y editar son cosas distintas y el
+  // lápiz ya cubre la edición (decisión 37). El tooltip lleva el recuento.
   // Va dentro de .card-icon-actions a propósito: así el modo selección lo oculta
   // con el mismo criterio que ▲▼✏️🗑️ (decisión 21).
   function notesIndicatorHtml(l){
     if(!l.notes) return "";
+    var n = countNoteBlocks(l.notes);
+    var texto = n > 1 ? "Ver las " + n + " notas de este enlace" : "Ver las notas de este enlace";
     return '<button class="icon-action-plain" data-action="notes" data-id="' + escapeHtml(l.id) +
-           '" title="Ver o editar las notas de este enlace" aria-label="Notas de ' + escapeHtml(l.title) + '">📝</button>';
+           '" title="' + escapeHtml(texto) + '" aria-label="' + escapeHtml(texto + ": " + l.title) + '">📝</button>';
   }
 
   // Casilla de selección, compartida por las dos plantillas de ficha. Solo se
@@ -2231,6 +2265,40 @@
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;
     closeOpenOverlays();
+  });
+
+  // ---------- Visor de notas ----------
+  // Leer no es editar (decisión 37). El indicador 📝 de las fichas abre esto:
+  // las notas en solo lectura, tal cual se guardaron —fase 1, sin renderizar el
+  // Markdown—, con los saltos de línea conservados por CSS (white-space:pre-wrap).
+  // El texto entra con textContent, nunca como HTML: viene de páginas web
+  // arbitrarias y es la entrada menos confiable de la app.
+  var notesViewerOverlay = document.getElementById("notesViewerOverlay");
+  var notesViewerId = null;
+
+  function openNotesViewer(id){
+    var link = state.links.find(function(l){ return l.id === id; });
+    if(!link) return;
+    notesViewerId = id;
+    document.getElementById("notesViewerTitle").textContent = link.title;
+    var host = hostnameForDisplay(link.url);
+    document.getElementById("notesViewerMeta").textContent = link.category + (host ? " · " + host : "");
+    document.getElementById("notesViewerBody").textContent = link.notes || "Este enlace todavía no tiene notas.";
+    notesViewerOverlay.hidden = false;
+    document.getElementById("btnNotesViewerClose").focus();
+  }
+
+  function closeNotesViewer(){
+    notesViewerOverlay.hidden = true;
+    notesViewerId = null;
+  }
+
+  registerOverlay(notesViewerOverlay, closeNotesViewer);
+  document.getElementById("btnNotesViewerClose").addEventListener("click", closeNotesViewer);
+  document.getElementById("btnNotesViewerEdit").addEventListener("click", function(){
+    var link = state.links.find(function(l){ return l.id === notesViewerId; });
+    closeNotesViewer();   // primero cerrar: dos overlays abiertos a la vez no es un estado válido
+    if(link) openModal(link, true);
   });
 
   // ---------- Puente para la extensión de navegador ----------
@@ -2740,8 +2808,7 @@
         var link = state.links.find(function(l){ return l.id === id; });
         if(link) openModal(link);
       } else if(action === "notes"){
-        var withNotes = state.links.find(function(l){ return l.id === id; });
-        if(withNotes) openModal(withNotes, true);
+        openNotesViewer(id);
       } else if(action === "delete"){
         var target = state.links.find(function(l){ return l.id === id; });
         var label = target ? target.title : "este enlace";

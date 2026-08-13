@@ -16,10 +16,12 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   **nunca se sobrescriben**: cada anotación entra como un bloque nuevo al
   final, encabezado por su fecha (`## 13/08/2026`). Se guardan y se muestran
   tal cual, así que si escribes en Markdown se conserva como lo escribiste.
-  Las fichas con notas muestran un 📝 en los dos modos de vista: pulsarlo abre
-  el enlace directamente por sus notas. Y sobre todo, **la búsqueda las
-  encuentra**: escribir en el buscador una palabra que solo aparece en una
-  nota saca ese enlace.
+  Las fichas con notas muestran un 📝 en los dos modos de vista, con el
+  recuento en su tooltip: pulsarlo abre un **visor de solo lectura** con las
+  notas de ese enlace —leer no es editar, y para editar sigue estando el
+  lápiz de siempre—, con un botón "Editar notas" para pasar de una cosa a la
+  otra. Y sobre todo, **la búsqueda las encuentra**: escribir en el buscador
+  una palabra que solo aparece en una nota saca ese enlace.
 - **Menús contextuales en la extensión**: clic derecho en cualquier página →
   *"Guardar en PinBoard"* hace lo mismo que pulsar el icono. Y seleccionando
   texto → *"Añadir selección como nota en PinBoard"* guarda lo seleccionado
