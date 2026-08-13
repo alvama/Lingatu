@@ -27,8 +27,8 @@ activa y la añade con un clic.
   nueva libremente), color propio, filtrado por inclusión y exclusión
   (clic / clic de nuevo / clic otra vez — ciclo de 3 estados), icono de
   escoba para limpiar la selección de golpe.
-- **Vistas guardadas**: guardar la combinación de etiquetas
-  incluidas/excluidas activa con un nombre y volver a aplicarla con un
+- **Vistas guardadas**: guardar la combinación activa de categorías y
+  etiquetas incluidas/excluidas con un nombre y volver a aplicarla con un
   clic.
 - **Búsqueda y filtros combinables**, con exportación que respeta la
   selección activa (categoría/etiquetas) en vez de exportar siempre todo.
@@ -39,6 +39,11 @@ activa y la añade con un clic.
 - **Importar marcadores de cualquier navegador**: arrastra sobre la página
   (o usa el botón "Importar") el HTML que exporta cualquier navegador o el
   `Bookmarks` de Chrome/Edge, sin herramientas externas.
+- **Selección múltiple de enlaces y acciones en lote**: modo "Seleccionar"
+  para etiquetar, cambiar de categoría, activar, desactivar o eliminar
+  varios enlaces a la vez.
+- **Paleta de comandos** (`Ctrl+K`/`Cmd+K`): busca a la vez acciones,
+  enlaces, categorías, vistas y etiquetas desde un único desplegable.
 - Modo oscuro automático, atajos de teclado (`/` buscar, `n` nuevo
   enlace), título de la página personalizable.
 - Cero servidor, cero cuentas: todo vive en `localStorage` de tu
@@ -178,7 +183,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.5.0](https://github.com/alvama/PinBoard/releases/tag/v1.5.0)
+- Última versión publicada: [v1.6.0](https://github.com/alvama/PinBoard/releases/tag/v1.6.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia

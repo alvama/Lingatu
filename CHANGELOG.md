@@ -7,6 +7,8 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.6.0] - 2026-08-13
+
 ### Añadido
 
 - **Paleta de comandos (Ctrl+K)**: un único desplegable que busca a la vez
@@ -76,6 +78,26 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   sola estructura, de la que derivan tanto el cierre con `Escape` como el
   bloqueo de los atajos de una tecla, así que cualquier modal futuro queda
   cubierto por el solo hecho de registrarse.
+- **La barra de herramientas se desbordaba en ventanas estrechas**, empujando
+  fuera de la vista los botones "Guardar actual" (Vistas) y "Gestionar"
+  (Categorías/Etiquetas): por debajo de 780px de ancho, `.toolbar` no
+  envolvía sus botones y, al ser hija de un grid CSS sin `min-width:0`,
+  forzaba el desbordamiento horizontal de toda la página. Ahora `.toolbar`
+  envuelve (`flex-wrap`) y `.sidebar`/`.content` pueden encogerse dentro
+  del grid.
+- **Las vistas guardadas se quedaban marcadas a la vez y no se podían
+  desmarcar** cuando dos perfiles compartían la misma selección de
+  etiquetas (o ninguna, un caso válido a propósito): el estado "activa" se
+  derivaba comparando la selección actual contra cada perfil, así que
+  ambos coincidían siempre y el clic para desmarcar pasaba de vacío a
+  vacío sin ningún efecto. Ahora se rastrea explícitamente qué vista está
+  aplicada (`state.activeViewProfile`) en vez de derivarlo por
+  coincidencia.
+- **Las vistas guardadas no recordaban las categorías seleccionadas**,
+  solo las etiquetas: una vista creada a partir de una selección de
+  categorías (sin ninguna etiqueta) se guardaba vacía de facto y no
+  filtraba nada al aplicarla. Los perfiles ahora también guardan
+  `selectedCategories` y lo restauran al aplicar la vista.
 
 ## [1.5.0] - 2026-08-11
 
@@ -215,6 +237,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.6.0]: https://github.com/alvama/PinBoard/releases/tag/v1.6.0
 [1.5.0]: https://github.com/alvama/PinBoard/releases/tag/v1.5.0
 [1.4.0]: https://github.com/alvama/PinBoard/releases/tag/v1.4.0
 [1.3.0]: https://github.com/alvama/PinBoard/releases/tag/v1.3.0
