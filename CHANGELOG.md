@@ -7,6 +7,8 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.7.0] - 2026-08-13
+
 ### Añadido
 
 - **Vistas guardadas a partir de una selección de enlaces**: hasta ahora una
