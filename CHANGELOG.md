@@ -23,7 +23,9 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   una palabra que solo aparece en una nota saca ese enlace.
 - **El Markdown de las notas se ve formateado al leerlo**: encabezados (`#` a
   `######`), citas (`>`), listas con viñeta y numeradas, `**negrita**`,
-  `*cursiva*` y `código` entre acentos graves. Se escribe en crudo —el campo
+  `*cursiva*`, `código` entre acentos graves y bloques de código enteros con
+  la valla de tres acentos graves (lo de dentro se respeta literal, tal cual
+  lo pegaste). Se escribe en crudo —el campo
   del modal sigue siendo texto, siempre ves lo que guardaste— y se lee en
   limpio en el visor. Un salto de línea es un salto de línea, sin trucos de
   dos espacios al final. Los enlaces y las imágenes quedan fuera a propósito.
