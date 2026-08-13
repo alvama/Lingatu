@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PinBoard Connector",
   "version": "1.2.0",
-  "description": "Captura la URL, el título y la descripción de la pestaña activa y la añade a PinBoard (pinboard.html) si todavía no existe, y guarda el texto seleccionado como nota del enlace.",
+  "description": "Guarda la pestaña activa en PinBoard (pinboard.html) y, con el clic derecho, el texto que selecciones como nota del enlace.",
   "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
   "host_permissions": ["file:///*"],
   "background": {
