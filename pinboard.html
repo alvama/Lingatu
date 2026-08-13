@@ -1016,6 +1016,11 @@
     tags: new Set(),
     excludedTags: new Set(),
     viewProfiles: [],
+    // Nombre de la vista aplicada, o null. Se rastrea explícitamente en vez de
+    // derivarse comparando etiquetas: si dos vistas se guardan con la misma
+    // selección (o ninguna), comparar por coincidencia las marcaría a la vez
+    // como activas y el clic para desmarcar dejaría de tener efecto.
+    activeViewProfile: null,
     activeFilter: "active",
     search: "",
     // Modo selección y enlaces seleccionados: viven solo en memoria, nunca en
@@ -1568,16 +1573,6 @@
   }
 
   // ---------- Vistas guardadas (perfiles de etiquetas excluidas) ----------
-  // Un perfil coincide con la selección actual si tiene exactamente las
-  // mismas etiquetas incluidas y las mismas excluidas (sin importar el orden).
-  function setsMatch(arr, set){
-    if(arr.length !== set.size) return false;
-    return arr.every(function(t){ return set.has(t); });
-  }
-  function currentSelectionMatchesProfile(profile){
-    return setsMatch(profile.tags, state.tags) && setsMatch(profile.excludedTags, state.excludedTags);
-  }
-
   function renderViewProfileList(){
     var list = document.getElementById("viewProfileList");
     if(state.viewProfiles.length === 0){
@@ -1585,7 +1580,7 @@
       return;
     }
     list.innerHTML = state.viewProfiles.map(function(p){
-      var active = currentSelectionMatchesProfile(p) ? " active" : "";
+      var active = state.activeViewProfile === p.name ? " active" : "";
       return '<span class="view-profile-chip' + active + '" data-profile="' + escapeHtml(p.name) + '" title="Un clic aplica la vista \'' + escapeHtml(p.name) + '\'; otro clic la deselecciona">' +
         escapeHtml(p.name) +
         '<button type="button" class="view-profile-chip-remove" data-action="delete-profile" data-profile="' + escapeHtml(p.name) + '" title="Eliminar vista" aria-label="Eliminar vista">✕</button>' +
@@ -2753,16 +2748,20 @@
     } else {
       state.tags.add(tag);
     }
+    // Tocar una etiqueta a mano desengancha la vista aplicada: la selección ya
+    // no es necesariamente la que esa vista representaba.
+    state.activeViewProfile = null;
     render();
   });
 
   // Quita de un golpe cualquier filtro de etiquetas activo, incluidas y
   // excluidas por igual (el filtro de categoría no se toca).
   function clearTagSelection(){
-    if(state.tags.size === 0 && state.excludedTags.size === 0) return;
+    if(state.tags.size === 0 && state.excludedTags.size === 0 && !state.activeViewProfile) return;
     clearSelectionOnViewChange();
     state.tags.clear();
     state.excludedTags.clear();
+    state.activeViewProfile = null;
     saveExcludedTags();
     render();
   }
@@ -2786,6 +2785,9 @@
     } else {
       state.viewProfiles.push({ name: name, tags: tags, excludedTags: excluded });
     }
+    // La vista recién guardada representa exactamente la selección actual:
+    // queda como la vista aplicada.
+    state.activeViewProfile = name;
     saveViewProfiles();
     render();
   }
@@ -2798,6 +2800,7 @@
       var delName = removeBtn.getAttribute("data-profile");
       if(confirm('¿Eliminar la vista "' + delName + '"?')){
         state.viewProfiles = state.viewProfiles.filter(function(p){ return p.name !== delName; });
+        if(state.activeViewProfile === delName) state.activeViewProfile = null;
         saveViewProfiles();
         render();
       }
@@ -2805,16 +2808,19 @@
     }
     var chip = e.target.closest(".view-profile-chip[data-profile]");
     if(!chip) return;
-    var profile = state.viewProfiles.find(function(p){ return p.name === chip.getAttribute("data-profile"); });
+    var profileName = chip.getAttribute("data-profile");
+    var profile = state.viewProfiles.find(function(p){ return p.name === profileName; });
     if(!profile) return;
     clearSelectionOnViewChange();
-    if(currentSelectionMatchesProfile(profile)){
-      // Clic sobre la vista ya activa -> deseleccionar, vuelve a la vista general.
+    if(state.activeViewProfile === profileName){
+      // Clic sobre la vista ya aplicada -> deseleccionar, vuelve a la vista general.
       state.tags = new Set();
       state.excludedTags = new Set();
+      state.activeViewProfile = null;
     } else {
       state.tags = new Set(profile.tags);
       state.excludedTags = new Set(profile.excludedTags);
+      state.activeViewProfile = profileName;
     }
     saveExcludedTags();
     render();
@@ -2897,6 +2903,7 @@
   function resetFiltersAfterImport(){
     clearSelectionOnViewChange();
     state.selectedCategories.clear(); state.tags.clear(); state.activeFilter = "all"; state.search = "";
+    state.activeViewProfile = null;
     document.getElementById("searchInput").value = "";
   }
 
@@ -3385,6 +3392,7 @@
           clearSelectionOnViewChange();
           state.tags = new Set(p.tags);
           state.excludedTags = new Set(p.excludedTags);
+          state.activeViewProfile = p.name;
           saveExcludedTags();
           render();
         }
