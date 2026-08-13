@@ -7,6 +7,43 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Notas por enlace, que también puedes capturar desde la página que estás
+  leyendo**: cada enlace gana un campo de notas donde escribir lo que sabes o
+  piensas sobre él. No es la descripción —esa es un resumen de una línea que
+  se ve en la ficha—, sino texto largo que se acumula con el tiempo. Las notas
+  **nunca se sobrescriben**: cada anotación entra como un bloque nuevo al
+  final, encabezado por su fecha (`## 13/08/2026`). Se guardan y se muestran
+  tal cual, así que si escribes en Markdown se conserva como lo escribiste.
+  Las fichas con notas muestran un 📝 en los dos modos de vista: pulsarlo abre
+  el enlace directamente por sus notas. Y sobre todo, **la búsqueda las
+  encuentra**: escribir en el buscador una palabra que solo aparece en una
+  nota saca ese enlace.
+- **Menús contextuales en la extensión**: clic derecho en cualquier página →
+  *"Guardar en PinBoard"* hace lo mismo que pulsar el icono. Y seleccionando
+  texto → *"Añadir selección como nota en PinBoard"* guarda lo seleccionado
+  como cita, con la fecha del día. Si la página ya está guardada, **la nota se
+  añade sin cambiar de pestaña** —sigues leyendo, y la confirmación es el ✓
+  verde sobre el icono de la extensión—; si no lo está, se abre PinBoard con
+  el formulario ya relleno y la nota puesta, para que confirmes el alta.
+- **El formulario de enlace pasa a dos columnas**, con las notas ocupando la
+  derecha entera: es el único campo que puede crecer mucho, y así tiene sitio
+  de sobra sin que aparezca scroll en el modal. En ventanas estrechas las dos
+  columnas se apilan como antes.
+
+### Cambiado
+
+- El **formato de datos gana un campo opcional**, `notes`. Es
+  retrocompatible en las dos direcciones y no hay ninguna migración: los
+  enlaces que ya tenías siguen igual, y el campo solo se escribe en los
+  enlaces que tienen algo anotado. Se conserva al exportar, al importar
+  (fusionando y sustituyendo) y al duplicar un enlace.
+- La **extensión sube a la versión 1.2.0** y pide un permiso nuevo,
+  `contextMenus`, que es lo que le permite añadir sus dos entradas al menú del
+  clic derecho. Al ser un permiso nuevo, **hay que recargar la extensión**
+  después de actualizarla.
+
 ## [1.7.0] - 2026-08-13
 
 ### Añadido

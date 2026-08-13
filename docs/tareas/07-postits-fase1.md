@@ -1,40 +1,40 @@
 # Tarea 07 — Post-its en la página del enlace (fase 1)
 
-**Prioridad**: Alta, **encadenada a la tarea 06** (depende del campo `notes`) · **Esfuerzo estimado**: ~150 líneas en la extensión + un método en el puente · **Riesgo**: medio — código que se inyecta en páginas de terceros
+**Prioridad**: Alta · **Esfuerzo estimado**: ~150 líneas en la extensión + un método en el puente · **Riesgo**: medio — código que se inyecta en páginas de terceros
 
-Antes de empezar, lee [`CLAUDE.md`](../../CLAUDE.md), el análisis de las dos fases en la **sección 11.4** de [`ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) y la tarea [06](06-notas-markdown.md), que crea el campo del que esta depende.
+Antes de empezar, lee [`CLAUDE.md`](../../CLAUDE.md), el análisis de las dos fases en la **sección 11.4** de [`ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) y la funcionalidad de notas en su **sección 4.23**, que es el campo del que esta depende y **ya está implementada**.
 
 ## Objetivo
 
 Que al volver a una página sobre la que anotaste algo, **esas notas vuelvan a aparecer** sin tener que abrir PinBoard.
 
-Fase 1 significa: un panel plegable en una esquina, **sin anclar a ningún punto del contenido**. Eso lo hace inmune a los tres problemas que hunden la versión anclada (maquetación cambiante, contenido dinámico, SPA) y **no añade modelo de datos**: son las mismas notas de la tarea 06 en una segunda superficie.
+Fase 1 significa: un panel plegable en una esquina, **sin anclar a ningún punto del contenido**. Eso lo hace inmune a los tres problemas que hunden la versión anclada (maquetación cambiante, contenido dinámico, SPA) y **no añade modelo de datos**: son las mismas notas de 4.23 en una segunda superficie.
 
 ## Requisito previo
 
-**La tarea 06 tiene que estar terminada.** Sin el campo `notes` no hay nada que mostrar. Si se intenta antes, esta tarea no tiene contenido.
+**Cumplido**: el campo `notes` existe (4.23), con su formato por bloques con fecha, su indicador en las fichas y `appendNote` en el puente. La extensión ya declara `contextMenus` y ya tiene dos entradas de menú, así que sumar la tercera de esta tarea no cambia nada estructural.
 
 ---
 
-## R0 — Resolver el conflicto de disparadores con la tarea 06
+## R0 — El disparador del panel
 
-**Hay que decidir esto antes de escribir código, porque las dos tareas se pisan.**
+**Hay que decidirlo antes de escribir código.**
 
-Si la tarea 06 implementó el popup de su R6, el `manifest.json` declara un `default_popup`. **Declarar un popup desactiva `chrome.action.onClicked`**, así que "pulsar el icono" ya no es un disparador disponible: lo consume el popup.
+Estado actual: la tarea de notas **no implementó el popup**, precisamente porque declarar un `default_popup` **desactiva `chrome.action.onClicked`** y eso habría cambiado el comportamiento del flujo de siempre (pulsar el icono guarda la página). Así que hoy `chrome.action.onClicked` sigue ocupado por ese flujo, no por un popup.
 
-División de responsabilidades, que además deja cada superficie haciendo lo que mejor hace:
+División de responsabilidades, para cuando el popup exista:
 
 | Superficie | Para qué | Por qué |
 |---|---|---|
-| **Popup** (tarea 06) | Escribir una nota, ver si la página está guardada | Transaccional: se abre, se hace algo, se cierra |
+| **Popup** (si algún día se añade) | Escribir una nota, ver si la página está guardada | Transaccional: se abre, se hace algo, se cierra |
 | **Panel en la página** (esta tarea) | Leer tus notas mientras lees la página | Persistente: sigue ahí mientras te desplazas y lees |
 
 Esa es la justificación real del panel frente al popup, y conviene tenerla clara: **un popup se cierra en cuanto pulsas fuera**, lo que lo hace inservible como acompañante de lectura. El panel se queda.
 
 **R0.1 — Disparadores del panel:**
-- Una entrada de menú contextual, *"Ver mis notas de esta página"* (contexto `page`). **Este es el camino obligatorio**, y funciona exista o no el popup.
-- Si el popup existe, además un botón dentro de él: *"Mostrar notas en la página"*.
-- Si la tarea 06 **no** implementó el popup, `chrome.action.onClicked` sigue libre y puede inyectar el panel directamente.
+- Una entrada de menú contextual, *"Ver mis notas de esta página"* (contexto `page`), junto a las dos que ya existen. **Este es el camino obligatorio**, y funciona exista o no el popup.
+- **No uses `chrome.action.onClicked`**: hoy está ocupado por "guardar la página", que es comportamiento existente y no se puede cambiar sin más.
+- Si en el futuro se añade el popup, además un botón dentro de él: *"Mostrar notas en la página"*.
 
 ---
 
@@ -60,7 +60,7 @@ Esa es la justificación real del panel frente al popup, y conviene tenerla clar
 
 **R2.3 — Posición y comportamiento**: `position: fixed` en una esquina, con un `z-index` alto, plegable y con botón de cierre. Que no tape contenido esencial ni impida desplazarse por la página.
 
-**R2.4 — Contenido**: título del enlace, su categoría, y las notas. Fase 1 muestra el Markdown **como texto plano** con `white-space: pre-wrap`, igual que R2.5 de la tarea 06.
+**R2.4 — Contenido**: título del enlace, su categoría, y las notas. Fase 1 muestra el Markdown **como texto plano** con `white-space: pre-wrap`, igual que hace PinBoard con el campo de notas (4.23).
 
 **R2.5 — Construye el contenido con `textContent`, nunca con `innerHTML`.** Las notas pueden contener HTML porque a menudo *proceden* de selecciones de páginas web. Usando `textContent` la seguridad es estructural y no depende de acordarse de escapar.
 
@@ -147,7 +147,7 @@ Lo que hace admisible esta versión, y **es una restricción, no un detalle**:
 - [ ] Recargar la extensión tras añadir el permiso `tabs`.
 - [ ] Pulsar el icono en una URL nueva: sigue funcionando el flujo de guardar.
 - [ ] Pulsar el icono en una URL ya guardada: sigue resaltando la ficha.
-- [ ] La captura de selección como nota (tarea 06) sigue funcionando.
+- [ ] La captura de selección como nota (4.23) y "Guardar en PinBoard" del menú contextual siguen funcionando.
 - [ ] **Checklist completa de la sección 8.**
 
 ## Al cerrar

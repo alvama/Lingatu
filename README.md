@@ -141,13 +141,24 @@ ejemplo, para modificar el código):
 ### Uso
 
 Con `pinboard.html` ya configurado, en cualquier página pulsa el icono de la
-extensión:
+extensión (o usa el menú del clic derecho → **"Guardar en PinBoard"**, que
+hace exactamente lo mismo):
 
 - Si la URL ya está guardada en PinBoard, se abre/enfoca la pestaña de
   PinBoard y resalta brevemente el enlace existente.
 - Si no existe, abre el formulario de alta con la categoría, el título, la
   URL y la descripción precargados (la categoría es solo una sugerencia,
   siempre editable antes de guardar).
+
+**Guardar una cita como nota**: selecciona texto en cualquier página y usa el
+menú del clic derecho → **"Añadir selección como nota en PinBoard"**. Se
+guarda como cita, con la fecha del día, en las notas de ese enlace.
+
+- Si la página **ya está** en PinBoard, la nota se añade sin cambiar de
+  pestaña: sigues leyendo y la confirmación es el ✓ verde sobre el icono de la
+  extensión. Cada nota nueva se añade al final, sin borrar las anteriores.
+- Si **no está**, se abre PinBoard con el formulario de alta y la nota ya
+  puesta, para que confirmes el alta como siempre.
 
 ## Estructura del repositorio
 
