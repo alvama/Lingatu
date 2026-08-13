@@ -25,7 +25,7 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   `######`), citas (`>`), listas con viñeta y numeradas, `**negrita**`,
   `*cursiva*`, `código` entre acentos graves y bloques de código enteros con
   la valla de tres acentos graves (lo de dentro se respeta literal, tal cual
-  lo pegaste). Se escribe en crudo —el campo
+  lo pegaste), **con un botón para copiar el bloque entero**. Se escribe en crudo —el campo
   del modal sigue siendo texto, siempre ves lo que guardaste— y se lee en
   limpio en el visor. Un salto de línea es un salto de línea, sin trucos de
   dos espacios al final. Los enlaces y las imágenes quedan fuera a propósito.
