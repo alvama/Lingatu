@@ -60,11 +60,13 @@ Esa es la justificación real del panel frente al popup, y conviene tenerla clar
 
 **R2.3 — Posición y comportamiento**: `position: fixed` en una esquina, con un `z-index` alto, plegable y con botón de cierre. Que no tape contenido esencial ni impida desplazarse por la página.
 
-**R2.4 — Contenido**: título del enlace, su categoría, y las notas. Fase 1 muestra el Markdown **como texto plano** con `white-space: pre-wrap`, igual que hace PinBoard con el campo de notas (4.23).
+**R2.4 — Contenido**: título del enlace, su categoría, y las notas **renderizadas**, no en crudo.
 
-**Esto ya existe dentro de PinBoard**: el visor de notas (`#notesViewerOverlay`, decisión 37) muestra exactamente eso — título, categoría y dominio arriba, el texto debajo con `pre-wrap` y metido con `textContent`. **Míralo antes de diseñar el panel y parécete a él**: no se puede compartir el código (son dos entornos), pero sí el criterio y el aspecto, y así el día que se renderice el Markdown (fase 2) se hace en los dos sitios con la misma regla. La técnica de inyección también está resuelta: el aviso efímero de la extensión (`showPageToast`, decisión 36) ya usa shadow DOM cerrado con `activeTab` y sin permisos nuevos; el panel es lo mismo con contenido persistente.
+**Esto ya existe dentro de PinBoard y hay que copiarlo, no reinventarlo**: el visor de notas (`#notesViewerOverlay`, decisión 37) muestra exactamente eso — título, categoría y dominio arriba, y debajo las notas pasadas por `renderNotesInto` (encabezados, citas, listas, negrita, cursiva y código; sin enlaces ni imágenes, decisión 38). **Porta esa función tal cual**: está escrita a propósito como función pura, sin dependencias del DOM de PinBoard ni de su `state`, precisamente para que se pueda copiar a este otro entorno. No se puede compartir el archivo (son dos entornos distintos), así que quedan dos copias: **si tocas una, toca la otra**, o la misma nota se verá distinta en cada superficie. Parécete también en el aspecto (mismos tamaños contenidos, misma barra lateral en las citas).
 
-**R2.5 — Construye el contenido con `textContent`, nunca con `innerHTML`.** Las notas pueden contener HTML porque a menudo *proceden* de selecciones de páginas web. Usando `textContent` la seguridad es estructural y no depende de acordarse de escapar.
+La técnica de inyección también está resuelta: el aviso efímero de la extensión (`showPageToast`, decisión 36) ya usa shadow DOM cerrado con `activeTab` y sin permisos nuevos; el panel es lo mismo con contenido persistente.
+
+**R2.5 — Construye el contenido con `createElement` + `textContent`, nunca con `innerHTML`.** Las notas pueden contener HTML porque a menudo *proceden* de selecciones de páginas web. `renderNotesInto` ya está escrita con ese criterio —produce nodos, nunca cadenas de marcado—, así que portarla no introduce ningún riesgo nuevo. Lo que **no** debes hacer es "simplificarla" volcando marcado con `innerHTML`: ahí es donde vive el XSS.
 
 **R2.6 — El segundo disparo cierra el panel** (comportamiento de alternancia). Si ya está inyectado, se quita en vez de duplicarse.
 

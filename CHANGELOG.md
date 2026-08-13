@@ -14,14 +14,19 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   piensas sobre él. No es la descripción —esa es un resumen de una línea que
   se ve en la ficha—, sino texto largo que se acumula con el tiempo. Las notas
   **nunca se sobrescriben**: cada anotación entra como un bloque nuevo al
-  final, encabezado por su fecha (`## 13/08/2026`). Se guardan y se muestran
-  tal cual, así que si escribes en Markdown se conserva como lo escribiste.
+  final, encabezado por su fecha (`## 13/08/2026`).
   Las fichas con notas muestran un 📝 en los dos modos de vista, con el
   recuento en su tooltip: pulsarlo abre un **visor de solo lectura** con las
   notas de ese enlace —leer no es editar, y para editar sigue estando el
   lápiz de siempre—, con un botón "Editar notas" para pasar de una cosa a la
   otra. Y sobre todo, **la búsqueda las encuentra**: escribir en el buscador
   una palabra que solo aparece en una nota saca ese enlace.
+- **El Markdown de las notas se ve formateado al leerlo**: encabezados (`#` a
+  `######`), citas (`>`), listas con viñeta y numeradas, `**negrita**`,
+  `*cursiva*` y `código` entre acentos graves. Se escribe en crudo —el campo
+  del modal sigue siendo texto, siempre ves lo que guardaste— y se lee en
+  limpio en el visor. Un salto de línea es un salto de línea, sin trucos de
+  dos espacios al final. Los enlaces y las imágenes quedan fuera a propósito.
 - **Menús contextuales en la extensión**: clic derecho en cualquier página →
   *"Guardar en PinBoard"* hace lo mismo que pulsar el icono. Y seleccionando
   texto → *"Añadir selección como nota en PinBoard"* guarda lo seleccionado

@@ -721,7 +721,6 @@
   #notesViewerOverlay .modal-actions .btn-primary{width:auto;min-width:120px;}
   .notes-viewer-meta{font-size:12px;color:var(--text-muted);margin:-8px 0 12px 0;}
   .notes-viewer-body{
-    white-space:pre-wrap;
     overflow-wrap:anywhere;
     font-size:13px;
     line-height:1.55;
@@ -733,6 +732,35 @@
     max-height:60vh;
     overflow-y:auto;
   }
+  /* Escala contenida a propósito: un h1 de tamaño real descuadraría el visor,
+     y el encabezado más habitual es el ## de fecha que genera la propia app. */
+  .notes-viewer-body .note-h{margin:14px 0 6px 0;line-height:1.3;}
+  .notes-viewer-body > .note-h:first-child{margin-top:0;}
+  .notes-viewer-body h1.note-h{font-size:17px;}
+  .notes-viewer-body h2.note-h{font-size:15px;}
+  .notes-viewer-body h3.note-h{font-size:14px;}
+  .notes-viewer-body h4.note-h,
+  .notes-viewer-body h5.note-h,
+  .notes-viewer-body h6.note-h{font-size:13px;color:var(--text-muted);}
+  .notes-viewer-body .note-p{margin:0 0 10px 0;}
+  .notes-viewer-body .note-quote{
+    margin:0 0 10px 0;
+    padding:2px 0 2px 12px;
+    border-left:3px solid var(--border);
+    color:var(--text-muted);
+  }
+  .notes-viewer-body .note-list{margin:0 0 10px 0;padding-left:22px;}
+  .notes-viewer-body .note-list li{margin:2px 0;}
+  .notes-viewer-body .note-code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px;
+    background:var(--tag-bg);
+    color:var(--tag-fg);
+    padding:1px 5px;
+    border-radius:4px;
+    white-space:pre-wrap;
+  }
+  .notes-viewer-body > :last-child{margin-bottom:0;}
   .field-error{font-size:12px;color:var(--danger);font-weight:400;display:none;}
 
   /* Título del sitio */
@@ -2267,6 +2295,154 @@
     closeOpenOverlays();
   });
 
+  // ---------- Render de notas ----------
+  // Convierte el texto de una nota en nodos del DOM: encabezados (#..######),
+  // citas (>), listas con viñeta (-) y numeradas, párrafos, y dentro de cada
+  // línea código (`así`), **negrita** y *cursiva*.
+  //
+  // **Nunca construye HTML a partir de una cadena**: todo texto entra por
+  // textContent y el resto son createElement. Así la seguridad es estructural y
+  // no depende de acordarse de escapar — que importa, porque este texto suele
+  // venir copiado de páginas web arbitrarias. Es también la razón de que no haya
+  // enlaces ni imágenes: un href obligaría a validar esquemas (javascript:) y a
+  // volver a innerHTML, y eso es otra decisión (ver decisión 38).
+  //
+  // Todo se procesa **línea a línea**: ningún marcador cruza un salto, así que
+  // un asterisco sin cerrar solo puede descolocar su propia línea.
+  function isNoteBlockStart(linea){
+    return /^\s*#{1,6}\s+/.test(linea) || /^\s*>/.test(linea) ||
+           /^\s*-\s+/.test(linea) || /^\s*\d+[.)]\s+/.test(linea);
+  }
+
+  // **negrita** y *cursiva*. Dos reglas para que no formatee lo que no debe:
+  // el delimitador tiene que abrazar texto sin espacio pegado por dentro
+  // (*así* sí, * así * no), y el de apertura no puede ir pegado a una palabra
+  // — desviación deliberada de CommonMark, que en "2*3*4" pone el 3 en cursiva.
+  function renderEmphasisInto(el, texto){
+    var resto = String(texto);
+    var re = /\*\*(?=\S)(.*?\S)\*\*|\*(?=\S)([^*]*?\S)\*/;
+    var m;
+    while((m = re.exec(resto)) !== null){
+      var anterior = m.index > 0 ? resto.charAt(m.index - 1) : "";
+      var fin = m.index + m[0].length;
+      if(anterior && !/[\s(\[{"'¡¿—–-]/.test(anterior)){
+        el.appendChild(document.createTextNode(resto.slice(0, fin))); // asterisco pegado a una palabra: texto normal
+        resto = resto.slice(fin);
+        continue;
+      }
+      if(m.index > 0) el.appendChild(document.createTextNode(resto.slice(0, m.index)));
+      var fuerte = m[1] !== undefined;
+      var nodo = document.createElement(fuerte ? "strong" : "em");
+      nodo.textContent = fuerte ? m[1] : m[2];
+      el.appendChild(nodo);
+      resto = resto.slice(fin);
+    }
+    if(resto) el.appendChild(document.createTextNode(resto));
+  }
+
+  // El código va primero y su contenido no se vuelve a tocar: es la forma
+  // estándar de escapar de la ambigüedad de los asteriscos al escribir algo
+  // técnico (`a*b` se lee tal cual).
+  function renderInlineInto(el, texto){
+    var partes = String(texto).split(/(`[^`]+`)/);
+    partes.forEach(function(parte){
+      if(!parte) return;
+      if(parte.length > 2 && parte.charAt(0) === "`" && parte.charAt(parte.length - 1) === "`"){
+        var code = document.createElement("code");
+        code.className = "note-code";
+        code.textContent = parte.slice(1, -1);
+        el.appendChild(code);
+      } else {
+        renderEmphasisInto(el, parte);
+      }
+    });
+  }
+
+  // Un salto de línea simple es un salto de línea real, no una continuación del
+  // párrafo como en Markdown estricto: en notas personales lo que escribes es lo
+  // que quieres ver, y así se conserva lo que ya hacía el visor con pre-wrap.
+  // Eso hace innecesaria la regla de "dos espacios al final" — invisible y que
+  // cualquier editor recorta sin avisar.
+  function renderNoteLinesInto(el, lineas){
+    lineas.forEach(function(linea, idx){
+      if(idx > 0) el.appendChild(document.createElement("br"));
+      renderInlineInto(el, linea);
+    });
+  }
+
+  function renderNotesInto(container, text){
+    container.textContent = "";
+    var lineas = String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
+    var i = 0;
+    while(i < lineas.length){
+      var linea = lineas[i];
+
+      if(/^\s*$/.test(linea)){ i++; continue; }     // las líneas en blanco solo separan bloques
+
+      var encabezado = /^\s*(#{1,6})\s+(.*)$/.exec(linea);
+      if(encabezado){
+        var h = document.createElement("h" + encabezado[1].length);
+        h.className = "note-h";
+        renderInlineInto(h, encabezado[2]);
+        container.appendChild(h);
+        i++;
+        continue;
+      }
+
+      if(/^\s*>/.test(linea)){
+        var cita = document.createElement("blockquote");
+        cita.className = "note-quote";
+        var lineasCita = [];
+        while(i < lineas.length && /^\s*>/.test(lineas[i])){
+          lineasCita.push(lineas[i].replace(/^\s*>\s?/, ""));
+          i++;
+        }
+        renderNoteLinesInto(cita, lineasCita);
+        container.appendChild(cita);
+        continue;
+      }
+
+      // Solo el guion abre viñeta: aceptar también el asterisco chocaría con la cursiva.
+      if(/^\s*-\s+/.test(linea)){
+        var ul = document.createElement("ul");
+        ul.className = "note-list";
+        while(i < lineas.length && /^\s*-\s+/.test(lineas[i])){
+          var li = document.createElement("li");
+          renderInlineInto(li, lineas[i].replace(/^\s*-\s+/, ""));
+          ul.appendChild(li);
+          i++;
+        }
+        container.appendChild(ul);
+        continue;
+      }
+
+      if(/^\s*\d+[.)]\s+/.test(linea)){
+        var ol = document.createElement("ol");
+        ol.className = "note-list";
+        var primero = /^\s*(\d+)/.exec(linea)[1];
+        if(primero !== "1") ol.setAttribute("start", primero); // una lista que empieza en 3 empieza en 3
+        while(i < lineas.length && /^\s*\d+[.)]\s+/.test(lineas[i])){
+          var liNum = document.createElement("li");
+          renderInlineInto(liNum, lineas[i].replace(/^\s*\d+[.)]\s+/, ""));
+          ol.appendChild(liNum);
+          i++;
+        }
+        container.appendChild(ol);
+        continue;
+      }
+
+      var lineasParrafo = [];
+      while(i < lineas.length && !/^\s*$/.test(lineas[i]) && !isNoteBlockStart(lineas[i])){
+        lineasParrafo.push(lineas[i]);
+        i++;
+      }
+      var p = document.createElement("p");
+      p.className = "note-p";
+      renderNoteLinesInto(p, lineasParrafo);
+      container.appendChild(p);
+    }
+  }
+
   // ---------- Visor de notas ----------
   // Leer no es editar (decisión 37). El indicador 📝 de las fichas abre esto:
   // las notas en solo lectura, tal cual se guardaron —fase 1, sin renderizar el
@@ -2283,7 +2459,9 @@
     document.getElementById("notesViewerTitle").textContent = link.title;
     var host = hostnameForDisplay(link.url);
     document.getElementById("notesViewerMeta").textContent = link.category + (host ? " · " + host : "");
-    document.getElementById("notesViewerBody").textContent = link.notes || "Este enlace todavía no tiene notas.";
+    var body = document.getElementById("notesViewerBody");
+    if(link.notes) renderNotesInto(body, link.notes);
+    else body.textContent = "Este enlace todavía no tiene notas.";
     notesViewerOverlay.hidden = false;
     document.getElementById("btnNotesViewerClose").focus();
   }
