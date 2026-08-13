@@ -31,6 +31,13 @@ activa y la añade con un clic.
   etiquetas incluidas/excluidas con un nombre y volver a aplicarla con un
   clic. Una vista también puede ser **una lista concreta de enlaces**,
   creada desde el modo selección con "Crear vista".
+- **Notas por enlace**: texto largo que se acumula con el tiempo (cada
+  anotación entra como un bloque nuevo con su fecha, nunca se sobrescribe
+  lo anterior), escrito en Markdown y **formateado al leerlo** en un visor
+  de solo lectura —encabezados, citas, listas, negrita, cursiva y bloques
+  de código con botón para copiarlos—. Se pueden capturar desde cualquier
+  página con el menú del clic derecho de la extensión, y **la búsqueda las
+  encuentra**.
 - **Búsqueda y filtros combinables**, con exportación que respeta la
   selección activa (categoría, etiquetas o los enlaces de una vista) en
   vez de exportar siempre todo.
@@ -197,7 +204,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.7.0](https://github.com/alvama/PinBoard/releases/tag/v1.7.0)
+- Última versión publicada: [v1.8.0](https://github.com/alvama/PinBoard/releases/tag/v1.8.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia
