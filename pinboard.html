@@ -81,6 +81,7 @@
     top:0;
     height:100vh;
     overflow-y:auto;
+    min-width:0;
   }
   .sidebar h1{
     font-size:18px;
@@ -296,9 +297,10 @@
   .btn-danger:hover{background:var(--danger);color:#fff;}
 
   /* Main content */
-  .content{padding:24px 28px;max-width:1200px;}
+  .content{padding:24px 28px;max-width:1200px;min-width:0;}
   .toolbar{
     display:flex;
+    flex-wrap:wrap;
     align-items:center;
     gap:12px;
     margin-bottom:20px;
