@@ -81,6 +81,7 @@
     top:0;
     height:100vh;
     overflow-y:auto;
+    min-width:0;
   }
   .sidebar h1{
     font-size:18px;
@@ -296,9 +297,10 @@
   .btn-danger:hover{background:var(--danger);color:#fff;}
 
   /* Main content */
-  .content{padding:24px 28px;max-width:1200px;}
+  .content{padding:24px 28px;max-width:1200px;min-width:0;}
   .toolbar{
     display:flex;
+    flex-wrap:wrap;
     align-items:center;
     gap:12px;
     margin-bottom:20px;
@@ -1014,6 +1016,11 @@
     tags: new Set(),
     excludedTags: new Set(),
     viewProfiles: [],
+    // Nombre de la vista aplicada, o null. Se rastrea explícitamente en vez de
+    // derivarse comparando etiquetas: si dos vistas se guardan con la misma
+    // selección (o ninguna), comparar por coincidencia las marcaría a la vez
+    // como activas y el clic para desmarcar dejaría de tener efecto.
+    activeViewProfile: null,
     activeFilter: "active",
     search: "",
     // Modo selección y enlaces seleccionados: viven solo en memoria, nunca en
@@ -1091,16 +1098,23 @@
     localStorage.setItem(EXCLUDED_TAGS_KEY, JSON.stringify(Array.from(state.excludedTags)));
   }
 
-  // Perfiles de vista guardados: { name, excludedTags: [...] }. Independientes
-  // de los enlaces y de las listas maestras — borrar uno no afecta a nada más.
+  // Perfiles de vista guardados: { name, tags, excludedTags, selectedCategories }.
+  // Independientes de los enlaces y de las listas maestras — borrar uno no
+  // afecta a nada más.
   function loadViewProfiles(){
     var raw = localStorage.getItem(VIEW_PROFILES_KEY);
     if(!raw) return [];
     try{
       var parsed = JSON.parse(raw);
-      // Compatibilidad con perfiles guardados antes de incluir también las etiquetas incluidas.
+      // Compatibilidad con perfiles guardados antes de incluir también las
+      // etiquetas incluidas, y antes de incluir las categorías.
       return parsed.map(function(p){
-        return { name: p.name, tags: Array.isArray(p.tags) ? p.tags : [], excludedTags: Array.isArray(p.excludedTags) ? p.excludedTags : [] };
+        return {
+          name: p.name,
+          tags: Array.isArray(p.tags) ? p.tags : [],
+          excludedTags: Array.isArray(p.excludedTags) ? p.excludedTags : [],
+          selectedCategories: Array.isArray(p.selectedCategories) ? p.selectedCategories : []
+        };
       });
     }catch(e){ return []; }
   }
@@ -1565,17 +1579,7 @@
     catOptions.innerHTML = categories.map(function(c){ return '<option value="' + escapeHtml(c.name) + '">'; }).join("");
   }
 
-  // ---------- Vistas guardadas (perfiles de etiquetas excluidas) ----------
-  // Un perfil coincide con la selección actual si tiene exactamente las
-  // mismas etiquetas incluidas y las mismas excluidas (sin importar el orden).
-  function setsMatch(arr, set){
-    if(arr.length !== set.size) return false;
-    return arr.every(function(t){ return set.has(t); });
-  }
-  function currentSelectionMatchesProfile(profile){
-    return setsMatch(profile.tags, state.tags) && setsMatch(profile.excludedTags, state.excludedTags);
-  }
-
+  // ---------- Vistas guardadas (perfiles de categorías y etiquetas) ----------
   function renderViewProfileList(){
     var list = document.getElementById("viewProfileList");
     if(state.viewProfiles.length === 0){
@@ -1583,7 +1587,7 @@
       return;
     }
     list.innerHTML = state.viewProfiles.map(function(p){
-      var active = currentSelectionMatchesProfile(p) ? " active" : "";
+      var active = state.activeViewProfile === p.name ? " active" : "";
       return '<span class="view-profile-chip' + active + '" data-profile="' + escapeHtml(p.name) + '" title="Un clic aplica la vista \'' + escapeHtml(p.name) + '\'; otro clic la deselecciona">' +
         escapeHtml(p.name) +
         '<button type="button" class="view-profile-chip-remove" data-action="delete-profile" data-profile="' + escapeHtml(p.name) + '" title="Eliminar vista" aria-label="Eliminar vista">✕</button>' +
@@ -2691,6 +2695,9 @@
     } else {
       state.selectedCategories = new Set([cat]); // clic normal -> sustituye la selección
     }
+    // Tocar la categoría a mano desengancha la vista aplicada: la selección ya
+    // no es necesariamente la que esa vista representaba.
+    state.activeViewProfile = null;
     render();
   });
 
@@ -2751,24 +2758,29 @@
     } else {
       state.tags.add(tag);
     }
+    // Tocar una etiqueta a mano desengancha la vista aplicada: la selección ya
+    // no es necesariamente la que esa vista representaba.
+    state.activeViewProfile = null;
     render();
   });
 
   // Quita de un golpe cualquier filtro de etiquetas activo, incluidas y
   // excluidas por igual (el filtro de categoría no se toca).
   function clearTagSelection(){
-    if(state.tags.size === 0 && state.excludedTags.size === 0) return;
+    if(state.tags.size === 0 && state.excludedTags.size === 0 && !state.activeViewProfile) return;
     clearSelectionOnViewChange();
     state.tags.clear();
     state.excludedTags.clear();
+    state.activeViewProfile = null;
     saveExcludedTags();
     render();
   }
 
   document.getElementById("btnClearTagSelection").addEventListener("click", function(){ clearTagSelection(); });
 
-  // Guarda la selección de etiquetas tal cual está ahora mismo (incluidas y
-  // excluidas), aunque no haya ninguna — "todo sin filtrar" es una vista válida.
+  // Guarda la selección actual tal cual está ahora mismo (categorías,
+  // etiquetas incluidas y excluidas), aunque no haya ninguna — "todo sin
+  // filtrar" es una vista válida.
   function promptSaveViewProfile(){
     var name = prompt("Nombre de la vista:");
     if(name === null) return;
@@ -2776,14 +2788,19 @@
     if(!name) return;
     var tags = Array.from(state.tags);
     var excluded = Array.from(state.excludedTags);
+    var categories = Array.from(state.selectedCategories);
     var existingIdx = state.viewProfiles.findIndex(function(p){ return p.name.toLowerCase() === name.toLowerCase(); });
     if(existingIdx !== -1){
       if(!confirm('Ya existe una vista llamada "' + state.viewProfiles[existingIdx].name + '". ¿Sobrescribirla con la selección actual?')) return;
       state.viewProfiles[existingIdx].tags = tags;
       state.viewProfiles[existingIdx].excludedTags = excluded;
+      state.viewProfiles[existingIdx].selectedCategories = categories;
     } else {
-      state.viewProfiles.push({ name: name, tags: tags, excludedTags: excluded });
+      state.viewProfiles.push({ name: name, tags: tags, excludedTags: excluded, selectedCategories: categories });
     }
+    // La vista recién guardada representa exactamente la selección actual:
+    // queda como la vista aplicada.
+    state.activeViewProfile = name;
     saveViewProfiles();
     render();
   }
@@ -2796,6 +2813,7 @@
       var delName = removeBtn.getAttribute("data-profile");
       if(confirm('¿Eliminar la vista "' + delName + '"?')){
         state.viewProfiles = state.viewProfiles.filter(function(p){ return p.name !== delName; });
+        if(state.activeViewProfile === delName) state.activeViewProfile = null;
         saveViewProfiles();
         render();
       }
@@ -2803,16 +2821,21 @@
     }
     var chip = e.target.closest(".view-profile-chip[data-profile]");
     if(!chip) return;
-    var profile = state.viewProfiles.find(function(p){ return p.name === chip.getAttribute("data-profile"); });
+    var profileName = chip.getAttribute("data-profile");
+    var profile = state.viewProfiles.find(function(p){ return p.name === profileName; });
     if(!profile) return;
     clearSelectionOnViewChange();
-    if(currentSelectionMatchesProfile(profile)){
-      // Clic sobre la vista ya activa -> deseleccionar, vuelve a la vista general.
+    if(state.activeViewProfile === profileName){
+      // Clic sobre la vista ya aplicada -> deseleccionar, vuelve a la vista general.
       state.tags = new Set();
       state.excludedTags = new Set();
+      state.selectedCategories = new Set();
+      state.activeViewProfile = null;
     } else {
       state.tags = new Set(profile.tags);
       state.excludedTags = new Set(profile.excludedTags);
+      state.selectedCategories = new Set(profile.selectedCategories);
+      state.activeViewProfile = profileName;
     }
     saveExcludedTags();
     render();
@@ -2895,6 +2918,7 @@
   function resetFiltersAfterImport(){
     clearSelectionOnViewChange();
     state.selectedCategories.clear(); state.tags.clear(); state.activeFilter = "all"; state.search = "";
+    state.activeViewProfile = null;
     document.getElementById("searchInput").value = "";
   }
 
@@ -3369,6 +3393,7 @@
         run: function(){
           clearSelectionOnViewChange();
           state.selectedCategories = new Set([c.name]);
+          state.activeViewProfile = null;
           render();
         }
       };
@@ -3383,6 +3408,8 @@
           clearSelectionOnViewChange();
           state.tags = new Set(p.tags);
           state.excludedTags = new Set(p.excludedTags);
+          state.selectedCategories = new Set(p.selectedCategories);
+          state.activeViewProfile = p.name;
           saveExcludedTags();
           render();
         }
