@@ -7,6 +7,22 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Vistas guardadas a partir de una selección de enlaces**: hasta ahora una
+  vista solo podía expresarse como "estas categorías y estas etiquetas".
+  Ahora, en el modo selección, la barra de acciones en lote incluye **"Crear
+  vista"**: marca los enlaces que quieras —de las categorías que sean, con o
+  sin etiquetas en común— ponle nombre, y quedan guardados como una vista
+  más. Su chip en el lateral se ve y funciona igual que el de cualquier otra:
+  un clic muestra exactamente esos enlaces, otro clic la suelta, y la
+  búsqueda y el toggle Todos/Activos siguen funcionando dentro de ese
+  conjunto. Con la vista aplicada, "Exportar" exporta solo esos enlaces.
+  Crear la vista **no** la aplica ni pierde la selección: puedes seguir
+  encadenando acciones en lote sobre los mismos enlaces, que es para lo que
+  el modo selección conserva la selección. Si más tarde borras alguno de esos
+  enlaces, la vista sigue funcionando con los que queden.
+
 ## [1.6.0] - 2026-08-13
 
 ### Añadido
