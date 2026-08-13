@@ -155,8 +155,9 @@ menú del clic derecho → **"Añadir selección como nota en PinBoard"**. Se
 guarda como cita, con la fecha del día, en las notas de ese enlace.
 
 - Si la página **ya está** en PinBoard, la nota se añade sin cambiar de
-  pestaña: sigues leyendo y la confirmación es el ✓ verde sobre el icono de la
-  extensión. Cada nota nueva se añade al final, sin borrar las anteriores.
+  pestaña: sigues leyendo, y un aviso en la esquina superior derecha confirma
+  a qué enlace ha ido y cuántas notas lleva ya. Cada nota nueva se añade al
+  final, sin borrar las anteriores.
 - Si **no está**, se abre PinBoard con el formulario de alta y la nota ya
   puesta, para que confirmes el alta como siempre.
 

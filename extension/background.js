@@ -103,6 +103,75 @@ function warnBridgeMissing() {
   console.warn("PinBoard Connector: no se encontró el puente en la página. ¿Está actualizado pinboard.html?");
 }
 
+// Aviso efímero en la página que el usuario está leyendo. El badge del icono no
+// vale como única confirmación: Chrome esconde los iconos no fijados dentro del
+// menú de extensiones, así que el usuario no ve nada, cree que no ha funcionado
+// y repite la captura — añadiendo la misma nota varias veces.
+//
+// No necesita permisos nuevos: activeTab se concede al invocar el menú
+// contextual, igual que para leer los datos de la pestaña. Se inyecta en un
+// shadow DOM cerrado para que el CSS del sitio no lo deforme ni él altere el
+// sitio, y el texto entra siempre por textContent (el título del enlace es dato
+// del usuario y la página anfitriona es terreno ajeno).
+async function showPageToast(tabId, message, detail, isError) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (msg, det, err) => {
+        const HOST_ID = "pinboard-connector-toast";
+        const previo = document.getElementById(HOST_ID);
+        if (previo) previo.remove();
+
+        const host = document.createElement("div");
+        host.id = HOST_ID;
+        host.style.cssText = "all:initial;position:fixed;top:16px;right:16px;z-index:2147483647;";
+        const root = host.attachShadow({ mode: "closed" });
+
+        const style = document.createElement("style");
+        style.textContent = `
+          .toast{
+            display:flex;flex-direction:column;gap:2px;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+            background:#1b1e26;color:#e7e9ee;
+            padding:12px 16px;border-radius:10px;
+            border-left:4px solid #3ec472;
+            box-shadow:0 10px 30px rgba(0,0,0,0.35);
+            max-width:320px;
+            animation:pbIn .18s ease-out;
+          }
+          .toast.error{border-left-color:#e5605c;}
+          .titulo{font-size:14px;font-weight:600;}
+          .detalle{font-size:12px;color:#9aa0ac;overflow-wrap:anywhere;}
+          @keyframes pbIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+        `;
+
+        const caja = document.createElement("div");
+        caja.className = err ? "toast error" : "toast";
+        const titulo = document.createElement("div");
+        titulo.className = "titulo";
+        titulo.textContent = msg;
+        caja.appendChild(titulo);
+        if (det) {
+          const detalle = document.createElement("div");
+          detalle.className = "detalle";
+          detalle.textContent = det;
+          caja.appendChild(detalle);
+        }
+
+        root.append(style, caja);
+        document.documentElement.appendChild(host);
+        setTimeout(() => host.remove(), 3500);
+      },
+      args: [message, detail || "", !!isError]
+    });
+  } catch (err) {
+    // Hay páginas donde no se puede inyectar nada (chrome://, la Chrome Web
+    // Store, un PDF). No es un error de la operación —la nota ya está
+    // guardada—, así que ahí el badge se queda como única confirmación.
+    console.warn("PinBoard Connector: no se pudo mostrar el aviso en la página.", err);
+  }
+}
+
 // Una selección entra como cita de Markdown: cada línea con "> ", incluidas las
 // vacías, porque una línea en blanco sin marca cortaría la cita en dos.
 function quoteSelection(text) {
@@ -146,8 +215,11 @@ async function savePage(tab) {
 
 // Captura de una selección como nota. Si el enlace ya existe, la nota se añade
 // sin modal y **sin cambiar de pestaña**: el usuario está leyendo y quiere
-// seguir, así que la confirmación es el badge. Si no existe, hay que abrir el
-// modal precargado, y entonces sí se salta a PinBoard porque tiene que actuar.
+// seguir. Como no cambia nada delante de sus ojos, la confirmación tiene que
+// ser explícita y estar en la página donde está mirando (showPageToast), con el
+// recuento de notas de ese enlace; el badge se queda como refuerzo. Si el
+// enlace no existe hay que abrir el modal precargado, y entonces sí se salta a
+// PinBoard porque tiene que actuar.
 async function addSelectionNote(tab, selectionText) {
   const note = quoteSelection(selectionText);
   if (!note) return;
@@ -157,12 +229,16 @@ async function addSelectionNote(tab, selectionText) {
 
   if (!result || !result.ok) {
     warnBridgeMissing();
+    await showPageToast(tab.id, "No se pudo guardar la nota", "PinBoard no respondió. Comprueba que la pestaña de PinBoard está actualizada.", true);
     return;
   }
   if (result.created) {
     await focusPinboardTab(ctx.pinboardTab.id);
   } else {
     flashBadge("✓", "#1f9d55");
+    const notas = result.noteCount || 0;
+    const detalle = (result.title || "") + (notas > 1 ? ` · ${notas} notas en este enlace` : "");
+    await showPageToast(tab.id, "Nota añadida a PinBoard", detalle);
   }
 }
 

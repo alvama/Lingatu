@@ -24,9 +24,10 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   *"Guardar en PinBoard"* hace lo mismo que pulsar el icono. Y seleccionando
   texto → *"Añadir selección como nota en PinBoard"* guarda lo seleccionado
   como cita, con la fecha del día. Si la página ya está guardada, **la nota se
-  añade sin cambiar de pestaña** —sigues leyendo, y la confirmación es el ✓
-  verde sobre el icono de la extensión—; si no lo está, se abre PinBoard con
-  el formulario ya relleno y la nota puesta, para que confirmes el alta.
+  añade sin cambiar de pestaña** —sigues leyendo, y un aviso en la esquina de
+  la propia página confirma a qué enlace ha ido y cuántas notas lleva ya—; si
+  no lo está, se abre PinBoard con el formulario ya relleno y la nota puesta,
+  para que confirmes el alta.
 - **El formulario de enlace pasa a dos columnas**, con las notas ocupando la
   derecha entera: es el único campo que puede crecer mucho, y así tiene sitio
   de sobra sin que aparezca scroll en el modal. En ventanas estrechas las dos

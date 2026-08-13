@@ -1254,6 +1254,14 @@
     return base ? base + "\n\n" + block : block;
   }
 
+  // Cuenta los bloques con encabezado de fecha. Lo devuelve appendNote para que
+  // la extensión pueda decir "3 notas en este enlace" al confirmar: ver subir el
+  // número es lo que evita repetir la captura creyendo que no funcionó.
+  function countNoteBlocks(text){
+    var found = String(text == null ? "" : text).match(/^## /gm);
+    return found ? found.length : 0;
+  }
+
   // Devuelve el nombre canónico ya existente (comparación sin distinguir mayúsculas)
   // o registra "name" como nueva categoría si no existía.
   function ensureCategory(name){
@@ -2303,8 +2311,9 @@
     // sin modal ni confirmación —es aditivo sobre un enlace que el usuario ya
     // curó—; si no existe, se abre el modal precargado y la crea él, porque la
     // categoría es una heurística que puede fallar. Devuelve
-    // {ok, created, id?, title?, category?} para que la extensión sepa si tiene
-    // que saltar a esta pestaña (creación) o basta con el badge (añadido).
+    // {ok, created, id?, title?, category?, noteCount?} para que la extensión
+    // sepa si tiene que saltar a esta pestaña (creación) o basta con avisar en
+    // la página donde está el usuario (añadido), y con qué recuento.
     appendNote: function(data){
       data = data || {};
       var url = String(data.url == null ? "" : data.url).trim();
@@ -2317,7 +2326,7 @@
         save();
         render();
         highlightLink(existing.id);
-        return { ok: true, created: false, id: existing.id, title: existing.title, category: existing.category };
+        return { ok: true, created: false, id: existing.id, title: existing.title, category: existing.category, noteCount: countNoteBlocks(existing.notes) };
       }
       var category = suggestCategory(data.title, data.description, url);
       prefillAndOpen({ category: category, title: data.title, url: url, description: data.description });
