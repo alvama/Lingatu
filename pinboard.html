@@ -584,7 +584,24 @@
   /* Más ancho que el resto de modales: la fila de categoría acumula color,
      icono, orden ▲/▼ y acciones; a 440px se ve forzada a partirse en dos líneas. */
   #manageModalOverlay .modal{max-width:560px;}
+  /* El modal de enlace es el doble de ancho que el resto: el formulario va a dos
+     columnas, con las notas ocupando la derecha entera. Es lo que evita que un
+     campo que puede crecer mucho deje el modal con scroll. */
+  #modalOverlay .modal{max-width:880px;}
   #linkForm{display:flex;flex-direction:column;gap:12px;}
+  .form-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .form-column{display:flex;flex-direction:column;gap:12px;min-width:0;}
+  /* La columna de notas se estira hasta el alto de la otra y el textarea ocupa
+     todo lo que sobra, sea cual sea el número de campos de la izquierda. */
+  .form-column-notes,.form-column-notes label{height:100%;}
+  #fieldNotes{flex:1;min-height:280px;}
+  /* Con poco ancho no caben dos columnas: se apilan, y las notas vuelven a un
+     alto moderado para no empujar los botones fuera de la vista. */
+  @media (max-width: 940px){
+    .form-columns{grid-template-columns:1fr;}
+    .form-column-notes,.form-column-notes label{height:auto;}
+    #fieldNotes{min-height:140px;}
+  }
   #linkForm label{
     display:flex;
     flex-direction:column;
@@ -694,6 +711,9 @@
     margin-top:6px;
   }
   #btnDuplicate{margin-right:auto;}
+  /* .btn-primary es de ancho completo (lo pide "+ Nuevo enlace" del lateral);
+     en un modal de 880px eso deja un botón "Guardar" desproporcionado. */
+  #linkForm .modal-actions .btn-primary{width:auto;min-width:140px;}
   .field-error{font-size:12px;color:var(--danger);font-weight:400;display:none;}
 
   /* Título del sitio */
@@ -848,7 +868,7 @@
 
   <main class="content">
     <div class="toolbar">
-      <input type="search" id="searchInput" placeholder="Buscar por título, descripción o etiqueta..." title="Busca en título, descripción y etiquetas (atajo: /)">
+      <input type="search" id="searchInput" placeholder="Buscar por título, descripción, etiqueta o nota..." title="Busca en título, descripción, etiquetas y notas (atajo: /)">
       <div class="status-toggle" id="statusToggle">
         <button type="button" class="status-toggle-btn" data-value="all" title="Muestra todos los enlaces, activos e inactivos">Todos</button>
         <button type="button" class="status-toggle-btn" data-value="active" title="Muestra solo los enlaces activos">Activos</button>
@@ -882,40 +902,50 @@
     <h2 id="modalTitle">Nuevo enlace</h2>
     <form id="linkForm">
       <input type="hidden" id="linkId">
-      <label>Categoría *
-        <input id="fieldCategory" list="categoryOptions" required autocomplete="off">
-      </label>
-      <datalist id="categoryOptions"></datalist>
+      <div class="form-columns">
+        <div class="form-column">
+          <label>Categoría *
+            <input id="fieldCategory" list="categoryOptions" required autocomplete="off">
+          </label>
+          <datalist id="categoryOptions"></datalist>
 
-      <label>Título *
-        <input id="fieldTitle" required autocomplete="off">
-      </label>
+          <label>Título *
+            <input id="fieldTitle" required autocomplete="off">
+          </label>
 
-      <label>Link *
-        <input id="fieldUrl" type="url" required placeholder="https://ejemplo.com" autocomplete="off">
-      </label>
+          <label>Link *
+            <input id="fieldUrl" type="url" required placeholder="https://ejemplo.com" autocomplete="off">
+          </label>
 
-      <label>Descripción
-        <textarea id="fieldDescription" rows="2"></textarea>
-      </label>
+          <label>Descripción
+            <textarea id="fieldDescription" rows="2"></textarea>
+          </label>
 
-      <label for="tagsInput">Etiquetas <span style="font-weight:400">(escribe y pulsa Enter, espacio o coma; también puedes pegar varias de golpe)</span>
-        <div id="tagsField" class="tags-field">
-          <div id="tagsChipsWrap" class="tags-chips-wrap">
-            <input id="tagsInput" type="text" class="tags-input" autocomplete="off"
-                   placeholder="Añadir etiqueta..." aria-label="Añadir etiqueta"
-                   role="combobox" aria-autocomplete="list" aria-expanded="false"
-                   aria-controls="tagsSuggestions" aria-haspopup="listbox">
-          </div>
-          <ul id="tagsSuggestions" class="tags-suggestions" role="listbox" hidden></ul>
+          <label for="tagsInput">Etiquetas <span style="font-weight:400">(escribe y pulsa Enter, espacio o coma; también puedes pegar varias de golpe)</span>
+            <div id="tagsField" class="tags-field">
+              <div id="tagsChipsWrap" class="tags-chips-wrap">
+                <input id="tagsInput" type="text" class="tags-input" autocomplete="off"
+                       placeholder="Añadir etiqueta..." aria-label="Añadir etiqueta"
+                       role="combobox" aria-autocomplete="list" aria-expanded="false"
+                       aria-controls="tagsSuggestions" aria-haspopup="listbox">
+              </div>
+              <ul id="tagsSuggestions" class="tags-suggestions" role="listbox" hidden></ul>
+            </div>
+            <input type="hidden" id="fieldTags">
+          </label>
+
+          <label class="checkbox-label">
+            <input type="checkbox" id="fieldActive" checked>
+            Activo
+          </label>
         </div>
-        <input type="hidden" id="fieldTags">
-      </label>
 
-      <label class="checkbox-label">
-        <input type="checkbox" id="fieldActive" checked>
-        Activo
-      </label>
+        <div class="form-column form-column-notes">
+          <label for="fieldNotes">Notas <span style="font-weight:400">(se guardan tal cual; puedes escribir en Markdown)</span>
+            <textarea id="fieldNotes" placeholder="Lo que sepas o pienses sobre este enlace..."></textarea>
+          </label>
+        </div>
+      </div>
 
       <div class="modal-actions">
         <button type="button" id="btnDuplicate" hidden>Duplicar</button>
@@ -1206,6 +1236,24 @@
     return out;
   }
 
+  // ---------- Notas por enlace ----------
+  // Las notas se acumulan: cada anotación entra como un bloque nuevo al final,
+  // encabezado por su fecha, y nunca se sobrescribe lo anterior (ver 4.23).
+  // El texto se guarda tal cual —el Markdown es una convención de escritura,
+  // no un formato de salida—, así que aquí no se renderiza nada.
+  function formatNoteBlock(text){
+    var d = new Date();
+    var stamp = String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+    return "## " + stamp + "\n\n" + String(text == null ? "" : text).replace(/\s+$/, "");
+  }
+
+  // Añade un bloque al final del texto de notas existente, con una línea en
+  // blanco de separación y sin espacios sobrantes al final.
+  function appendNoteToText(existing, block){
+    var base = String(existing == null ? "" : existing).replace(/\s+$/, "");
+    return base ? base + "\n\n" + block : block;
+  }
+
   // Devuelve el nombre canónico ya existente (comparación sin distinguir mayúsculas)
   // o registra "name" como nueva categoría si no existía.
   function ensureCategory(name){
@@ -1283,7 +1331,7 @@
         if(hasExcluded) return false;
       }
       if(q){
-        var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ")).toLowerCase();
+        var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ") + " " + (l.notes||"")).toLowerCase();
         if(haystack.indexOf(q) === -1) return false;
       }
       return true;
@@ -1701,6 +1749,18 @@
     );
   }
 
+  // Indicador de notas, compartido por las dos plantillas de ficha: es la única
+  // forma de saber que un enlace tiene algo escrito sin abrir el modal (la nota
+  // no se pinta en la ficha, puede tener cientos de líneas). Es un botón, y
+  // abre el modal directamente con el foco en el campo de notas.
+  // Va dentro de .card-icon-actions a propósito: así el modo selección lo oculta
+  // con el mismo criterio que ▲▼✏️🗑️ (decisión 21).
+  function notesIndicatorHtml(l){
+    if(!l.notes) return "";
+    return '<button class="icon-action-plain" data-action="notes" data-id="' + escapeHtml(l.id) +
+           '" title="Ver o editar las notas de este enlace" aria-label="Notas de ' + escapeHtml(l.title) + '">📝</button>';
+  }
+
   // Casilla de selección, compartida por las dos plantillas de ficha. Solo se
   // genera con el modo selección activo; el estado visual sale siempre de
   // state.selectedLinks (el clic se resuelve en el listener delegado y repinta).
@@ -1734,6 +1794,7 @@
         '<div class="card-header">' +
           selectCheckHtml(l) +
           '<div class="card-icon-actions">' +
+            notesIndicatorHtml(l) +
             moveButtonsHtml(l, prevId, nextId) +
             '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
             '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
@@ -1760,6 +1821,7 @@
         '<a class="compact-title" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer" draggable="false">' + escapeHtml(l.title) + '</a>' +
         (tagsHtml ? '<div class="tags compact-tags">' + tagsHtml + '</div>' : '') +
         '<div class="card-icon-actions">' +
+          notesIndicatorHtml(l) +
           moveButtonsHtml(l, prevId, nextId) +
           '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
           '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
@@ -1983,7 +2045,9 @@
     tagsInput.removeAttribute("aria-activedescendant");
   }
 
-  function openModal(link){
+  // "focusNotes" solo lo usa el indicador 📝 de las fichas (4.23): abre el modal
+  // directamente donde está el contenido, en vez de dejar el foco en Categoría.
+  function openModal(link, focusNotes){
     editingId = link ? link.id : null;
     document.getElementById("modalTitle").textContent = link ? "Editar enlace" : "Nuevo enlace";
     document.getElementById("linkId").value = link ? link.id : "";
@@ -1992,10 +2056,19 @@
     document.getElementById("fieldUrl").value = link ? link.url : "";
     document.getElementById("fieldDescription").value = link ? link.description : "";
     tagsFieldSetChips(link ? link.tags : []);
+    // Siempre se fija: al crear queda vacío, para que no arrastre las notas del
+    // enlace editado justo antes (invariante 5 de la tarea de notas).
+    document.getElementById("fieldNotes").value = link ? (link.notes || "") : "";
     document.getElementById("fieldActive").checked = link ? link.active : true;
     document.getElementById("btnDuplicate").hidden = !link;
     overlay.hidden = false;
-    document.getElementById("fieldCategory").focus();
+    if(focusNotes){
+      var notesEl = document.getElementById("fieldNotes");
+      notesEl.focus();
+      notesEl.setSelectionRange(notesEl.value.length, notesEl.value.length); // el cursor al final: lo normal es seguir escribiendo
+    } else {
+      document.getElementById("fieldCategory").focus();
+    }
   }
 
   // Crea una copia del enlace que se está editando (título + " _copia") y
@@ -2012,6 +2085,7 @@
       active: original.active,
       tags: original.tags.slice()
     };
+    if(original.notes) copy.notes = original.notes;
     state.links.push(copy);
     save();
     render();
@@ -2033,6 +2107,7 @@
     var url = document.getElementById("fieldUrl").value.trim();
     var description = document.getElementById("fieldDescription").value.trim();
     var tags = normalizeTags(document.getElementById("fieldTags").value);
+    var notes = document.getElementById("fieldNotes").value.replace(/\s+$/, "");
     var active = document.getElementById("fieldActive").checked;
 
     if(!category || !title || !url) return;
@@ -2051,9 +2126,14 @@
       if(link){
         link.category = category; link.title = title; link.url = url;
         link.description = description; link.tags = tags; link.active = active;
+        // "notes" solo existe si tiene contenido: sin notas, se borra el campo
+        // en vez de dejarlo como "" (ver 4.23 de las especificaciones).
+        if(notes) link.notes = notes; else delete link.notes;
       }
     } else {
-      state.links.push({ id: genId(), category: category, title: title, url: url, description: description, active: active, tags: tags });
+      var nuevo = { id: genId(), category: category, title: title, url: url, description: description, active: active, tags: tags };
+      if(notes) nuevo.notes = notes;
+      state.links.push(nuevo);
     }
     save();
     saveCategories();
@@ -2153,12 +2233,13 @@
   //
   // CONTRATO ESTABLE — no cambiar sin revisar extension/background.js:
   // (contrato completo en docs/ESPECIFICACIONES.md, sección 8)
-  //   - Firma de los 4 métodos de abajo (checkDuplicate/focusExisting/
-  //     suggestCategory/prefillAndOpen).
+  //   - Firma de los 5 métodos de abajo (checkDuplicate/focusExisting/
+  //     suggestCategory/prefillAndOpen/appendNote).
   //   - Clases ".link-card"/".link-card-compact" + atributo "data-id" en el
   //     elemento raíz de cada ficha (las usa highlightLink() más abajo).
   //   - Ids de campo fieldCategory/fieldTitle/fieldUrl/fieldDescription
-  //     (los rellena prefillAndOpen vía getElementById(...).value).
+  //     (los rellena prefillAndOpen vía getElementById(...).value) y fieldNotes
+  //     (lo rellena appendNote cuando el enlace todavía no existe).
   // Si se rompe algo de esto, la extensión falla en silencio (solo un badge
   // rojo "!" en su icono), sin ningún error visible aquí.
   function suggestCategory(title, description, url){
@@ -2184,6 +2265,21 @@
     setTimeout(function(){ el.classList.remove("bridge-highlight"); }, 2000);
   }
 
+  // Abre el modal de "Nuevo enlace" con los campos precargados; el usuario
+  // sigue confirmando y pulsando "Guardar" como en el flujo manual.
+  // Función con nombre (y no un método anónimo del objeto de abajo) porque
+  // appendNote la reutiliza para el caso "la URL todavía no existe".
+  function prefillAndOpen(data){
+    data = data || {};
+    openModal(null);
+    document.getElementById("fieldCategory").value = data.category || "";
+    document.getElementById("fieldTitle").value = data.title || "";
+    document.getElementById("fieldUrl").value = data.url || "";
+    document.getElementById("fieldDescription").value = data.description || "";
+    window.focus();
+    document.getElementById("fieldTitle").focus();
+  }
+
   window.PinBoardBridge = {
     // Comprueba si la URL ya existe. Devuelve {id, title, category} o null.
     checkDuplicate: function(url){
@@ -2198,17 +2294,35 @@
     // Heurística simple: propone una categoría ya existente según coincidencias
     // de palabras en título/descripción/dominio. No inventa categorías nuevas.
     suggestCategory: suggestCategory,
-    // Abre el modal de "Nuevo enlace" con los campos precargados; el usuario
-    // sigue confirmando y pulsando "Guardar" como en el flujo manual.
-    prefillAndOpen: function(data){
+    prefillAndOpen: prefillAndOpen,
+    // Añade una nota al enlace de esa URL. El texto llega ya formateado como el
+    // usuario lo quiere ver (una selección capturada llega como cita "> ..."):
+    // aquí solo se le pone el encabezado de fecha y se acumula al final.
+    //
+    // Asimetría deliberada (decisión 33): si la URL ya existe, la nota se añade
+    // sin modal ni confirmación —es aditivo sobre un enlace que el usuario ya
+    // curó—; si no existe, se abre el modal precargado y la crea él, porque la
+    // categoría es una heurística que puede fallar. Devuelve
+    // {ok, created, id?, title?, category?} para que la extensión sepa si tiene
+    // que saltar a esta pestaña (creación) o basta con el badge (añadido).
+    appendNote: function(data){
       data = data || {};
-      openModal(null);
-      document.getElementById("fieldCategory").value = data.category || "";
-      document.getElementById("fieldTitle").value = data.title || "";
-      document.getElementById("fieldUrl").value = data.url || "";
-      document.getElementById("fieldDescription").value = data.description || "";
-      window.focus();
-      document.getElementById("fieldTitle").focus();
+      var url = String(data.url == null ? "" : data.url).trim();
+      var note = String(data.note == null ? "" : data.note).trim();
+      if(!url || !note) return { ok: false, reason: "empty-note" };
+      var block = formatNoteBlock(note);
+      var existing = findDuplicateUrl(url, null);
+      if(existing){
+        existing.notes = appendNoteToText(existing.notes, block);
+        save();
+        render();
+        highlightLink(existing.id);
+        return { ok: true, created: false, id: existing.id, title: existing.title, category: existing.category };
+      }
+      var category = suggestCategory(data.title, data.description, url);
+      prefillAndOpen({ category: category, title: data.title, url: url, description: data.description });
+      document.getElementById("fieldNotes").value = block;
+      return { ok: true, created: true, category: category };
     }
   };
 
@@ -2616,6 +2730,9 @@
       if(action === "edit"){
         var link = state.links.find(function(l){ return l.id === id; });
         if(link) openModal(link);
+      } else if(action === "notes"){
+        var withNotes = state.links.find(function(l){ return l.id === id; });
+        if(withNotes) openModal(withNotes, true);
       } else if(action === "delete"){
         var target = state.links.find(function(l){ return l.id === id; });
         var label = target ? target.title : "este enlace";
@@ -2992,7 +3109,7 @@
 
   function performImportReplace(data){
     state.links = data.map(function(l){
-      return {
+      var link = {
         id: l.id || genId(),
         category: String(l.category),
         title: String(l.title),
@@ -3001,6 +3118,8 @@
         active: l.active !== false,
         tags: Array.isArray(l.tags) ? normalizeTags(l.tags.join(" ")) : []
       };
+      if(l.notes) link.notes = String(l.notes);
+      return link;
     });
     state.links.forEach(function(l){
       l.category = ensureCategory(l.category);
@@ -3023,7 +3142,7 @@
       if(!url || existingUrls[key]){ skipped++; return; }
       existingUrls[key] = true;
       var tags = Array.isArray(raw.tags) ? normalizeTags(raw.tags.join(" ")).map(ensureTag) : [];
-      state.links.push({
+      var link = {
         id: genId(),
         category: ensureCategory(String(raw.category || "Sin categoría")),
         title: String(raw.title || url),
@@ -3031,7 +3150,9 @@
         description: raw.description ? String(raw.description) : "",
         active: raw.active !== false,
         tags: tags
-      });
+      };
+      if(raw.notes) link.notes = String(raw.notes);
+      state.links.push(link);
       added++;
     });
     save();
