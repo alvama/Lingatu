@@ -255,6 +255,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.7.0]: https://github.com/alvama/PinBoard/releases/tag/v1.7.0
 [1.6.0]: https://github.com/alvama/PinBoard/releases/tag/v1.6.0
 [1.5.0]: https://github.com/alvama/PinBoard/releases/tag/v1.5.0
 [1.4.0]: https://github.com/alvama/PinBoard/releases/tag/v1.4.0
