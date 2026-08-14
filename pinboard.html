@@ -965,6 +965,54 @@
   }
   .focus-banner[hidden]{display:none;}
 
+  /* Panel de ayuda ("?"): chuleta corta de gestos, filtros y datos — el
+     complemento de la paleta de comandos (4.22), que ya documenta acciones. */
+  #helpModalOverlay .modal{max-width:600px;}
+  .help-intro{margin:0 0 18px 0;font-size:13px;color:var(--text-muted);line-height:1.5;}
+  .help-block{margin-bottom:20px;}
+  .help-block:last-child{margin-bottom:0;}
+  .help-block h3{
+    margin:0 0 10px 0;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--border);
+    font-size:14px;
+    font-weight:700;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  .help-block-icon{font-size:15px;line-height:1;}
+  .help-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px;}
+  .help-list li{
+    font-size:13px;
+    line-height:1.55;
+    color:var(--text);
+    padding-left:15px;
+    position:relative;
+  }
+  .help-list li::before{
+    content:"▸";
+    position:absolute;
+    left:0;
+    top:0;
+    color:var(--primary);
+  }
+  .help-list kbd{
+    padding:1px 6px;
+    border-radius:5px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    font-size:11px;
+    font-family:inherit;
+    color:var(--text-muted);
+  }
+  .app-footer button{
+    background:none;border:none;padding:0;margin:0;
+    font:inherit;font-size:12px;color:var(--text-muted);cursor:pointer;
+  }
+  .app-footer button:hover{color:var(--primary);text-decoration:underline;}
+
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
     .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
@@ -1179,6 +1227,17 @@
     <div id="cleanupList" class="cleanup-list"></div>
     <div class="modal-actions">
       <button type="button" id="btnCleanupClose" class="btn-primary">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="helpModalOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <h2 id="helpModalTitle">Ayuda: atajos y gestos</h2>
+    <p class="help-intro">Lo que PinBoard sabe hacer, aunque nada en pantalla lo diga.</p>
+    <div id="helpModalBody"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnHelpClose" class="btn-primary">Cerrar</button>
     </div>
   </div>
 </div>
@@ -2989,7 +3048,9 @@
       '<span>·</span>' +
       '<a href="' + escapeHtml(APP_CONFIG.siteUrl) + '" target="_blank" rel="noopener">' + escapeHtml(APP_CONFIG.siteName) + '</a>' +
       '<span>·</span>' +
-      '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>';
+      '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>' +
+      '<span>·</span>' +
+      '<button type="button" id="btnHelp">Ayuda (?)</button>';
   }
   function promptSiteTitle(){
     var next = prompt("Título de la página:", state.siteTitle);
@@ -3711,7 +3772,7 @@
   // ---------- Atajos de teclado ----------
   document.addEventListener("keydown", function(e){
     var key = e.key.toLowerCase();
-    if(e.key !== "/" && key !== "n") return;
+    if(e.key !== "/" && key !== "n" && e.key !== "?") return;
     var tag = (e.target.tagName || "").toLowerCase();
     var isTyping = tag === "input" || tag === "textarea" || e.target.isContentEditable;
     if(isTyping || anyOverlayOpen()) return;
@@ -3721,6 +3782,9 @@
     } else if(key === "n"){
       e.preventDefault();
       openModal(null);
+    } else if(e.key === "?"){
+      e.preventDefault();
+      openHelpPanel();
     }
   });
 
@@ -4350,6 +4414,7 @@
   //   hint      atajo de teclado ya existente para esa acción, si lo tiene.
   //   available función opcional: si devuelve false, el comando no se ofrece.
   var COMMANDS = [
+    { id: "help", label: "Ayuda: atajos y gestos", hint: "?", run: function(){ openHelpPanel(); } },
     { id: "add-link", label: "Nuevo enlace", hint: "n", run: function(){ openModal(null); } },
     { id: "focus-search", label: "Buscar enlaces", hint: "/", run: function(){ document.getElementById("searchInput").focus(); } },
     { id: "edit-site-title", label: "Cambiar el título de la página", run: function(){ promptSiteTitle(); } },
@@ -4599,6 +4664,85 @@
   });
 
   registerOverlay(paletteOverlay, closeCommandPalette);
+
+  // ---------- Panel de ayuda ("?") ----------
+  // Chuleta corta de lo que la paleta de comandos (4.22) no puede documentar:
+  // gestos, filtros y comportamiento de los datos. Las acciones ya están
+  // cubiertas por la propia paleta (bloque "Comandos"), así que no se repiten
+  // aquí — solo se remite a Ctrl+K.
+  //
+  // Todo el contenido vive en este único array, junto al código: cada atajo,
+  // gesto o comportamiento de filtro nuevo pide su línea aquí (ver CLAUDE.md,
+  // "Al cerrar un cambio"). Es texto de autor, no dato de usuario: no pasa
+  // por escapeHtml() y no debe interpolar nada dinámico — mantenlo estático.
+  var HELP_SECTIONS = [
+    { title: "Atajos", icon: "⌨️", items: [
+      "Pulsa <kbd>/</kbd> para saltar directo al buscador.",
+      "Pulsa <kbd>n</kbd> para crear un enlace nuevo al instante.",
+      "Pulsa <kbd>?</kbd> en cualquier momento para volver a esta ayuda.",
+      "Pulsa <kbd>Ctrl</kbd>+<kbd>K</kbd> para buscar y ejecutar cualquier cosa desde un mismo cuadro: acciones, enlaces, categorías, vistas y etiquetas.",
+      "Pulsa <kbd>Escape</kbd> para cerrar la ventana que tengas abierta.",
+      "Mientras escribes una etiqueta: Enter, espacio o coma la confirman; Backspace con el campo vacío borra la última; las flechas ↑/↓ navegan las sugerencias."
+    ]},
+    { title: "Gestos", icon: "🖐️", items: [
+      "Arrastra una ficha sobre otra para colocarla justo delante.",
+      "Arrastra una ficha sobre la cabecera de un grupo (o su hueco vacío, aunque esté plegado) para mandarla al final de esa categoría.",
+      "Arrastra una ficha hasta otra categoría para moverla allí — es la forma de cambiar un enlace de categoría.",
+      "Usa los botones ▲/▼ para mover un enlace un puesto dentro de lo que ves ahora mismo.",
+      "Arrastra una categoría en el lateral para reordenarla; puedes moverla varias posiciones de una vez (los ▲/▼ del modal de gestión solo la intercambian con la vecina).",
+      "Suelta una categoría sobre \"Todas\" para mandarla al principio de la lista.",
+      "Pulsa la cabecera de un grupo para plegarlo o desplegarlo — se recuerda entre sesiones.",
+      "Con \"Seleccionar\" activo, toca cualquier parte de una ficha para marcarla o desmarcarla; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ quedan desactivados.",
+      "La selección se vacía sola en cuanto cambias de filtro, de búsqueda o de vista, y se conserva entre acciones en lote — salvo al eliminar.",
+      "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque."
+    ]},
+    { title: "Filtros", icon: "🔍", items: [
+      "Pulsa tres veces seguidas una etiqueta del lateral para recorrer sus tres estados: neutra → incluida → excluida.",
+      "Las etiquetas de las fichas son más simples: un clic solo activa o desactiva su inclusión, sin ciclo.",
+      "Mantén pulsado <kbd>Ctrl</kbd> (o <kbd>Cmd</kbd>) y haz clic para seleccionar varias categorías a la vez.",
+      "Un clic normal en una categoría sustituye la selección; vuelve a pulsarla para quitarla. \"Todas\" limpia el filtro de golpe.",
+      "La escoba 🧹 limpia de golpe el filtro de las etiquetas incluidas y las excluidas.",
+      "Las etiquetas que excluyes se recuerdan entre sesiones; las que incluyes, no.",
+      "Guarda una Vista para recuperar de un clic las etiquetas incluidas/excluidas y la categoría — o una lista concreta de enlaces, si es una vista de selección.",
+      "El buscador entiende operadores (cat:, #etiqueta, site:, is:activo/is:inactivo, \"frase exacta\", - para excluir) y busca también en el título, la descripción, las etiquetas, las notas y la URL."
+    ]},
+    { title: "Datos", icon: "💾", items: [
+      "Si tienes un filtro puesto, \"Exportar\" descarga solo lo filtrado — y te avisa antes.",
+      "Al importar: \"Fusionar\" añade lo que no tengas (compara por URL); \"Sustituir todo\" reemplaza y no se puede deshacer.",
+      "Las categorías se exportan e importan aparte, desde su propio modal de gestión.",
+      "Tus datos viven solo en este navegador y en este equipo: no se sincronizan en ningún sitio. Exportar es tu único respaldo — y borrar los datos del sitio los borra para siempre."
+    ]}
+  ];
+
+  var helpModalOverlay = document.getElementById("helpModalOverlay");
+
+  function renderHelpPanel(){
+    document.getElementById("helpModalBody").innerHTML = HELP_SECTIONS.map(function(section){
+      return '<div class="help-block"><h3><span class="help-block-icon">' + section.icon + '</span>' + section.title + '</h3><ul class="help-list">' +
+        section.items.map(function(item){ return "<li>" + item + "</li>"; }).join("") +
+        '</ul></div>';
+    }).join("");
+  }
+
+  function openHelpPanel(){
+    renderHelpPanel();
+    helpModalOverlay.hidden = false;
+  }
+
+  function closeHelpPanel(){
+    helpModalOverlay.hidden = true;
+  }
+
+  document.getElementById("btnHelpClose").addEventListener("click", closeHelpPanel);
+  registerOverlay(helpModalOverlay, closeHelpPanel);
+
+  // #appFooter se pinta una sola vez (renderFooter(), en el arranque) y
+  // render() no lo toca: delegado sobre el contenedor, igual que
+  // #btnEmptyStateAdd sobre #emptyState, en vez de un listener directo sobre
+  // un botón que aún no existe en este punto del script.
+  document.getElementById("appFooter").addEventListener("click", function(e){
+    if(e.target.closest("#btnHelp")) openHelpPanel();
+  });
 
   // ---------- Inicio ----------
   var stored = load();
