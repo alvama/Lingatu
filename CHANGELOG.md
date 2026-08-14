@@ -7,6 +7,8 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.9.0] - 2026-08-14
+
 ### Añadido
 
 - **Panel de ayuda**: se abre con la tecla `?` o con el botón "Ayuda (?)" del
@@ -359,6 +361,7 @@ Chrome/Edge.
 - Icono compartido entre la app y la extensión.
 - App vacía por defecto al primer uso.
 
+[1.9.0]: https://github.com/alvama/PinBoard/releases/tag/v1.9.0
 [1.8.0]: https://github.com/alvama/PinBoard/releases/tag/v1.8.0
 [1.7.0]: https://github.com/alvama/PinBoard/releases/tag/v1.7.0
 [1.6.0]: https://github.com/alvama/PinBoard/releases/tag/v1.6.0

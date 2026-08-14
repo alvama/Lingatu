@@ -38,9 +38,17 @@ activa y la añade con un clic.
   de código con botón para copiarlos—. Se pueden capturar desde cualquier
   página con el menú del clic derecho de la extensión, y **la búsqueda las
   encuentra**.
-- **Búsqueda y filtros combinables**, con exportación que respeta la
-  selección activa (categoría, etiquetas o los enlaces de una vista) en
-  vez de exportar siempre todo.
+- **Panel de ayuda** (`?`): atajos, gestos, filtros y datos reunidos en un
+  solo sitio, para todo lo que la interfaz no insinúa por sí sola.
+- **Panel de limpieza ("Revisar")**: detecta ocho problemas típicos de una
+  colección que ha crecido —duplicados, URLs inválidas, enlaces sin
+  etiquetar, etiquetas huérfanas, categorías dispersas y más— sin
+  modificar nada; cada comprobación enfoca la vista a los enlaces
+  afectados para arreglarlos con las herramientas de siempre.
+- **Búsqueda con operadores** (`cat:`, `#etiqueta`, `site:`,
+  `is:activo`/`is:inactivo`, `"frase exacta"`, `-` para negar) y filtros
+  combinables, con exportación que respeta la selección activa (categoría,
+  etiquetas o los enlaces de una vista) en vez de exportar siempre todo.
 - **Dos modos de vista**: cómoda (con barra de color y URL bajo el
   título) y compacta.
 - **Exportar/Importar enlaces** en JSON, con opción de fusionar
@@ -204,7 +212,7 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.8.0](https://github.com/alvama/PinBoard/releases/tag/v1.8.0)
+- Última versión publicada: [v1.9.0](https://github.com/alvama/PinBoard/releases/tag/v1.9.0)
   ([todos los releases](https://github.com/alvama/PinBoard/releases)).
 
 ## Licencia
