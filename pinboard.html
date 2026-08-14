@@ -968,18 +968,36 @@
   /* Panel de ayuda ("?"): chuleta corta de gestos, filtros y datos — el
      complemento de la paleta de comandos (4.22), que ya documenta acciones. */
   #helpModalOverlay .modal{max-width:600px;}
-  .help-block{margin-bottom:18px;}
+  .help-intro{margin:0 0 18px 0;font-size:13px;color:var(--text-muted);line-height:1.5;}
+  .help-block{margin-bottom:20px;}
   .help-block:last-child{margin-bottom:0;}
   .help-block h3{
-    margin:0 0 8px 0;
-    font-size:12px;
+    margin:0 0 10px 0;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--border);
+    font-size:14px;
     font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:.04em;
-    color:var(--text-muted);
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:7px;
   }
-  .help-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
-  .help-list li{font-size:13px;line-height:1.5;color:var(--text);}
+  .help-block-icon{font-size:15px;line-height:1;}
+  .help-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px;}
+  .help-list li{
+    font-size:13px;
+    line-height:1.55;
+    color:var(--text);
+    padding-left:15px;
+    position:relative;
+  }
+  .help-list li::before{
+    content:"▸";
+    position:absolute;
+    left:0;
+    top:0;
+    color:var(--primary);
+  }
   .help-list kbd{
     padding:1px 6px;
     border-radius:5px;
@@ -1216,6 +1234,7 @@
 <div id="helpModalOverlay" class="modal-overlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
     <h2 id="helpModalTitle">Ayuda: atajos y gestos</h2>
+    <p class="help-intro">Lo que PinBoard sabe hacer, aunque nada en pantalla lo diga.</p>
     <div id="helpModalBody"></div>
     <div class="modal-actions">
       <button type="button" id="btnHelpClose" class="btn-primary">Cerrar</button>
@@ -4657,41 +4676,41 @@
   // "Al cerrar un cambio"). Es texto de autor, no dato de usuario: no pasa
   // por escapeHtml() y no debe interpolar nada dinámico — mantenlo estático.
   var HELP_SECTIONS = [
-    { title: "Atajos", items: [
-      "<kbd>/</kbd> enfoca el buscador.",
-      "<kbd>n</kbd> crea un enlace nuevo.",
-      "<kbd>?</kbd> abre esta ayuda.",
-      "<kbd>Ctrl</kbd>+<kbd>K</kbd> abre la paleta de comandos: busca acciones, enlaces, categorías, vistas y etiquetas.",
-      "<kbd>Escape</kbd> cierra el modal que esté abierto.",
-      "En el campo de Etiquetas: Enter, espacio o coma confirman una etiqueta; Backspace con el campo vacío quita la última; las flechas navegan las sugerencias."
+    { title: "Atajos", icon: "⌨️", items: [
+      "Pulsa <kbd>/</kbd> para saltar directo al buscador.",
+      "Pulsa <kbd>n</kbd> para crear un enlace nuevo al instante.",
+      "Pulsa <kbd>?</kbd> en cualquier momento para volver a esta ayuda.",
+      "Pulsa <kbd>Ctrl</kbd>+<kbd>K</kbd> para buscar y ejecutar cualquier cosa desde un mismo cuadro: acciones, enlaces, categorías, vistas y etiquetas.",
+      "Pulsa <kbd>Escape</kbd> para cerrar la ventana que tengas abierta.",
+      "Mientras escribes una etiqueta: Enter, espacio o coma la confirman; Backspace con el campo vacío borra la última; las flechas ↑/↓ navegan las sugerencias."
     ]},
-    { title: "Gestos", items: [
-      "Arrastrar una ficha sobre otra la coloca justo antes.",
-      "Arrastrar una ficha sobre la cabecera de un grupo (o su hueco vacío, aunque esté plegado) la manda al final de esa categoría.",
-      "Arrastrar una ficha a otra categoría también le cambia la categoría — así se mueve un enlace de categoría.",
-      "Los botones ▲/▼ mueven un puesto dentro de lo que estás viendo.",
-      "Arrastrar una categoría en el lateral la reordena y puede moverla varias posiciones de golpe (los ▲/▼ del modal de gestión solo la intercambian con la vecina).",
-      "Soltar una categoría sobre \"Todas\" la manda al principio de la lista.",
-      "Pulsar la cabecera de un grupo lo pliega o despliega, y se recuerda entre sesiones.",
-      "Con \"Seleccionar\" activo, un clic en cualquier parte de una ficha la selecciona o la deselecciona; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ se desactivan.",
-      "La selección se vacía sola al cambiar de filtro, de búsqueda o de vista, y se conserva tras cada acción en lote salvo al eliminar.",
+    { title: "Gestos", icon: "🖐️", items: [
+      "Arrastra una ficha sobre otra para colocarla justo delante.",
+      "Arrastra una ficha sobre la cabecera de un grupo (o su hueco vacío, aunque esté plegado) para mandarla al final de esa categoría.",
+      "Arrastra una ficha hasta otra categoría para moverla allí — es la forma de cambiar un enlace de categoría.",
+      "Usa los botones ▲/▼ para mover un enlace un puesto dentro de lo que ves ahora mismo.",
+      "Arrastra una categoría en el lateral para reordenarla; puedes moverla varias posiciones de una vez (los ▲/▼ del modal de gestión solo la intercambian con la vecina).",
+      "Suelta una categoría sobre \"Todas\" para mandarla al principio de la lista.",
+      "Pulsa la cabecera de un grupo para plegarlo o desplegarlo — se recuerda entre sesiones.",
+      "Con \"Seleccionar\" activo, toca cualquier parte de una ficha para marcarla o desmarcarla; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ quedan desactivados.",
+      "La selección se vacía sola en cuanto cambias de filtro, de búsqueda o de vista, y se conserva entre acciones en lote — salvo al eliminar.",
       "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque."
     ]},
-    { title: "Filtros", items: [
-      "Una etiqueta del lateral cicla por tres estados al pulsarla: neutra → incluida → excluida.",
-      "Las etiquetas de las fichas no ciclan: solo activan o desactivan la inclusión.",
-      "<kbd>Ctrl</kbd>+clic (o <kbd>Cmd</kbd>+clic) en una categoría selecciona varias a la vez.",
-      "Un clic normal en una categoría sustituye la selección; volver a pulsarla la quita. \"Todas\" limpia el filtro.",
-      "La escoba 🧹 limpia de golpe las etiquetas incluidas y las excluidas.",
-      "Las etiquetas excluidas se mantienen entre sesiones; las incluidas no.",
-      "Una Vista guarda las etiquetas incluidas y excluidas y la categoría; si es una vista de selección, guarda también sus enlaces.",
-      "El buscador admite operadores: cat:, #etiqueta, site:, is:activo / is:inactivo, \"frase exacta\" y - delante de cualquiera para negar."
+    { title: "Filtros", icon: "🔍", items: [
+      "Pulsa tres veces seguidas una etiqueta del lateral para recorrer sus tres estados: neutra → incluida → excluida.",
+      "Las etiquetas de las fichas son más simples: un clic solo activa o desactiva su inclusión, sin ciclo.",
+      "Mantén pulsado <kbd>Ctrl</kbd> (o <kbd>Cmd</kbd>) y haz clic para seleccionar varias categorías a la vez.",
+      "Un clic normal en una categoría sustituye la selección; vuelve a pulsarla para quitarla. \"Todas\" limpia el filtro de golpe.",
+      "La escoba 🧹 limpia de golpe el filtro de las etiquetas incluidas y las excluidas.",
+      "Las etiquetas que excluyes se recuerdan entre sesiones; las que incluyes, no.",
+      "Guarda una Vista para recuperar de un clic las etiquetas incluidas/excluidas y la categoría — o una lista concreta de enlaces, si es una vista de selección.",
+      "El buscador entiende operadores (cat:, #etiqueta, site:, is:activo/is:inactivo, \"frase exacta\", - para excluir) y busca también en el título, la descripción, las etiquetas, las notas y la URL."
     ]},
-    { title: "Datos", items: [
-      "Con un filtro puesto, \"Exportar\" exporta solo lo filtrado, y lo avisa antes de descargar.",
-      "Al importar: \"Fusionar\" añade lo que no tengas (comparando por URL); \"Sustituir todo\" reemplaza y no se puede deshacer.",
-      "Las categorías se exportan e importan aparte, desde su modal de gestión.",
-      "Tus datos viven solo en este navegador y en este equipo: no se sincronizan. Exportar es el único respaldo; borrar los datos del sitio los elimina."
+    { title: "Datos", icon: "💾", items: [
+      "Si tienes un filtro puesto, \"Exportar\" descarga solo lo filtrado — y te avisa antes.",
+      "Al importar: \"Fusionar\" añade lo que no tengas (compara por URL); \"Sustituir todo\" reemplaza y no se puede deshacer.",
+      "Las categorías se exportan e importan aparte, desde su propio modal de gestión.",
+      "Tus datos viven solo en este navegador y en este equipo: no se sincronizan en ningún sitio. Exportar es tu único respaldo — y borrar los datos del sitio los borra para siempre."
     ]}
   ];
 
@@ -4699,7 +4718,7 @@
 
   function renderHelpPanel(){
     document.getElementById("helpModalBody").innerHTML = HELP_SECTIONS.map(function(section){
-      return '<div class="help-block"><h3>' + section.title + '</h3><ul class="help-list">' +
+      return '<div class="help-block"><h3><span class="help-block-icon">' + section.icon + '</span>' + section.title + '</h3><ul class="help-list">' +
         section.items.map(function(item){ return "<li>" + item + "</li>"; }).join("") +
         '</ul></div>';
     }).join("");
