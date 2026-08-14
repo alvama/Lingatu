@@ -1,16 +1,21 @@
-# PinBoard
+# Lingatu
 
-Gestor personal de enlaces de un solo archivo HTML, sin servidor ni
+Gestor de marcadores personal en un solo archivo HTML, sin servidor ni
 dependencias, más una extensión de navegador opcional que captura la pestaña
 activa y la añade con un clic.
 
-- **`pinboard.html`** — la aplicación. Se abre directamente en el navegador
+> **Lingatu se llamaba PinBoard.** Solo cambia el nombre: los datos, el
+> formato de exportación y la extensión siguen siendo los mismos, y quien
+> tenga `pinboard.html` puede seguir usándolo. Ver el
+> [CHANGELOG](CHANGELOG.md).
+
+- **`lingatu.html`** — la aplicación. Se abre directamente en el navegador
   (`file://`), guarda los datos en `localStorage` y no requiere instalación
   ni conexión a internet (salvo para los favicons).
-- **`extension/`** — [extensión publicada en la Chrome Web Store](https://chromewebstore.google.com/detail/pinboard-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
+- **`extension/`** — [extensión publicada en la Chrome Web Store](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
   (Manifest V3, también compatible con otros navegadores basados en Chromium
   como Edge o Brave) que captura la URL, el título y la descripción de la
-  pestaña activa, comprueba si ya existe en PinBoard y, si no, abre el
+  pestaña activa, comprueba si ya existe en Lingatu y, si no, abre el
   formulario de alta precargado con una categoría sugerida.
 
 ## Funcionalidades
@@ -72,22 +77,22 @@ Detalle técnico completo en
 ## Instalación de la app
 
 1. Descarga o clona este repositorio.
-2. Abre `pinboard.html` directamente en tu navegador (doble clic, o
+2. Abre `lingatu.html` directamente en tu navegador (doble clic, o
    arrástralo a una pestaña).
 3. Ya está — todos los datos se guardan localmente en el navegador
    (`localStorage`), no hay nada más que configurar.
 
-PinBoard empieza completamente vacío. Si quieres ver la app con contenido de
+Lingatu empieza completamente vacío. Si quieres ver la app con contenido de
 muestra, usa el botón **"Importar"** y selecciona
 [`examples/ejemplo-enlaces.json`](examples/ejemplo-enlaces.json).
 
-Para pasar tus marcadores de cualquier navegador a PinBoard, la vía
+Para pasar tus marcadores de cualquier navegador a Lingatu, la vía
 recomendada es exportarlos y soltar el archivo sobre la página:
 
 1. En tu navegador, exporta los marcadores a HTML (en Chrome/Edge:
    `Ctrl+Shift+O` → menú "⋮" → **Exportar marcadores**).
-2. Arrastra ese archivo `.html` sobre `pinboard.html` (o pulsa el botón
-   "Importar" y selecciónalo). PinBoard reconoce el formato
+2. Arrastra ese archivo `.html` sobre `lingatu.html` (o pulsa el botón
+   "Importar" y selecciónalo). Lingatu reconoce el formato
    automáticamente, respeta la estructura de carpetas como categorías
    (unidas con `" / "`) y abre el modal de siempre para elegir entre
    fusionar o sustituir.
@@ -116,7 +121,7 @@ versiona, por contener rutas de tu máquina).
 
 La extensión está publicada en la Chrome Web Store:
 
-**[PinBoard Connector](https://chromewebstore.google.com/detail/pinboard-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)**
+**[Lingatu Connector](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)**
 
 Al estar basada en Manifest V3 y no usar APIs exclusivas de Chrome, también
 funciona en otros navegadores basados en Chromium (Edge, Brave, Opera...)
@@ -124,13 +129,13 @@ instalándola desde esa misma URL o cargándola en modo desarrollador (ver más
 abajo).
 
 Tras instalarla, **es imprescindible** activar el acceso a archivos locales,
-ya que `pinboard.html` se abre como `file://`:
+ya que `lingatu.html` se abre como `file://`:
 
 1. Ve a `chrome://extensions` (o `edge://extensions`, etc.).
-2. Busca la tarjeta de **PinBoard Connector** y entra en **"Detalles"**.
+2. Busca la tarjeta de **Lingatu Connector** y entra en **"Detalles"**.
 3. Activa **"Permitir acceso a las URL de archivo"**.
 
-Sin este paso, la extensión no podrá detectar ni abrir tu `pinboard.html`.
+Sin este paso, la extensión no podrá detectar ni abrir tu `lingatu.html`.
 
 ### Instalación en modo desarrollador (alternativa)
 
@@ -146,7 +151,7 @@ ejemplo, para modificar el código):
 
 ### Configurar la extensión
 
-1. Abre tu `pinboard.html` normalmente en el navegador y copia la URL
+1. Abre tu `lingatu.html` normalmente en el navegador y copia la URL
    completa de la barra de direcciones (empieza por `file:///`).
 2. Clic derecho sobre el icono de la extensión → **"Opciones"** (o
    `chrome://extensions` → tarjeta de la extensión → "Opciones de la
@@ -155,32 +160,32 @@ ejemplo, para modificar el código):
 
 ### Uso
 
-Con `pinboard.html` ya configurado, en cualquier página pulsa el icono de la
-extensión (o usa el menú del clic derecho → **"Guardar en PinBoard"**, que
+Con `lingatu.html` ya configurado, en cualquier página pulsa el icono de la
+extensión (o usa el menú del clic derecho → **"Guardar en Lingatu"**, que
 hace exactamente lo mismo):
 
-- Si la URL ya está guardada en PinBoard, se abre/enfoca la pestaña de
-  PinBoard y resalta brevemente el enlace existente.
+- Si la URL ya está guardada en Lingatu, se abre/enfoca la pestaña de
+  Lingatu y resalta brevemente el enlace existente.
 - Si no existe, abre el formulario de alta con la categoría, el título, la
   URL y la descripción precargados (la categoría es solo una sugerencia,
   siempre editable antes de guardar).
 
 **Guardar una cita como nota**: selecciona texto en cualquier página y usa el
-menú del clic derecho → **"Añadir selección como nota en PinBoard"**. Se
+menú del clic derecho → **"Añadir selección como nota en Lingatu"**. Se
 guarda como cita, con la fecha del día, en las notas de ese enlace.
 
-- Si la página **ya está** en PinBoard, la nota se añade sin cambiar de
+- Si la página **ya está** en Lingatu, la nota se añade sin cambiar de
   pestaña: sigues leyendo, y un aviso en la esquina superior derecha confirma
   a qué enlace ha ido y cuántas notas lleva ya. Cada nota nueva se añade al
   final, sin borrar las anteriores.
-- Si **no está**, se abre PinBoard con el formulario de alta y la nota ya
+- Si **no está**, se abre Lingatu con el formulario de alta y la nota ya
   puesta, para que confirmes el alta como siempre.
 
 ## Estructura del repositorio
 
 ```
-PinBoard/
-├── pinboard.html                 # Aplicación principal
+Lingatu/
+├── lingatu.html                  # Aplicación principal
 ├── extension/                    # Extensión de navegador (Chrome/Edge)
 │   ├── manifest.json
 │   ├── background.js
@@ -207,13 +212,13 @@ conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
 ## Versionado
 
 - La versión de la app se muestra en el pie de la barra lateral de
-  `pinboard.html` (constante `APP_CONFIG.version` en el propio archivo).
+  `lingatu.html` (constante `APP_CONFIG.version` en el propio archivo).
 - La versión de la extensión se muestra en su página de opciones, tomada
   directamente de `manifest.json`.
 - El historial de cambios de cada versión se documenta en
   [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.9.0](https://github.com/alvama/PinBoard/releases/tag/v1.9.0)
-  ([todos los releases](https://github.com/alvama/PinBoard/releases)).
+- Última versión publicada: [v1.9.0](https://github.com/alvama/Lingatu/releases/tag/v1.9.0)
+  ([todos los releases](https://github.com/alvama/Lingatu/releases)).
 
 ## Licencia
 

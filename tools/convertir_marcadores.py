@@ -1,4 +1,4 @@
-"""Convierte marcadores de Chrome y/o Edge al formato de importación de PinBoard.
+"""Convierte marcadores de Chrome y/o Edge al formato de importación de Lingatu.
 
 No contiene ninguna ruta fija: todo (qué archivos "Bookmarks" leer y dónde
 escribir el resultado) se toma de un archivo de configuración JSON. Genera

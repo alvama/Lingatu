@@ -7,6 +7,49 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **La aplicación pasa a llamarse Lingatu.** Antes se llamaba PinBoard, un
+  nombre que ya usaba desde hace años un servicio de marcadores muy conocido:
+  buscar el proyecto por su nombre no llevaba hasta aquí. Cambia el nombre y
+  nada más — **ni un solo dato tuyo se toca**:
+  - **Tus enlaces, categorías, etiquetas, notas, colores, iconos y vistas
+    siguen exactamente donde estaban.** No hay que exportar, ni importar, ni
+    volver a configurar nada.
+  - **Si ya tenías tu propio título de página, se queda como estaba.** Solo
+    cambia el título que aparece la primera vez, en una instalación nueva:
+    ahora es "Lingatu".
+  - **El archivo pasa a llamarse `lingatu.html`.** Si prefieres seguir con el
+    `pinboard.html` que ya tienes descargado, puedes: funciona igual, con tus
+    datos de siempre, y la extensión sigue hablándose con él. Y si te
+    descargas el archivo nuevo, en Chrome y Edge encontrarás tu colección
+    también ahí, porque todas las páginas abiertas desde un archivo comparten
+    el mismo almacén. Aun así, la recomendación de siempre no cambia:
+    **exporta tus enlaces antes de cambiar de archivo**, que es lo prudente
+    con cualquier cambio.
+  - **Los archivos que exportes ahora se llaman `lingatu_<fecha>.json`** (y
+    `lingatu_categorias_<fecha>.json`). Los que exportaste antes, con el
+    nombre antiguo, se siguen importando sin ningún cambio: el contenido es
+    idéntico.
+  - **La extensión pasa a llamarse Lingatu Connector** y se actualiza sola
+    desde la Chrome Web Store; no hay que reinstalarla ni volver a indicarle
+    dónde está tu archivo. Sus dos opciones del menú del clic derecho ahora
+    dicen "Guardar en Lingatu" y "Añadir selección como nota en Lingatu".
+    Funciona indistintamente con el archivo nuevo y con el antiguo, y también
+    al revés: una extensión que todavía no se haya actualizado funciona con
+    el archivo nuevo.
+
+### Nota técnica
+
+- El puente con la extensión se expone como `window.LingatuBridge` y, además,
+  como `window.PinBoardBridge` (el mismo objeto) para que las extensiones aún
+  no actualizadas sigan funcionando; `callBridge` busca el primero y recurre
+  al segundo. Las once claves de `localStorage` (`enlaces_*_v1`) y la clave
+  `pinboardFileUrl` de la extensión conservan su nombre a propósito:
+  renombrarlas habría borrado datos y configuración de los usuarios
+  existentes. Detalle completo en la decisión 45 y la sección 8 de
+  `docs/ESPECIFICACIONES.md`.
+
 ## [1.9.0] - 2026-08-14
 
 ### Añadido
