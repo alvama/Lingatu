@@ -1,8 +1,8 @@
 # Ficha de la Chrome Web Store — Lingatu Connector
 
 Fuente única de verdad para copiar/pegar en el Developer Dashboard
-(`chrome.google.com/webstore/devconsole`). Versión del paquete: **1.1.0**
-(`store/Lingatu-Connector-v1.1.0.zip`, generado con
+(`chrome.google.com/webstore/devconsole`). Versión del paquete: **1.2.1**
+(`store/Lingatu-Connector-v1.2.1.zip`, generado con
 `tools/empaquetar_extension.py`).
 
 > **Pendiente de aplicar en el Dashboard tras el cambio de nombre** (la
@@ -13,11 +13,19 @@ Fuente única de verdad para copiar/pegar en el Developer Dashboard
 > *slug* pasa a `lingatu-connector` — la antigua sigue resolviendo, porque
 > Chrome Web Store enruta por el ID.
 >
-> **Aviso sobre la política de privacidad**: la URL de abajo solo funciona
-> **después** de renombrar el repositorio en GitHub, porque es una página de
-> GitHub Pages servida desde él. Renombrar el repositorio y actualizar esta
-> URL en el Dashboard son la misma tarea: si se hace una sin la otra, la
-> ficha apunta a un 404.
+> **Por qué la 1.2.1 existe**: el nombre y la descripción que muestra la
+> tienda salen del `manifest.json`, no de un campo editable del Dashboard, así
+> que renombrar la extensión obliga a **subir un paquete nuevo**; y la tienda
+> rechaza un número de versión ya publicado (lo estaba la 1.2.0). No hay
+> ningún cambio de comportamiento entre 1.2.0 y 1.2.1: solo el nombre.
+>
+> **La política de privacidad se actualiza aparte y antes**: es un campo de la
+> pestaña *Privacy practices* y no necesita paquete. Al renombrar el
+> repositorio, la URL anterior
+> (`https://alvama.github.io/PinBoard/privacy-policy.html`) **pasó a devolver
+> 404 — comprobado el 15/08/2026**: la redirección de repositorio de GitHub no
+> cubre las URLs de GitHub Pages. Mientras ese campo no se cambie, la ficha
+> publicada apunta a una página rota.
 
 ## Store listing
 
@@ -149,6 +157,6 @@ https://alvama.github.io/Lingatu/privacy-policy.html
 
 ## Paquete a subir
 
-`store/Lingatu-Connector-v1.1.0.zip` (generado con
+`store/Lingatu-Connector-v1.2.1.zip` (generado con
 `python tools/empaquetar_extension.py`; no versionado en git, regenerable
 en cualquier momento).

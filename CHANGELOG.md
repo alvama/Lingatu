@@ -31,9 +31,12 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
     `lingatu_categorias_<fecha>.json`). Los que exportaste antes, con el
     nombre antiguo, se siguen importando sin ningún cambio: el contenido es
     idéntico.
-  - **La extensión pasa a llamarse Lingatu Connector** y se actualiza sola
-    desde la Chrome Web Store; no hay que reinstalarla ni volver a indicarle
-    dónde está tu archivo. Sus dos opciones del menú del clic derecho ahora
+  - **La extensión pasa a llamarse Lingatu Connector**, en su versión
+    **1.2.1**, que no cambia nada de cómo funciona respecto a la 1.2.0: el
+    nombre que muestra la tienda viene dentro del propio paquete, así que
+    cambiarlo obliga a publicar una versión nueva. Se actualiza sola desde la
+    Chrome Web Store; no hay que reinstalarla ni volver a indicarle dónde está
+    tu archivo. Sus dos opciones del menú del clic derecho ahora
     dicen "Guardar en Lingatu" y "Añadir selección como nota en Lingatu".
     Funciona indistintamente con el archivo nuevo y con el antiguo, y también
     al revés: una extensión que todavía no se haya actualizado funciona con
