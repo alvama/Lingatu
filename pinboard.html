@@ -4414,6 +4414,7 @@
   //   hint      atajo de teclado ya existente para esa acción, si lo tiene.
   //   available función opcional: si devuelve false, el comando no se ofrece.
   var COMMANDS = [
+    { id: "help", label: "Ayuda: atajos y gestos", hint: "?", run: function(){ openHelpPanel(); } },
     { id: "add-link", label: "Nuevo enlace", hint: "n", run: function(){ openModal(null); } },
     { id: "focus-search", label: "Buscar enlaces", hint: "/", run: function(){ document.getElementById("searchInput").focus(); } },
     { id: "edit-site-title", label: "Cambiar el título de la página", run: function(){ promptSiteTitle(); } },
@@ -4432,8 +4433,7 @@
     { id: "view-comfortable", label: "Vista cómoda", run: function(){ setViewMode("comfortable"); } },
     { id: "view-compact", label: "Vista compacta", run: function(){ setViewMode("compact"); } },
     { id: "export-links", label: "Exportar enlaces", run: function(){ exportLinks(); } },
-    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } },
-    { id: "help", label: "Ayuda: atajos y gestos", hint: "?", run: function(){ openHelpPanel(); } }
+    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } }
   ];
 
   var paletteOverlay = document.getElementById("commandPaletteOverlay");
