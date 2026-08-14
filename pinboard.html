@@ -953,7 +953,7 @@
 
   <main class="content">
     <div class="toolbar">
-      <input type="search" id="searchInput" placeholder="Buscar por título, descripción, etiqueta o nota..." title="Busca en título, descripción, etiquetas y notas (atajo: /)">
+      <input type="search" id="searchInput" placeholder="Buscar por título, descripción, etiqueta o nota..." title="Busca en título, descripción, etiquetas, notas y URL (atajo: /). Admite operadores: cat:, #etiqueta, site:, is:activo/is:inactivo, &quot;frase exacta&quot; y -delante para negar">
       <div class="status-toggle" id="statusToggle">
         <button type="button" class="status-toggle-btn" data-value="all" title="Muestra todos los enlaces, activos e inactivos">Todos</button>
         <button type="button" class="status-toggle-btn" data-value="active" title="Muestra solo los enlaces activos">Activos</button>
@@ -1419,10 +1419,152 @@
     return state.allTags.slice().sort(function(a,b){ return a.localeCompare(b); });
   }
 
+  // Búsqueda con operadores (4.3): cat:, #, site:, is:, "frase exacta" y "-"
+  // delante de cualquiera para negar. Separa un texto en tokens respetando
+  // las frases entre comillas — si una comilla no llega a cerrarse en el
+  // resto de la cadena, no se trata como frase: el carácter " se consume
+  // como uno más dentro de la palabra en curso (R2.6, para no romper nada
+  // mientras se teclea una frase a medio escribir).
+  function tokenizeSearchQuery(raw){
+    var tokens = [];
+    var i = 0, len = raw.length;
+    while(i < len){
+      while(i < len && /\s/.test(raw.charAt(i))) i++;
+      if(i >= len) break;
+      var token = "";
+      while(i < len){
+        var ch = raw.charAt(i);
+        if(ch === '"'){
+          var closeIdx = raw.indexOf('"', i + 1);
+          if(closeIdx !== -1){
+            token += raw.slice(i, closeIdx + 1);
+            i = closeIdx + 1;
+            continue;
+          }
+        }
+        if(/\s/.test(ch)) break;
+        token += ch;
+        i++;
+      }
+      tokens.push(token);
+    }
+    return tokens;
+  }
+
+  // Descompone un token en {operator, value, negated}. Un operador
+  // desconocido (foo:bar) cae en "text" tal cual, sin error (R2.5): las URLs
+  // llevan ":" y se pegan enteras en el buscador.
+  function classifySearchToken(token){
+    var negated = token.charAt(0) === "-";
+    var body = negated ? token.slice(1) : token;
+    var operator = "text";
+    var value = body;
+    if(body.charAt(0) === "#"){
+      operator = "tag";
+      value = body.slice(1);
+    } else if(body.slice(0, 4).toLowerCase() === "cat:"){
+      operator = "cat";
+      value = body.slice(4);
+    } else if(body.slice(0, 5).toLowerCase() === "site:"){
+      operator = "site";
+      value = body.slice(5);
+    } else if(body.slice(0, 3).toLowerCase() === "is:"){
+      operator = "is";
+      value = body.slice(3);
+    }
+    if(value.length >= 2 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"'){
+      value = value.slice(1, -1); // cat:"Trabajo / Clientes" (R2.4)
+    }
+    return { operator: operator, value: value, negated: negated };
+  }
+
+  // Parsea la consulta escrita una sola vez por llamada a getFilteredLinks(),
+  // nunca dentro del filter (R5.2): parsear por enlace multiplicaría el
+  // trabajo por el número de enlaces sin ninguna necesidad.
+  //
+  // Regla de composición (la misma que ya siguen los filtros del lateral):
+  // términos del mismo operador se combinan con OR, operadores distintos con
+  // AND, y las negaciones son siempre AND NOT. Única excepción deliberada:
+  // varias palabras/frases sueltas (sin operador) se combinan en AND entre
+  // sí — R3 — porque es lo que se espera de un buscador de texto libre.
+  function parseSearchQuery(raw){
+    var parsed = {
+      text: [], textNeg: [],
+      cat: [], catNeg: [],
+      tag: [], tagNeg: [],
+      site: [], siteNeg: [],
+      is: [], isNeg: []
+    };
+    tokenizeSearchQuery(String(raw || "")).forEach(function(token){
+      var t = classifySearchToken(token);
+      if(t.operator === "is"){
+        var normalizedIs = normalizeForSearch(t.value);
+        var wantsActive = normalizedIs === "activo" || normalizedIs === "active";
+        var wantsInactive = normalizedIs === "inactivo" || normalizedIs === "inactive";
+        if(!wantsActive && !wantsInactive) return; // is: sin valor reconocido: se ignora
+        (t.negated ? parsed.isNeg : parsed.is).push(wantsActive);
+        return;
+      }
+      var value = normalizeForSearch(t.value);
+      if(!value) return; // término incompleto tras quitar el prefijo: se ignora, no filtra (R2.6)
+      var byOperator = {
+        text: t.negated ? parsed.textNeg : parsed.text,
+        cat: t.negated ? parsed.catNeg : parsed.cat,
+        tag: t.negated ? parsed.tagNeg : parsed.tag,
+        site: t.negated ? parsed.siteNeg : parsed.site
+      };
+      byOperator[t.operator].push(value);
+    });
+    return parsed;
+  }
+
+  // Texto de búsqueda de un enlace: título + descripción + etiquetas + notas
+  // + URL. La URL se incluye para que pegarla en el buscador encuentre su
+  // enlace sin ningún caso especial (R2.2). El día que haga falta sumar un
+  // campo nuevo con contenido buscable, es una línea más aquí (R5.5).
+  function searchHaystack(l){
+    return normalizeForSearch(
+      l.title + " " + (l.description || "") + " " + l.tags.join(" ") + " " +
+      (l.notes || "") + " " + l.url
+    );
+  }
+
+  function linkMatchesQuery(link, parsed){
+    if(parsed.text.length || parsed.textNeg.length){
+      var haystack = searchHaystack(link);
+      if(parsed.text.length && !parsed.text.every(function(term){ return haystack.indexOf(term) !== -1; })) return false;
+      if(parsed.textNeg.length && parsed.textNeg.some(function(term){ return haystack.indexOf(term) !== -1; })) return false;
+    }
+
+    if(parsed.cat.length || parsed.catNeg.length){
+      var cat = normalizeForSearch(link.category);
+      if(parsed.cat.length && !parsed.cat.some(function(term){ return cat.indexOf(term) !== -1; })) return false;
+      if(parsed.catNeg.length && parsed.catNeg.some(function(term){ return cat.indexOf(term) !== -1; })) return false;
+    }
+
+    if(parsed.tag.length || parsed.tagNeg.length){
+      var tags = link.tags.map(function(t){ return normalizeForSearch(t); });
+      if(parsed.tag.length && !parsed.tag.some(function(term){ return tags.some(function(tag){ return tag.indexOf(term) !== -1; }); })) return false;
+      if(parsed.tagNeg.length && parsed.tagNeg.some(function(term){ return tags.some(function(tag){ return tag.indexOf(term) !== -1; }); })) return false;
+    }
+
+    if(parsed.site.length || parsed.siteNeg.length){
+      var host = "";
+      try{ host = normalizeForSearch(new URL(link.url).hostname); }catch(e){ host = ""; }
+      if(parsed.site.length && !parsed.site.some(function(term){ return host.indexOf(term) !== -1; })) return false;
+      if(parsed.siteNeg.length && parsed.siteNeg.some(function(term){ return host.indexOf(term) !== -1; })) return false;
+    }
+
+    if(parsed.is.length && !parsed.is.some(function(wantActive){ return !!link.active === wantActive; })) return false;
+    if(parsed.isNeg.length && parsed.isNeg.some(function(wantActive){ return !!link.active === wantActive; })) return false;
+
+    return true;
+  }
+
   // El orden de state.links es el orden manual del usuario dentro de cada categoría
   // (ver swapLinks). No se reordena aquí para respetarlo.
   function getFilteredLinks(){
-    var q = state.search.trim().toLowerCase();
+    var parsedQuery = parseSearchQuery(state.search);
     return state.links.filter(function(l){
       if(state.viewLinkIds.size > 0 && !state.viewLinkIds.has(l.id)) return false;
       if(state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
@@ -1435,10 +1577,7 @@
         var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
         if(hasExcluded) return false;
       }
-      if(q){
-        var haystack = (l.title + " " + (l.description||"") + " " + l.tags.join(" ") + " " + (l.notes||"")).toLowerCase();
-        if(haystack.indexOf(q) === -1) return false;
-      }
+      if(!linkMatchesQuery(l, parsedQuery)) return false;
       return true;
     });
   }
@@ -1786,6 +1925,34 @@
     }).join("");
   }
 
+  // R4: con la búsqueda con operadores compuesta en AND con el resto de
+  // filtros, es fácil llegar a cero enlaces sin ver por qué (p. ej. una
+  // categoría seleccionada en el lateral + un cat: distinto escrito). En vez
+  // de detectar la contradicción concreta, basta enumerar las restricciones
+  // vigentes.
+  function describeActiveConstraints(){
+    var parts = [];
+    if(state.selectedCategories.size > 0){
+      parts.push("categoría: " + Array.from(state.selectedCategories).map(escapeHtml).join(", "));
+    }
+    if(state.tags.size > 0){
+      parts.push("etiquetas incluidas: " + Array.from(state.tags).map(escapeHtml).join(", "));
+    }
+    if(state.excludedTags.size > 0){
+      parts.push("etiquetas excluidas: " + Array.from(state.excludedTags).map(escapeHtml).join(", "));
+    }
+    if(state.activeFilter === "active"){
+      parts.push("estado: solo activos");
+    }
+    if(state.activeViewProfile){
+      parts.push("vista: " + escapeHtml(state.activeViewProfile));
+    }
+    if(state.search.trim()){
+      parts.push('búsqueda: "' + escapeHtml(state.search.trim()) + '"');
+    }
+    return parts;
+  }
+
   function renderCards(){
     var filtered = getFilteredLinks();
     var container = document.getElementById("linksContainer");
@@ -1799,6 +1966,9 @@
           'Empieza por <button type="button" id="btnEmptyStateAdd" class="link-btn">crear tu primer enlace</button>.<br>' +
           'También puedes importar tus marcadores del navegador con el botón "Importar" del lateral.<br>' +
           'Y en cualquier momento, pulsa <kbd>/</kbd> para buscar.';
+      } else if(state.search.trim() && hasLinkSelection()){
+        emptyState.innerHTML = "Ningún enlace cumple a la vez todas estas restricciones:<br>&bull; " +
+          describeActiveConstraints().join("<br>&bull; ");
       } else {
         emptyState.innerHTML = "No se encontraron enlaces con los filtros actuales.";
       }
@@ -3899,12 +4069,15 @@
   // y "diseno" la categoría "Diseño". Se aplica igual a la consulta y al texto.
   var COMBINING_MARKS = new RegExp("[\\u0300-\\u036f]", "g");
 
-  function paletteNormalize(str){
+  // Nombre genérico porque la usan tanto la paleta de comandos como la
+  // búsqueda con operadores (parseSearchQuery/linkMatchesQuery) — un único
+  // normalizador para las dos, no una segunda copia.
+  function normalizeForSearch(str){
     return String(str == null ? "" : str).normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase();
   }
 
-  function paletteMatches(text, normalizedQuery){
-    return paletteNormalize(text).indexOf(normalizedQuery) !== -1;
+  function textMatches(text, normalizedQuery){
+    return normalizeForSearch(text).indexOf(normalizedQuery) !== -1;
   }
 
   // Los enlaces se buscan sobre state.links completo, ignorando los filtros
@@ -3912,10 +4085,10 @@
   // está viendo, así que getFilteredLinks() sería justo lo contrario.
   function paletteLinkResults(q){
     return state.links.filter(function(l){
-      return paletteMatches(l.title, q) ||
-        paletteMatches(l.description, q) ||
-        paletteMatches(l.url, q) ||
-        paletteMatches((l.tags || []).join(" "), q);
+      return textMatches(l.title, q) ||
+        textMatches(l.description, q) ||
+        textMatches(l.url, q) ||
+        textMatches((l.tags || []).join(" "), q);
     }).slice(0, 8).map(function(l){
       return {
         label: l.title,
@@ -3928,7 +4101,7 @@
   function paletteCommandResults(q){
     return COMMANDS.filter(function(c){
       if(c.available && !c.available()) return false;
-      return !q || paletteMatches(commandLabel(c), q);
+      return !q || textMatches(commandLabel(c), q);
     }).map(function(c){
       return { label: commandLabel(c), hint: c.hint, run: c.run };
     });
@@ -3938,14 +4111,14 @@
   // tiene resultados. Con la consulta vacía se muestran solo los comandos, que
   // es cuando la paleta hace de documentación de lo que sabe hacer la app.
   function buildPaletteGroups(rawQuery){
-    var q = paletteNormalize(rawQuery.trim());
+    var q = normalizeForSearch(rawQuery.trim());
     var groups = [{ title: "Comandos", items: paletteCommandResults(q) }];
     if(!q) return groups.filter(function(g){ return g.items.length > 0; });
 
     groups.push({ title: "Enlaces", items: paletteLinkResults(q) });
 
     groups.push({ title: "Categorías", items: getCategories().filter(function(c){
-      return paletteMatches(c.name, q);
+      return textMatches(c.name, q);
     }).slice(0, 5).map(function(c){
       return {
         label: c.name,
@@ -3962,7 +4135,7 @@
     }) });
 
     groups.push({ title: "Vistas", items: state.viewProfiles.filter(function(p){
-      return paletteMatches(p.name, q);
+      return textMatches(p.name, q);
     }).slice(0, 5).map(function(p){
       return {
         label: p.name,
@@ -3978,7 +4151,7 @@
 
     // Solo incluir: la paleta no replica el ciclo de tres estados del lateral.
     groups.push({ title: "Etiquetas", items: getAllTags().filter(function(t){
-      return paletteMatches(t, q);
+      return textMatches(t, q);
     }).slice(0, 5).map(function(t){
       return {
         label: t,

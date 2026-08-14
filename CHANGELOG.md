@@ -7,6 +7,36 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Búsqueda con operadores en el mismo `#searchInput` de siempre**: `cat:desarrollo`
+  filtra por categoría (subcadena, así que `cat:desar` también vale),
+  `#referencia` por etiqueta, `site:github.com` por dominio de la URL,
+  `is:activo` / `is:inactivo` por estado, y `"frase exacta"` exige esa
+  secuencia literal, con espacios incluidos. Cualquiera de ellos se niega
+  anteponiendo `-` (`-#trabajo`, `-cat:archivo`). Se combinan entre sí y con
+  los filtros del lateral con la misma regla que ya usaba la app: términos
+  del mismo operador en OR (`cat:a cat:b` es la categoría A **o** la B, igual
+  que Ctrl+clic en el lateral), operadores distintos en AND, negaciones
+  siempre AND NOT. Un operador que no se reconoce (`foo:bar`) se busca tal
+  cual, sin error, porque las URLs llevan `:` y se pegan enteras en el
+  buscador — y ahora encuentran su enlace, porque **la URL entró al texto
+  sobre el que se busca**. Sin ningún operador, escribir sigue funcionando
+  exactamente igual que antes.
+- Con una categoría seleccionada en el lateral y una búsqueda que no
+  encuentra nada a la vez, el estado vacío ya no dice solo "sin resultados":
+  enumera qué está acotando la vista (categoría, etiquetas, estado, vista
+  aplicada, texto buscado), para que se entienda el porqué del cero.
+
+### Cambiado
+
+- **Cambio de comportamiento**: una búsqueda de varias palabras (`web docs`)
+  dejó de exigir esa secuencia exacta y pasa a significar "contiene 'web' y
+  contiene 'docs'", en cualquier orden y en cualquier campo — lo que
+  cualquiera espera de un buscador. Quien necesite el comportamiento de
+  antes lo tiene entre comillas (`"web docs"`). Una búsqueda de una sola
+  palabra se comporta exactamente igual que siempre.
+
 ## [1.8.0] - 2026-08-13
 
 ### Añadido
