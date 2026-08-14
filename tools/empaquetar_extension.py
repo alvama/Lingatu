@@ -18,7 +18,7 @@ def main():
     manifest = json.loads((EXT_DIR / "manifest.json").read_text(encoding="utf-8"))
     version = manifest["version"]
     OUT_DIR.mkdir(exist_ok=True)
-    out_path = OUT_DIR / f"PinBoard-Connector-v{version}.zip"
+    out_path = OUT_DIR / f"Lingatu-Connector-v{version}.zip"
 
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in sorted(EXT_DIR.rglob("*")):

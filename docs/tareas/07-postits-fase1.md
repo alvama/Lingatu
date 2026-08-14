@@ -6,7 +6,7 @@ Antes de empezar, lee [`CLAUDE.md`](../../CLAUDE.md), el análisis de las dos fa
 
 ## Objetivo
 
-Que al volver a una página sobre la que anotaste algo, **esas notas vuelvan a aparecer** sin tener que abrir PinBoard.
+Que al volver a una página sobre la que anotaste algo, **esas notas vuelvan a aparecer** sin tener que abrir Lingatu.
 
 Fase 1 significa: un panel plegable en una esquina, **sin anclar a ningún punto del contenido**. Eso lo hace inmune a los tres problemas que hunden la versión anclada (maquetación cambiante, contenido dinámico, SPA) y **no añade modelo de datos**: son las mismas notas de 4.23 en una segunda superficie.
 
@@ -40,13 +40,13 @@ Esa es la justificación real del panel frente al popup, y conviene tenerla clar
 
 ## R1 — Leer las notas: método nuevo en el puente
 
-**R1.1** `PinBoardBridge.getNotes(url)` → `{ id, title, category, notes }` o `null` si esa URL no está guardada.
+**R1.1** `LingatuBridge.getNotes(url)` → `{ id, title, category, notes }` o `null` si esa URL no está guardada.
 
 **R1.2 — No modifiques `checkDuplicate`.** Devuelve hoy `{id, title, category}` y forma parte del contrato estable de la sección 8; cambiar su forma afectaría a código que ya funciona. Añade un método nuevo.
 
-**R1.3 — La extensión nunca normaliza URLs por su cuenta.** Pasa la URL cruda y **la página decide** si coincide, reutilizando `normalizeUrlForCompare` / `findDuplicateUrl`. Si la extensión implementara su propia comparación, acabaría divergiendo de la de PinBoard y habría casos en los que una detecta el enlace y la otra no.
+**R1.3 — La extensión nunca normaliza URLs por su cuenta.** Pasa la URL cruda y **la página decide** si coincide, reutilizando `normalizeUrlForCompare` / `findDuplicateUrl`. Si la extensión implementara su propia comparación, acabaría divergiendo de la de Lingatu y habría casos en los que una detecta el enlace y la otra no.
 
-**R1.4** Para obtener las notas, el `background` usa el camino que ya existe: `findOrOpenPinboardTab()` (que abre la pestaña en segundo plano con `active:false` si no está abierta) y `chrome.scripting.executeScript` en el mundo `MAIN`, como `callBridge` (`background.js:53-73`). Si no hay URL de PinBoard configurada, abre la página de opciones, igual que hoy.
+**R1.4** Para obtener las notas, el `background` usa el camino que ya existe: `findOrOpenLingatuTab()` (que abre la pestaña en segundo plano con `active:false` si no está abierta) y `chrome.scripting.executeScript` en el mundo `MAIN`, como `callBridge` (`background.js:53-73`). Si no hay URL de Lingatu configurada, abre la página de opciones, igual que hoy.
 
 **R1.5 — Actualizar la sección 8** con `getNotes`: tabla y paso de checklist.
 
@@ -62,7 +62,7 @@ Esa es la justificación real del panel frente al popup, y conviene tenerla clar
 
 **R2.4 — Contenido**: título del enlace, su categoría, y las notas **renderizadas**, no en crudo.
 
-**Esto ya existe dentro de PinBoard y hay que copiarlo, no reinventarlo**: el visor de notas (`#notesViewerOverlay`, decisión 37) muestra exactamente eso — título, categoría y dominio arriba, y debajo las notas pasadas por `renderNotesInto` (encabezados, citas, listas, negrita, cursiva y código; sin enlaces ni imágenes, decisión 38). **Porta esa función tal cual**: está escrita a propósito como función pura, sin dependencias del DOM de PinBoard ni de su `state`, precisamente para que se pueda copiar a este otro entorno. No se puede compartir el archivo (son dos entornos distintos), así que quedan dos copias: **si tocas una, toca la otra**, o la misma nota se verá distinta en cada superficie. Parécete también en el aspecto (mismos tamaños contenidos, misma barra lateral en las citas).
+**Esto ya existe dentro de Lingatu y hay que copiarlo, no reinventarlo**: el visor de notas (`#notesViewerOverlay`, decisión 37) muestra exactamente eso — título, categoría y dominio arriba, y debajo las notas pasadas por `renderNotesInto` (encabezados, citas, listas, negrita, cursiva y código; sin enlaces ni imágenes, decisión 38). **Porta esa función tal cual**: está escrita a propósito como función pura, sin dependencias del DOM de Lingatu ni de su `state`, precisamente para que se pueda copiar a este otro entorno. No se puede compartir el archivo (son dos entornos distintos), así que quedan dos copias: **si tocas una, toca la otra**, o la misma nota se verá distinta en cada superficie. Parécete también en el aspecto (mismos tamaños contenidos, misma barra lateral en las citas).
 
 La técnica de inyección también está resuelta: el aviso efímero de la extensión (`showPageToast`, decisión 36) ya usa shadow DOM cerrado con `activeTab` y sin permisos nuevos; el panel es lo mismo con contenido persistente.
 
@@ -70,7 +70,7 @@ La técnica de inyección también está resuelta: el aviso efímero de la exten
 
 **R2.6 — El segundo disparo cierra el panel** (comportamiento de alternancia). Si ya está inyectado, se quita en vez de duplicarse.
 
-**R2.7 — Si la página está guardada pero no tiene notas**, el panel lo dice y ofrece añadir una, en lugar de aparecer vacío. Si la página **no** está en PinBoard, el panel lo indica y ofrece guardarla.
+**R2.7 — Si la página está guardada pero no tiene notas**, el panel lo dice y ofrece añadir una, en lugar de aparecer vacío. Si la página **no** está en Lingatu, el panel lo indica y ofrece guardarla.
 
 **R2.8 — No toques nada del documento anfitrión** más allá de añadir tu propio nodo: ni estilos de `body`, ni listeners globales de teclado, ni la posición del desplazamiento. Al cerrar el panel, la página debe quedar exactamente como estaba.
 
@@ -82,17 +82,17 @@ Sin esto, el panel es un visor que hay que ir a abrir. Con esto, **ves pasivamen
 
 **R3.1** El badge del icono muestra el número de notas de la página activa, **por pestaña** (`chrome.action.setBadgeText({text, tabId})`), actualizado al cambiar de pestaña y al navegar.
 
-**R3.2 — El problema de fondo, y su límite.** Para saber si la página activa tiene notas **sin que PinBoard esté abierto**, la extensión necesita una copia local. Eso obliga a `chrome.storage`, que es exactamente el "segundo almacén" del que advierte 11.4.
+**R3.2 — El problema de fondo, y su límite.** Para saber si la página activa tiene notas **sin que Lingatu esté abierto**, la extensión necesita una copia local. Eso obliga a `chrome.storage`, que es exactamente el "segundo almacén" del que advierte 11.4.
 
 Lo que hace admisible esta versión, y **es una restricción, no un detalle**:
 
 - Es una **proyección de solo lectura**: un mapa compacto `URL normalizada → número de notas`, nada más. **Sin texto de notas.**
-- **Dirección única**: PinBoard escribe, la extensión lee. **Nunca al revés.** No hay cola de escrituras pendientes ni resolución de conflictos, que es lo que convertiría esto en un sistema de dos orígenes de verdad.
-- Es **descartable**: se puede borrar en cualquier momento sin perder nada. El único origen de verdad sigue siendo el `localStorage` de `pinboard.html`.
+- **Dirección única**: Lingatu escribe, la extensión lee. **Nunca al revés.** No hay cola de escrituras pendientes ni resolución de conflictos, que es lo que convertiría esto en un sistema de dos orígenes de verdad.
+- Es **descartable**: se puede borrar en cualquier momento sin perder nada. El único origen de verdad sigue siendo el `localStorage` de `lingatu.html`.
 
-**R3.3** La proyección se refresca cuando la extensión ya está hablando con una pestaña de PinBoard (al pulsar el icono, al guardar un enlace, al añadir una nota). **No abras una pestaña de PinBoard solo para refrescar el badge**: eso sería abrir pestañas a espaldas del usuario.
+**R3.3** La proyección se refresca cuando la extensión ya está hablando con una pestaña de Lingatu (al pulsar el icono, al guardar un enlace, al añadir una nota). **No abras una pestaña de Lingatu solo para refrescar el badge**: eso sería abrir pestañas a espaldas del usuario.
 
-**R3.4 — Ante la duda, no mostrar nada.** Si la proyección no existe o está vacía, el badge se queda en blanco. Un badge obsoleto que diga "2" donde no hay notas es peor que ningún badge: enseña al usuario a desconfiar de la señal. Documenta que puede ir con retraso hasta el siguiente contacto con PinBoard.
+**R3.4 — Ante la duda, no mostrar nada.** Si la proyección no existe o está vacía, el badge se queda en blanco. Un badge obsoleto que diga "2" donde no hay notas es peor que ningún badge: enseña al usuario a desconfiar de la señal. Documenta que puede ir con retraso hasta el siguiente contacto con Lingatu.
 
 **R3.5** Necesita el permiso **`tabs`** para leer la URL de la pestaña activa al cambiar de pestaña. Es el único permiso nuevo de esta tarea. **Sigue sin hacer falta `<all_urls>`**, que es el que pediría *"leer y cambiar todos tus datos en todos los sitios web"* en la instalación.
 
@@ -112,11 +112,11 @@ Lo que hace admisible esta versión, y **es una restricción, no un detalle**:
 ## Invariantes: no toques esto
 
 1. **El flujo actual de la extensión debe seguir igual**: guardar la pestaña activa, detectar duplicados y resaltar la ficha existente. Esta tarea añade superficies, no cambia las que hay.
-2. **El único origen de verdad sigue siendo `localStorage` de `pinboard.html`.** Si esta tarea termina con notas guardadas en `chrome.storage`, se ha implementado otra cosa distinta y se ha entrado en fase 2 por la puerta de atrás.
+2. **El único origen de verdad sigue siendo `localStorage` de `lingatu.html`.** Si esta tarea termina con notas guardadas en `chrome.storage`, se ha implementado otra cosa distinta y se ha entrado en fase 2 por la puerta de atrás.
 3. **Nada de `<all_urls>`.** Si te encuentras necesitándolo, has salido del alcance: replantea el disparador.
 4. **El código inyectado no puede romper la página anfitriona** (R2.1, R2.2, R2.8). Se prueba en sitios reales, no solo en una página de prueba.
 5. `getNotes` amplía la superficie protegida de la sección 8: hay que documentarlo (R1.5).
-6. JavaScript moderno en `extension/`; sintaxis ES5 solo en `pinboard.html`.
+6. JavaScript moderno en `extension/`; sintaxis ES5 solo en `lingatu.html`.
 
 ## Checklist de verificación manual
 
@@ -128,8 +128,8 @@ Lo que hace admisible esta versión, y **es una restricción, no un detalle**:
 - [ ] Cerrar el panel deja la página **exactamente** como estaba: sin saltos de desplazamiento ni estilos alterados.
 - [ ] En una página guardada **sin** notas, el panel lo dice y ofrece añadir una.
 - [ ] En una página **no guardada**, el panel lo dice y ofrece guardarla.
-- [ ] Con PinBoard **cerrado**, el panel funciona igual (abre la pestaña en segundo plano y la usa).
-- [ ] Sin URL de PinBoard configurada, se abre la página de opciones.
+- [ ] Con Lingatu **cerrado**, el panel funciona igual (abre la pestaña en segundo plano y la usa).
+- [ ] Sin URL de Lingatu configurada, se abre la página de opciones.
 
 **Aislamiento — pruébalo en sitios reales, no en una página de prueba:**
 
@@ -143,15 +143,15 @@ Lo que hace admisible esta versión, y **es una restricción, no un detalle**:
 - [ ] Con la proyección al día, al cambiar a una pestaña de una página con notas el badge muestra el número.
 - [ ] Al cambiar a una pestaña sin notas, el badge **se limpia** (no arrastra el número de la pestaña anterior).
 - [ ] Con la proyección vacía o recién instalada la extensión, el badge está en blanco y **nada falla**.
-- [ ] Añadir una nota y volver a la página: el badge refleja el cambio tras el siguiente contacto con PinBoard.
-- [ ] **La extensión no abre pestañas de PinBoard por su cuenta** solo por navegar entre pestañas.
+- [ ] Añadir una nota y volver a la página: el badge refleja el cambio tras el siguiente contacto con Lingatu.
+- [ ] **La extensión no abre pestañas de Lingatu por su cuenta** solo por navegar entre pestañas.
 
 **Regresiones:**
 
 - [ ] Recargar la extensión tras añadir el permiso `tabs`.
 - [ ] Pulsar el icono en una URL nueva: sigue funcionando el flujo de guardar.
 - [ ] Pulsar el icono en una URL ya guardada: sigue resaltando la ficha.
-- [ ] La captura de selección como nota (4.23) y "Guardar en PinBoard" del menú contextual siguen funcionando.
+- [ ] La captura de selección como nota (4.23) y "Guardar en Lingatu" del menú contextual siguen funcionando.
 - [ ] **Checklist completa de la sección 8.**
 
 ## Al cerrar

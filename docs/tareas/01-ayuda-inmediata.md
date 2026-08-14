@@ -6,7 +6,7 @@ Antes de empezar, lee [`CLAUDE.md`](../../CLAUDE.md). Contexto del *por qué* en
 
 ## Objetivo
 
-PinBoard no tiene un problema de documentación, tiene un problema de **descubribilidad**: hay funciones potentes que nada en pantalla insinúa. Esta tarea ataca las dos más baratas de resolver, sin añadir ninguna pantalla nueva.
+Lingatu no tiene un problema de documentación, tiene un problema de **descubribilidad**: hay funciones potentes que nada en pantalla insinúa. Esta tarea ataca las dos más baratas de resolver, sin añadir ninguna pantalla nueva.
 
 ---
 
@@ -14,9 +14,9 @@ PinBoard no tiene un problema de documentación, tiene un problema de **descubri
 
 ### Situación actual
 
-`#emptyState` (`pinboard.html:744`) es un párrafo fijo: *"No se encontraron enlaces con los filtros actuales."* `renderCards()` lo muestra cuando `filtered.length === 0` (`pinboard.html:1358-1362`).
+`#emptyState` (`lingatu.html:744`) es un párrafo fijo: *"No se encontraron enlaces con los filtros actuales."* `renderCards()` lo muestra cuando `filtered.length === 0` (`lingatu.html:1358-1362`).
 
-El problema: **ese mismo texto cubre dos situaciones opuestas.** Un usuario que abre PinBoard por primera vez —sin ningún enlace, sin ningún filtro puesto— lee que sus filtros no encuentran nada. Es el primer mensaje que ve la app en su vida y es desconcertante y además falso.
+El problema: **ese mismo texto cubre dos situaciones opuestas.** Un usuario que abre Lingatu por primera vez —sin ningún enlace, sin ningún filtro puesto— lee que sus filtros no encuentran nada. Es el primer mensaje que ve la app en su vida y es desconcertante y además falso.
 
 ### Requisitos
 
@@ -28,7 +28,7 @@ El problema: **ese mismo texto cubre dos situaciones opuestas.** Un usuario que 
 **A2.** El mensaje de bienvenida enseña las **tres** primeras acciones, en este orden:
 
 1. Crear el primer enlace.
-2. Importar los marcadores del navegador o un archivo de PinBoard (con el botón "Importar" del lateral).
+2. Importar los marcadores del navegador o un archivo de Lingatu (con el botón "Importar" del lateral).
 3. Pulsar `/` para buscar en cualquier momento.
 
 Redacción libre, pero **breve** (tres líneas, no un tutorial) y en español.
@@ -75,7 +75,7 @@ Redacción libre, pero **breve** (tres líneas, no un tutorial) y en español.
 
 ## Invariantes: no toques esto
 
-1. **`#btnExport` ya tiene un `title` dinámico**, recalculado por `syncExportButtonLabel()` en cada `render()` según haya o no un filtro activo (`pinboard.html:1483-1491`). **No lo sustituyas por un texto fijo**: perderías el aviso de que la exportación va a incluir solo la selección.
+1. **`#btnExport` ya tiene un `title` dinámico**, recalculado por `syncExportButtonLabel()` en cada `render()` según haya o no un filtro activo (`lingatu.html:1483-1491`). **No lo sustituyas por un texto fijo**: perderías el aviso de que la exportación va a incluir solo la selección.
 2. Los controles que **ya tienen** `title` se quedan como están: `#btnEditTitle`, `#btnClearTagSelection`, `#btnImport`, los items de categoría (que ya explican el arrastre y el Ctrl+clic), y los botones ▲/▼/✏️/🗑️ de las fichas.
 3. No cambies el `title` de las fichas de enlace: en la vista compacta transporta el título y la descripción completos, que es la única forma de leerlos cuando el texto se corta con elipsis.
 4. No cambies el `id` ni la clase de `#emptyState`.

@@ -1,5 +1,8 @@
 "use strict";
 
+// Conserva el nombre anterior del producto a propósito: renombrar la clave
+// borraría la URL ya configurada por cada usuario al actualizarse la extensión.
+// Ver el comentario equivalente en background.js.
 const STORAGE_KEY = "pinboardFileUrl";
 const input = document.getElementById("url");
 const status = document.getElementById("status");

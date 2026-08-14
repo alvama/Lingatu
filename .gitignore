@@ -1,4 +1,7 @@
 # Exportaciones de datos personales (enlaces reales del usuario)
+lingatu_*.json
+# El patrón anterior al cambio de nombre se mantiene: las exportaciones ya
+# hechas siguen llamándose así y no deben acabar en el repositorio.
 pinboard_*.json
 marcadores_edge.json
 marcadores_importados.json

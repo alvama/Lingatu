@@ -1,10 +1,15 @@
 "use strict";
 
+// La clave conserva el nombre anterior del producto a propósito: la extensión
+// se actualiza sola desde la Chrome Web Store, y renombrarla borraría de golpe
+// la URL que cada usuario ya tiene configurada, sin ningún aviso. Es un detalle
+// interno de chrome.storage.local, no afecta al nombre público (mismo criterio
+// que el prefijo "enlaces_" de localStorage en la app).
 const STORAGE_KEY = "pinboardFileUrl";
-const MENU_SAVE_PAGE = "pinboard-guardar-pagina";
-const MENU_ADD_SELECTION_NOTE = "pinboard-anadir-seleccion-nota";
+const MENU_SAVE_PAGE = "lingatu-guardar-pagina";
+const MENU_ADD_SELECTION_NOTE = "lingatu-anadir-seleccion-nota";
 
-async function getPinboardUrl() {
+async function getLingatuUrl() {
   const data = await chrome.storage.local.get(STORAGE_KEY);
   return data[STORAGE_KEY] || null;
 }
@@ -21,7 +26,7 @@ function waitForTabComplete(tabId) {
   });
 }
 
-async function findOrOpenPinboardTab(url) {
+async function findOrOpenLingatuTab(url) {
   const tabs = await chrome.tabs.query({ url });
   if (tabs.length > 0) return tabs[0];
   const tab = await chrome.tabs.create({ url, active: false });
@@ -44,29 +49,37 @@ async function getActiveTabData(tab) {
   return result;
 }
 
-// Se ejecuta en el "MAIN world" de la pestaña de pinboard.html, así que puede
-// llamar directamente a window.PinBoardBridge tal y como lo expone esa página.
+// Se ejecuta en el "MAIN world" de la pestaña de lingatu.html, así que puede
+// llamar directamente a window.LingatuBridge tal y como lo expone esa página.
 //
-// CONTRATO ESTABLE con pinboard.html — contrato completo en
+// CONTRATO ESTABLE con lingatu.html — contrato completo en
 // docs/ESPECIFICACIONES.md, sección 8. Si cambia la firma de
-// PinBoardBridge.checkDuplicate/focusExisting/suggestCategory/prefillAndOpen/
-// appendNote en pinboard.html, estas dos funciones dejan de funcionar
+// LingatuBridge.checkDuplicate/focusExisting/suggestCategory/prefillAndOpen/
+// appendNote en lingatu.html, estas dos funciones dejan de funcionar
 // (normalmente en silencio, solo con el badge rojo "!" de flashBadge más abajo).
+//
+// El puente se busca primero como LingatuBridge y, si no está, como
+// PinBoardBridge: esta extensión se actualiza sola, pero el archivo HTML lo
+// tiene el usuario en su disco y no se actualiza nunca solo, así que hay que
+// seguir hablando con los pinboard.html antiguos. Nunca al revés (el archivo
+// nuevo expone los dos nombres, así que el orden solo importa aquí).
+// Retirada del respaldo: no antes de la v1.12.0 de la app.
 async function callBridge(tabId, payload) {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
     func: (data) => {
-      if (!window.PinBoardBridge) {
+      const bridge = window.LingatuBridge || window.PinBoardBridge;
+      if (!bridge) {
         return { ok: false, reason: "bridge-not-found" };
       }
-      const dup = window.PinBoardBridge.checkDuplicate(data.url);
+      const dup = bridge.checkDuplicate(data.url);
       if (dup) {
-        window.PinBoardBridge.focusExisting(data.url);
+        bridge.focusExisting(data.url);
         return { ok: true, duplicate: true, existing: dup };
       }
-      const category = window.PinBoardBridge.suggestCategory(data.title, data.description, data.url);
-      window.PinBoardBridge.prefillAndOpen(Object.assign({}, data, { category }));
+      const category = bridge.suggestCategory(data.title, data.description, data.url);
+      bridge.prefillAndOpen(Object.assign({}, data, { category }));
       return { ok: true, duplicate: false, category };
     },
     args: [payload]
@@ -76,16 +89,17 @@ async function callBridge(tabId, payload) {
 
 // La bifurcación "si la URL existe añade la nota, si no crea el enlace con
 // ella" la decide el propio puente: devuelve {ok, created, ...} y aquí solo se
-// interpreta si hay que saltar a la pestaña de PinBoard o basta con el badge.
+// interpreta si hay que saltar a la pestaña de Lingatu o basta con el badge.
 async function callBridgeAppendNote(tabId, payload) {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
     func: (data) => {
-      if (!window.PinBoardBridge || typeof window.PinBoardBridge.appendNote !== "function") {
+      const bridge = window.LingatuBridge || window.PinBoardBridge;
+      if (!bridge || typeof bridge.appendNote !== "function") {
         return { ok: false, reason: "bridge-not-found" };
       }
-      return window.PinBoardBridge.appendNote(data);
+      return bridge.appendNote(data);
     },
     args: [payload]
   });
@@ -100,7 +114,7 @@ function flashBadge(text, color) {
 
 function warnBridgeMissing() {
   flashBadge("!", "#c0392b");
-  console.warn("PinBoard Connector: no se encontró el puente en la página. ¿Está actualizado pinboard.html?");
+  console.warn("Lingatu Connector: no se encontró el puente en la página. ¿Está actualizado lingatu.html?");
 }
 
 // Aviso efímero en la página que el usuario está leyendo. El badge del icono no
@@ -118,7 +132,7 @@ async function showPageToast(tabId, message, detail, isError) {
     await chrome.scripting.executeScript({
       target: { tabId },
       func: (msg, det, err) => {
-        const HOST_ID = "pinboard-connector-toast";
+        const HOST_ID = "lingatu-connector-toast";
         const previo = document.getElementById(HOST_ID);
         if (previo) previo.remove();
 
@@ -168,7 +182,7 @@ async function showPageToast(tabId, message, detail, isError) {
     // Hay páginas donde no se puede inyectar nada (chrome://, la Chrome Web
     // Store, un PDF). No es un error de la operación —la nota ya está
     // guardada—, así que ahí el badge se queda como única confirmación.
-    console.warn("PinBoard Connector: no se pudo mostrar el aviso en la página.", err);
+    console.warn("Lingatu Connector: no se pudo mostrar el aviso en la página.", err);
   }
 }
 
@@ -180,35 +194,35 @@ function quoteSelection(text) {
   return clean.split("\n").map((line) => (line.trim() ? `> ${line}` : ">")).join("\n");
 }
 
-// Parte común de los dos flujos: comprueba que PinBoard está configurado, lee
+// Parte común de los dos flujos: comprueba que Lingatu está configurado, lee
 // los datos de la pestaña activa y localiza (o abre en segundo plano) la
-// pestaña de PinBoard. Devuelve null si no hay nada configurado todavía.
-async function preparePinboardCall(tab) {
-  const pinboardUrl = await getPinboardUrl();
-  if (!pinboardUrl) {
+// pestaña de Lingatu. Devuelve null si no hay nada configurado todavía.
+async function prepareLingatuCall(tab) {
+  const lingatuUrl = await getLingatuUrl();
+  if (!lingatuUrl) {
     chrome.runtime.openOptionsPage();
     return null;
   }
   const pageData = await getActiveTabData(tab);
-  const pinboardTab = await findOrOpenPinboardTab(pinboardUrl);
-  return { pageData, pinboardTab };
+  const lingatuTab = await findOrOpenLingatuTab(lingatuUrl);
+  return { pageData, lingatuTab };
 }
 
-async function focusPinboardTab(tabId) {
+async function focusLingatuTab(tabId) {
   await chrome.tabs.update(tabId, { active: true });
   const tabInfo = await chrome.tabs.get(tabId);
   await chrome.windows.update(tabInfo.windowId, { focused: true });
 }
 
 // Flujo de siempre (icono de la extensión y menú contextual de página): salta
-// a PinBoard, que es donde el usuario tiene que mirar — o para confirmar el
+// a Lingatu, que es donde el usuario tiene que mirar — o para confirmar el
 // alta en el modal precargado, o para ver la ficha ya existente resaltada.
 async function savePage(tab) {
-  const ctx = await preparePinboardCall(tab);
+  const ctx = await prepareLingatuCall(tab);
   if (!ctx) return;
-  const result = await callBridge(ctx.pinboardTab.id, ctx.pageData);
+  const result = await callBridge(ctx.lingatuTab.id, ctx.pageData);
 
-  await focusPinboardTab(ctx.pinboardTab.id);
+  await focusLingatuTab(ctx.lingatuTab.id);
 
   if (!result || !result.ok) warnBridgeMissing();
 }
@@ -219,26 +233,26 @@ async function savePage(tab) {
 // ser explícita y estar en la página donde está mirando (showPageToast), con el
 // recuento de notas de ese enlace; el badge se queda como refuerzo. Si el
 // enlace no existe hay que abrir el modal precargado, y entonces sí se salta a
-// PinBoard porque tiene que actuar.
+// Lingatu porque tiene que actuar.
 async function addSelectionNote(tab, selectionText) {
   const note = quoteSelection(selectionText);
   if (!note) return;
-  const ctx = await preparePinboardCall(tab);
+  const ctx = await prepareLingatuCall(tab);
   if (!ctx) return;
-  const result = await callBridgeAppendNote(ctx.pinboardTab.id, Object.assign({}, ctx.pageData, { note }));
+  const result = await callBridgeAppendNote(ctx.lingatuTab.id, Object.assign({}, ctx.pageData, { note }));
 
   if (!result || !result.ok) {
     warnBridgeMissing();
-    await showPageToast(tab.id, "No se pudo guardar la nota", "PinBoard no respondió. Comprueba que la pestaña de PinBoard está actualizada.", true);
+    await showPageToast(tab.id, "No se pudo guardar la nota", "Lingatu no respondió. Comprueba que la pestaña de Lingatu está actualizada.", true);
     return;
   }
   if (result.created) {
-    await focusPinboardTab(ctx.pinboardTab.id);
+    await focusLingatuTab(ctx.lingatuTab.id);
   } else {
     flashBadge("✓", "#1f9d55");
     const notas = result.noteCount || 0;
     const detalle = (result.title || "") + (notas > 1 ? ` · ${notas} notas en este enlace` : "");
-    await showPageToast(tab.id, "Nota añadida a PinBoard", detalle);
+    await showPageToast(tab.id, "Nota añadida a Lingatu", detalle);
   }
 }
 
@@ -248,12 +262,12 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_SAVE_PAGE,
-      title: "Guardar en PinBoard",
+      title: "Guardar en Lingatu",
       contexts: ["page"]
     });
     chrome.contextMenus.create({
       id: MENU_ADD_SELECTION_NOTE,
-      title: "Añadir selección como nota en PinBoard",
+      title: "Añadir selección como nota en Lingatu",
       contexts: ["selection"]
     });
   });
@@ -264,7 +278,7 @@ chrome.action.onClicked.addListener(async (activeTab) => {
     await savePage(activeTab);
   } catch (err) {
     flashBadge("!", "#c0392b");
-    console.error("Error en PinBoard Connector:", err);
+    console.error("Error en Lingatu Connector:", err);
   }
 });
 
@@ -278,6 +292,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   } catch (err) {
     flashBadge("!", "#c0392b");
-    console.error("Error en PinBoard Connector:", err);
+    console.error("Error en Lingatu Connector:", err);
   }
 });

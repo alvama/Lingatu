@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Política de privacidad — PinBoard Connector</title>
+<title>Política de privacidad — Lingatu Connector</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#222;line-height:1.6;}
@@ -14,13 +14,13 @@
 </style>
 </head>
 <body>
-  <h1>Política de privacidad — PinBoard Connector</h1>
+  <h1>Política de privacidad — Lingatu Connector</h1>
   <p class="updated">Última actualización: 7 de agosto de 2026</p>
 
   <h2>Resumen</h2>
-  <p>PinBoard Connector es una extensión de navegador que captura el título,
+  <p>Lingatu Connector es una extensión de navegador que captura el título,
   la URL y la meta-descripción de la pestaña activa y los pasa a
-  <code>pinboard.html</code>, una aplicación web de un solo archivo que el
+  <code>lingatu.html</code>, una aplicación web de un solo archivo que el
   propio usuario descarga y ejecuta localmente. La extensión no tiene
   servidor propio, no envía datos a ningún sitio, no usa analítica ni
   anuncios, y no requiere cuenta de ningún tipo.</p>
@@ -32,24 +32,24 @@
     <strong>meta-descripción</strong> de esa pestaña.</li>
     <li>Esos datos se pasan directamente, dentro del propio navegador, a la
     pestaña donde el usuario tiene abierta su copia de
-    <code>pinboard.html</code>, para comprobar si el enlace ya existe o
+    <code>lingatu.html</code>, para comprobar si el enlace ya existe o
     precargar el formulario de alta.</li>
   </ul>
   <p>La extensión guarda, mediante <code>chrome.storage.local</code>, un
   único dato de configuración: la URL <code>file://</code> de la copia de
-  <code>pinboard.html</code> del usuario. Ningún otro dato de navegación se
+  <code>lingatu.html</code> del usuario. Ningún otro dato de navegación se
   almacena.</p>
   <p><strong>Ninguno de estos datos sale nunca del dispositivo del
   usuario.</strong> La extensión no realiza llamadas de red, no tiene
   backend, no usa analítica ni servicios de terceros.</p>
 
-  <h2>Qué datos trata pinboard.html (la aplicación web)</h2>
-  <p><code>pinboard.html</code> no forma parte del paquete de la extensión,
+  <h2>Qué datos trata lingatu.html (la aplicación web)</h2>
+  <p><code>lingatu.html</code> no forma parte del paquete de la extensión,
   pero conviene documentarlo porque es donde acaban los datos capturados:
   guarda todos los enlaces en el <code>localStorage</code> del navegador del
   usuario, en su propio equipo. No hay sincronización en la nube ni servidor
   alguno.</p>
-  <p>Para mostrar el icono de cada enlace guardado, <code>pinboard.html</code>
+  <p>Para mostrar el icono de cada enlace guardado, <code>lingatu.html</code>
   solicita la imagen del favicon al servicio público de Google
   (<code>https://www.google.com/s2/favicons</code>), enviándole únicamente el
   dominio del enlace guardado. Es la única llamada de red de todo el
@@ -61,9 +61,9 @@
   concepto.</p>
 
   <h2>Código fuente</h2>
-  <p>El código completo de la extensión y de <code>pinboard.html</code> es
+  <p>El código completo de la extensión y de <code>lingatu.html</code> es
   público y auditable en
-  <a href="https://github.com/alvama/PinBoard">github.com/alvama/PinBoard</a>,
+  <a href="https://github.com/alvama/Lingatu">github.com/alvama/Lingatu</a>,
   bajo licencia MIT.</p>
 
   <h2>Cambios en esta política</h2>
@@ -72,22 +72,22 @@
 
   <h2>Contacto</h2>
   <p>Dudas o incidencias:
-  <a href="https://github.com/alvama/PinBoard/issues">github.com/alvama/PinBoard/issues</a>.</p>
+  <a href="https://github.com/alvama/Lingatu/issues">github.com/alvama/Lingatu/issues</a>.</p>
 
   <div class="en">
     <h2>English summary</h2>
-    <p>PinBoard Connector reads the title, URL and meta-description of the
+    <p>Lingatu Connector reads the title, URL and meta-description of the
     active tab only when the user clicks its icon, and passes that data
     directly, inside the browser, to the user's own local copy of
-    <code>pinboard.html</code>. No data is ever sent to any server: there is
+    <code>lingatu.html</code>. No data is ever sent to any server: there is
     no backend, no analytics, no ads, and no accounts. The extension stores
     only one setting locally (the <code>file://</code> URL of the user's
-    pinboard.html) via <code>chrome.storage.local</code>. The companion web
-    app <code>pinboard.html</code> stores links in the browser's own
+    lingatu.html) via <code>chrome.storage.local</code>. The companion web
+    app <code>lingatu.html</code> stores links in the browser's own
     <code>localStorage</code> and fetches favicon images from Google's public
     favicon service for the domains of saved links — the only network call
     in the whole project, made by the web page, not the extension. Source:
-    <a href="https://github.com/alvama/PinBoard">github.com/alvama/PinBoard</a>
+    <a href="https://github.com/alvama/Lingatu">github.com/alvama/Lingatu</a>
     (MIT license).</p>
   </div>
 </body>
