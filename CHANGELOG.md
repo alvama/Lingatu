@@ -9,6 +9,16 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
+- **Panel de ayuda**: se abre con la tecla `?` o con el botón "Ayuda (?)" del
+  pie del lateral, con cuatro bloques —**Atajos, Gestos, Filtros, Datos**—
+  que reúnen todo lo que PinBoard sabe hacer pero nada en pantalla insinúa:
+  el triple estado de una etiqueta al pulsarla (neutra → incluida →
+  excluida), que arrastrar una ficha a otra categoría es como se mueve de
+  categoría, Ctrl+clic para seleccionar varias categorías, que "Exportar"
+  exporta solo lo filtrado si hay un filtro puesto, y que los datos viven
+  solo en este navegador. Complementa la paleta de comandos (`Ctrl+K`), que
+  ya documenta las acciones por su nombre: la paleta gana un comando más,
+  "Ayuda: atajos y gestos", y el panel remite a `Ctrl+K` para todo lo demás.
 - **Panel de limpieza**: botón "Revisar" en el lateral, junto a Exportar/Importar,
   que detecta ocho problemas típicos de una colección que ha crecido —
   URLs duplicadas ya guardadas, enlaces con URL inválida, enlaces sin ninguna

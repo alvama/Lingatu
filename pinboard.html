@@ -965,6 +965,36 @@
   }
   .focus-banner[hidden]{display:none;}
 
+  /* Panel de ayuda ("?"): chuleta corta de gestos, filtros y datos — el
+     complemento de la paleta de comandos (4.22), que ya documenta acciones. */
+  #helpModalOverlay .modal{max-width:600px;}
+  .help-block{margin-bottom:18px;}
+  .help-block:last-child{margin-bottom:0;}
+  .help-block h3{
+    margin:0 0 8px 0;
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--text-muted);
+  }
+  .help-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
+  .help-list li{font-size:13px;line-height:1.5;color:var(--text);}
+  .help-list kbd{
+    padding:1px 6px;
+    border-radius:5px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    font-size:11px;
+    font-family:inherit;
+    color:var(--text-muted);
+  }
+  .app-footer button{
+    background:none;border:none;padding:0;margin:0;
+    font:inherit;font-size:12px;color:var(--text-muted);cursor:pointer;
+  }
+  .app-footer button:hover{color:var(--primary);text-decoration:underline;}
+
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
     .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
@@ -1179,6 +1209,16 @@
     <div id="cleanupList" class="cleanup-list"></div>
     <div class="modal-actions">
       <button type="button" id="btnCleanupClose" class="btn-primary">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="helpModalOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <h2 id="helpModalTitle">Ayuda: atajos y gestos</h2>
+    <div id="helpModalBody"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnHelpClose" class="btn-primary">Cerrar</button>
     </div>
   </div>
 </div>
@@ -2989,7 +3029,9 @@
       '<span>·</span>' +
       '<a href="' + escapeHtml(APP_CONFIG.siteUrl) + '" target="_blank" rel="noopener">' + escapeHtml(APP_CONFIG.siteName) + '</a>' +
       '<span>·</span>' +
-      '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>';
+      '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>' +
+      '<span>·</span>' +
+      '<button type="button" id="btnHelp">Ayuda (?)</button>';
   }
   function promptSiteTitle(){
     var next = prompt("Título de la página:", state.siteTitle);
@@ -3711,7 +3753,7 @@
   // ---------- Atajos de teclado ----------
   document.addEventListener("keydown", function(e){
     var key = e.key.toLowerCase();
-    if(e.key !== "/" && key !== "n") return;
+    if(e.key !== "/" && key !== "n" && e.key !== "?") return;
     var tag = (e.target.tagName || "").toLowerCase();
     var isTyping = tag === "input" || tag === "textarea" || e.target.isContentEditable;
     if(isTyping || anyOverlayOpen()) return;
@@ -3721,6 +3763,9 @@
     } else if(key === "n"){
       e.preventDefault();
       openModal(null);
+    } else if(e.key === "?"){
+      e.preventDefault();
+      openHelpPanel();
     }
   });
 
@@ -4368,7 +4413,8 @@
     { id: "view-comfortable", label: "Vista cómoda", run: function(){ setViewMode("comfortable"); } },
     { id: "view-compact", label: "Vista compacta", run: function(){ setViewMode("compact"); } },
     { id: "export-links", label: "Exportar enlaces", run: function(){ exportLinks(); } },
-    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } }
+    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } },
+    { id: "help", label: "Ayuda: atajos y gestos", hint: "?", run: function(){ openHelpPanel(); } }
   ];
 
   var paletteOverlay = document.getElementById("commandPaletteOverlay");
@@ -4599,6 +4645,85 @@
   });
 
   registerOverlay(paletteOverlay, closeCommandPalette);
+
+  // ---------- Panel de ayuda ("?") ----------
+  // Chuleta corta de lo que la paleta de comandos (4.22) no puede documentar:
+  // gestos, filtros y comportamiento de los datos. Las acciones ya están
+  // cubiertas por la propia paleta (bloque "Comandos"), así que no se repiten
+  // aquí — solo se remite a Ctrl+K.
+  //
+  // Todo el contenido vive en este único array, junto al código: cada atajo,
+  // gesto o comportamiento de filtro nuevo pide su línea aquí (ver CLAUDE.md,
+  // "Al cerrar un cambio"). Es texto de autor, no dato de usuario: no pasa
+  // por escapeHtml() y no debe interpolar nada dinámico — mantenlo estático.
+  var HELP_SECTIONS = [
+    { title: "Atajos", items: [
+      "<kbd>/</kbd> enfoca el buscador.",
+      "<kbd>n</kbd> crea un enlace nuevo.",
+      "<kbd>?</kbd> abre esta ayuda.",
+      "<kbd>Ctrl</kbd>+<kbd>K</kbd> abre la paleta de comandos: busca acciones, enlaces, categorías, vistas y etiquetas.",
+      "<kbd>Escape</kbd> cierra el modal que esté abierto.",
+      "En el campo de Etiquetas: Enter, espacio o coma confirman una etiqueta; Backspace con el campo vacío quita la última; las flechas navegan las sugerencias."
+    ]},
+    { title: "Gestos", items: [
+      "Arrastrar una ficha sobre otra la coloca justo antes.",
+      "Arrastrar una ficha sobre la cabecera de un grupo (o su hueco vacío, aunque esté plegado) la manda al final de esa categoría.",
+      "Arrastrar una ficha a otra categoría también le cambia la categoría — así se mueve un enlace de categoría.",
+      "Los botones ▲/▼ mueven un puesto dentro de lo que estás viendo.",
+      "Arrastrar una categoría en el lateral la reordena y puede moverla varias posiciones de golpe (los ▲/▼ del modal de gestión solo la intercambian con la vecina).",
+      "Soltar una categoría sobre \"Todas\" la manda al principio de la lista.",
+      "Pulsar la cabecera de un grupo lo pliega o despliega, y se recuerda entre sesiones.",
+      "Con \"Seleccionar\" activo, un clic en cualquier parte de una ficha la selecciona o la deselecciona; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ se desactivan.",
+      "La selección se vacía sola al cambiar de filtro, de búsqueda o de vista, y se conserva tras cada acción en lote salvo al eliminar.",
+      "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque."
+    ]},
+    { title: "Filtros", items: [
+      "Una etiqueta del lateral cicla por tres estados al pulsarla: neutra → incluida → excluida.",
+      "Las etiquetas de las fichas no ciclan: solo activan o desactivan la inclusión.",
+      "<kbd>Ctrl</kbd>+clic (o <kbd>Cmd</kbd>+clic) en una categoría selecciona varias a la vez.",
+      "Un clic normal en una categoría sustituye la selección; volver a pulsarla la quita. \"Todas\" limpia el filtro.",
+      "La escoba 🧹 limpia de golpe las etiquetas incluidas y las excluidas.",
+      "Las etiquetas excluidas se mantienen entre sesiones; las incluidas no.",
+      "Una Vista guarda las etiquetas incluidas y excluidas y la categoría; si es una vista de selección, guarda también sus enlaces.",
+      "El buscador admite operadores: cat:, #etiqueta, site:, is:activo / is:inactivo, \"frase exacta\" y - delante de cualquiera para negar."
+    ]},
+    { title: "Datos", items: [
+      "Con un filtro puesto, \"Exportar\" exporta solo lo filtrado, y lo avisa antes de descargar.",
+      "Al importar: \"Fusionar\" añade lo que no tengas (comparando por URL); \"Sustituir todo\" reemplaza y no se puede deshacer.",
+      "Las categorías se exportan e importan aparte, desde su modal de gestión.",
+      "Tus datos viven solo en este navegador y en este equipo: no se sincronizan. Exportar es el único respaldo; borrar los datos del sitio los elimina."
+    ]}
+  ];
+
+  var helpModalOverlay = document.getElementById("helpModalOverlay");
+
+  function renderHelpPanel(){
+    document.getElementById("helpModalBody").innerHTML = HELP_SECTIONS.map(function(section){
+      return '<div class="help-block"><h3>' + section.title + '</h3><ul class="help-list">' +
+        section.items.map(function(item){ return "<li>" + item + "</li>"; }).join("") +
+        '</ul></div>';
+    }).join("");
+  }
+
+  function openHelpPanel(){
+    renderHelpPanel();
+    helpModalOverlay.hidden = false;
+  }
+
+  function closeHelpPanel(){
+    helpModalOverlay.hidden = true;
+  }
+
+  document.getElementById("btnHelpClose").addEventListener("click", closeHelpPanel);
+  registerOverlay(helpModalOverlay, closeHelpPanel);
+
+  // #appFooter se pinta una sola vez (renderFooter(), en el arranque) y
+  // render() no lo toca: delegado sobre el contenedor, igual que
+  // #btnEmptyStateAdd sobre #emptyState, en vez de un listener directo sobre
+  // un botón que aún no existe en este punto del script.
+  document.getElementById("appFooter").addEventListener("click", function(e){
+    if(e.target.closest("#btnHelp")) openHelpPanel();
+  });
 
   // ---------- Inicio ----------
   var stored = load();
