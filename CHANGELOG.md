@@ -9,6 +9,21 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
+- **Panel de limpieza**: botón "Revisar" en el lateral, junto a Exportar/Importar,
+  que detecta ocho problemas típicos de una colección que ha crecido —
+  URLs duplicadas ya guardadas, enlaces con URL inválida, enlaces sin ninguna
+  etiqueta, etiquetas que ya no usa ningún enlace, categorías con 0 o 1
+  enlace, títulos repetidos con URL distinta, dominios repartidos entre
+  varias categorías y URLs con parámetros de seguimiento (`utm_*`, `fbclid`,
+  `gclid`...). Cada comprobación es una fila plegable con su recuento; las
+  que salen a cero no se muestran. **El panel no modifica nada**: diagnostica
+  y, con el botón "Ver estos N" de cada fila, deja la vista recortada a
+  exactamente esos enlaces para arreglarlos con las herramientas que ya
+  existían (edición, gestión de categorías/etiquetas, selección en lote). Un
+  aviso sobre la lista recuerda que hay un foco de revisión activo, con un
+  botón para quitarlo. No afecta a lo que exporta "Exportar", igual que ya
+  pasa con la búsqueda.
+
 - **Búsqueda con operadores en el mismo `#searchInput` de siempre**: `cat:desarrollo`
   filtra por categoría (subcadena, así que `cat:desar` también vale),
   `#referencia` por etiqueta, `site:github.com` por dominio de la URL,

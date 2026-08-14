@@ -895,6 +895,76 @@
     font-size:14px;
   }
 
+  /* Panel de limpieza (4.24): filas plegables con recuento, mismo patrón
+     visual que .manage-row pero sin acciones de edición. */
+  #cleanupModalOverlay .modal{max-width:640px;}
+  .cleanup-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:60vh;
+    overflow-y:auto;
+    margin-bottom:14px;
+  }
+  .cleanup-check{
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--surface-2);
+    overflow:hidden;
+  }
+  .cleanup-check-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    padding:10px 12px;
+    background:none;
+    border:none;
+    color:var(--text);
+    font-size:13px;
+    text-align:left;
+    cursor:pointer;
+  }
+  .cleanup-check-label{flex:1;}
+  .cleanup-check-count{
+    font-size:11px;
+    color:var(--text-muted);
+    background:var(--surface);
+    border-radius:999px;
+    padding:1px 7px;
+    flex-shrink:0;
+  }
+  .cleanup-check-arrow{color:var(--text-muted);flex-shrink:0;}
+  .cleanup-check-body{
+    padding:0 12px 12px 12px;
+    border-top:1px solid var(--border);
+  }
+  .cleanup-item-list{
+    margin:10px 0;
+    padding-left:18px;
+    font-size:12px;
+    color:var(--text-muted);
+    max-height:160px;
+    overflow-y:auto;
+  }
+  .cleanup-item-list li{margin:2px 0;}
+  .cleanup-item-more{font-style:italic;}
+
+  /* Aviso del foco de revisión (4.24): mientras esté activo, recuerda que la
+     lista está recortada a los enlaces de una comprobación del panel. */
+  .focus-banner{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--tag-bg);
+    color:var(--tag-fg);
+    border-radius:8px;
+    padding:8px 12px;
+    margin-bottom:12px;
+    font-size:13px;
+  }
+  .focus-banner[hidden]{display:none;}
+
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
     .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
@@ -945,6 +1015,7 @@
     <div class="data-actions">
       <button id="btnExport" title="Exportar todos los enlaces a un archivo JSON">Exportar</button>
       <button id="btnImport" title="Importar enlaces desde un archivo JSON">Importar</button>
+      <button type="button" id="btnCleanup" title="Revisar la colección: duplicados, URLs inválidas, etiquetas sin uso y más">Revisar</button>
       <input type="file" id="fileImport" accept="application/json,text/html,.json,.html,.htm" hidden>
     </div>
 
@@ -966,6 +1037,10 @@
       <button type="button" id="btnSelectionMode" class="link-btn" style="white-space:nowrap;" title="Activar el modo selección para aplicar acciones a varios enlaces a la vez">Seleccionar</button>
       <button type="button" id="btnCommandPalette" class="link-btn" style="white-space:nowrap;" title="Buscar enlaces, categorías, vistas, etiquetas y acciones (atajo: Ctrl+K)">Comandos (Ctrl+K)</button>
       <span id="resultCount"></span>
+    </div>
+    <div id="focusBanner" class="focus-banner" hidden>
+      <span id="focusBannerText"></span>
+      <button type="button" id="btnClearFocus" class="link-btn">Quitar</button>
     </div>
     <div id="linksContainer" class="links-groups"></div>
     <p id="emptyState" class="empty-state" hidden>No se encontraron enlaces con los filtros actuales.</p>
@@ -1098,6 +1173,16 @@
   </div>
 </div>
 
+<div id="cleanupModalOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cleanupModalTitle">
+    <h2 id="cleanupModalTitle">Revisar la colección</h2>
+    <div id="cleanupList" class="cleanup-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnCleanupClose" class="btn-primary">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div id="commandPaletteOverlay" class="modal-overlay palette-overlay" hidden>
   <div class="modal palette">
     <input type="text" id="commandPaletteInput" class="palette-input" placeholder="Busca una acción, un enlace, una categoría, una vista o una etiqueta..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="commandPaletteResults" aria-label="Paleta de comandos">
@@ -1159,7 +1244,12 @@
     // localStorage — recuperar al abrir la app una selección hecha ayer sería
     // desconcertante y peligroso (acciones en lote sobre lo que ya no miras).
     selectionMode: false,
-    selectedLinks: new Set()
+    selectedLinks: new Set(),
+    // Foco de revisión del panel de limpieza (4.24): ids de enlaces a los que
+    // "Ver estos N" recorta la vista. Momentáneo como la búsqueda: no se
+    // persiste, se vacía solo al recargar (nunca se carga de localStorage) y
+    // también al tocar la categoría o las etiquetas a mano (detachActiveView).
+    focusIds: new Set()
   };
 
   var editingId = null;
@@ -1419,6 +1509,18 @@
     return state.allTags.slice().sort(function(a,b){ return a.localeCompare(b); });
   }
 
+  // Recuento de uso por etiqueta ({tag: count}), un solo recorrido de
+  // state.links. Compartido por renderManageList() y el panel de limpieza
+  // (4.24) — antes vivía en línea dentro de renderManageList, y este panel
+  // necesitaba la misma cuenta: mejor extraerla que tener una tercera copia.
+  function getTagCounts(){
+    var counts = {};
+    state.links.forEach(function(l){
+      l.tags.forEach(function(t){ counts[t] = (counts[t] || 0) + 1; });
+    });
+    return counts;
+  }
+
   // Búsqueda con operadores (4.3): cat:, #, site:, is:, "frase exacta" y "-"
   // delante de cualquiera para negar. Separa un texto en tokens respetando
   // las frases entre comillas — si una comilla no llega a cerrarse en el
@@ -1566,6 +1668,7 @@
   function getFilteredLinks(){
     var parsedQuery = parseSearchQuery(state.search);
     return state.links.filter(function(l){
+      if(state.focusIds.size > 0 && !state.focusIds.has(l.id)) return false;
       if(state.viewLinkIds.size > 0 && !state.viewLinkIds.has(l.id)) return false;
       if(state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
       if(state.activeFilter === "active" && !l.active) return false;
@@ -2151,6 +2254,7 @@
     syncToggleAllGroupsLabel();
     syncExportButtonLabel();
     syncSelectionUi();
+    syncFocusBanner();
   }
 
   function syncExportButtonLabel(){
@@ -2938,8 +3042,7 @@
     if(manageType === "category"){
       items = getCategories();
     } else {
-      var counts = {};
-      state.links.forEach(function(l){ l.tags.forEach(function(t){ counts[t] = (counts[t] || 0) + 1; }); });
+      var counts = getTagCounts();
       items = getAllTags().map(function(t){ return { name: t, count: counts[t] || 0 }; });
     }
     if(items.length === 0){
@@ -3501,9 +3604,14 @@
   // usuario cambia un filtro a mano. Vaciar viewLinkIds aquí es obligatorio: es
   // la única dimensión sin control propio en la UI, así que si se quedara puesta
   // sería un filtro invisible recortando la vista sin que nadie lo haya pedido.
+  // Se llama en cada punto que cambia categoría o etiquetas a mano, así que es
+  // también el sitio natural para soltar el foco de revisión (4.24, mismo
+  // criterio que la selección en lote de 4.21): no dejar dos recortes activos
+  // que el usuario no puede ver a la vez.
   function detachActiveView(){
     state.activeViewProfile = null;
     state.viewLinkIds = new Set();
+    state.focusIds = new Set();
   }
 
   // Guarda la selección actual tal cual está ahora mismo (categorías,
@@ -4021,6 +4129,217 @@
   document.getElementById("importCategoriesCancelBtn").addEventListener("click", closeImportCategoriesModal);
   registerOverlay(importCategoriesModalOverlay, closeImportCategoriesModal);
 
+  // ---------- Panel de limpieza (4.24) ----------
+  // Ocho comprobaciones de mantenimiento, todas cálculos puros sobre
+  // state.links/categories/allTags. El panel SOLO diagnostica: no repara
+  // nada por sí mismo (decisión de diseño, ver ESPECIFICACIONES 7). La
+  // reparación real la hacen las herramientas que ya existen; "Ver estos N"
+  // (más abajo) es el único puente hacia ellas.
+  var TRACKING_PARAMS = ["fbclid", "gclid", "mc_cid", "mc_eid", "igshid"];
+
+  function hasTrackingParams(url){
+    try{
+      var found = false;
+      new URL(url).searchParams.forEach(function(value, key){
+        var k = key.toLowerCase();
+        if(k.indexOf("utm_") === 0 || TRACKING_PARAMS.indexOf(k) !== -1) found = true;
+      });
+      return found;
+    }catch(e){
+      return false; // URL inválida: ya la cubre su propia comprobación
+    }
+  }
+
+  // Agrupa un array por una clave de texto en un solo recorrido (mapa, nunca
+  // O(n²)): mismo patrón que ya usa performImportMerge para deduplicar.
+  function groupBy(items, keyFn){
+    var groups = {};
+    items.forEach(function(item){
+      var key = keyFn(item);
+      if(key === null) return;
+      (groups[key] || (groups[key] = [])).push(item);
+    });
+    return groups;
+  }
+
+  function cleanupLinkLabel(l){
+    return escapeHtml(l.title) + " (" + escapeHtml(l.category) + ")";
+  }
+
+  function cleanupItem(label, linkIds){
+    return { label: label, linkIds: linkIds };
+  }
+
+  // Cada comprobación devuelve {id, label, unit?, items:[{label, linkIds}]}.
+  // El recuento de la cabecera es siempre items.length (un elemento por grupo
+  // o por enlace, según la comprobación); "Ver estos N" es la unión de todos
+  // los linkIds de sus items, así que puede ser un número distinto (p. ej.
+  // "3 grupos" en la cabecera, "Ver estos 7" en el botón).
+  function computeCleanupChecks(){
+    var links = state.links;
+    var checks = [];
+
+    var byUrl = groupBy(links, function(l){ return normalizeUrlForCompare(l.url); });
+    checks.push({
+      id: "dup-url", label: "URLs duplicadas ya guardadas", unit: "grupos",
+      items: Object.keys(byUrl).filter(function(k){ return byUrl[k].length > 1; }).map(function(k){
+        var group = byUrl[k];
+        return cleanupItem(group.map(function(l){ return escapeHtml(l.title); }).join(" · "), group.map(function(l){ return l.id; }));
+      })
+    });
+
+    checks.push({
+      id: "invalid-url", label: "Enlaces con URL inválida",
+      items: links.filter(function(l){
+        try{ new URL(l.url); return false; }catch(e){ return true; }
+      }).map(function(l){ return cleanupItem(cleanupLinkLabel(l), [l.id]); })
+    });
+
+    checks.push({
+      id: "no-tags", label: "Enlaces sin ninguna etiqueta",
+      items: links.filter(function(l){ return l.tags.length === 0; }).map(function(l){ return cleanupItem(cleanupLinkLabel(l), [l.id]); })
+    });
+
+    var tagCounts = getTagCounts();
+    checks.push({
+      id: "unused-tags", label: "Etiquetas que ya no usa ningún enlace",
+      items: state.allTags.filter(function(t){ return !tagCounts[t]; }).map(function(t){ return cleanupItem(escapeHtml(t), []); })
+    });
+
+    var linkIdsByCategory = {};
+    links.forEach(function(l){ (linkIdsByCategory[l.category] || (linkIdsByCategory[l.category] = [])).push(l.id); });
+    checks.push({
+      id: "sparse-categories", label: "Categorías con 0 o 1 enlace",
+      items: getCategories().filter(function(c){ return c.count <= 1; }).map(function(c){
+        return cleanupItem(escapeHtml(c.name) + " (" + c.count + (c.count === 1 ? " enlace" : " enlaces") + ")", linkIdsByCategory[c.name] || []);
+      })
+    });
+
+    var byTitle = groupBy(links, function(l){ return l.title.trim().toLowerCase(); });
+    checks.push({
+      id: "dup-titles", label: "Títulos repetidos con URL distinta", unit: "grupos",
+      items: Object.keys(byTitle).filter(function(k){ return byTitle[k].length > 1; }).map(function(k){ return byTitle[k]; })
+        .filter(function(group){
+          var urls = {};
+          group.forEach(function(l){ urls[normalizeUrlForCompare(l.url)] = true; });
+          return Object.keys(urls).length > 1;
+        }).map(function(group){
+          return cleanupItem(escapeHtml(group[0].title) + " — " + group.length + " enlaces con URLs distintas", group.map(function(l){ return l.id; }));
+        })
+    });
+
+    var byHost = groupBy(links, function(l){
+      try{ return new URL(l.url).hostname || null; }catch(e){ return null; }
+    });
+    checks.push({
+      id: "split-domains", label: "Dominios repartidos entre varias categorías",
+      items: Object.keys(byHost).filter(function(h){ return byHost[h].length >= 3; }).map(function(h){
+        var group = byHost[h];
+        var cats = {};
+        group.forEach(function(l){ cats[l.category] = true; });
+        return { host: h, group: group, catCount: Object.keys(cats).length };
+      }).filter(function(g){ return g.catCount >= 2; }).map(function(g){
+        return cleanupItem(escapeHtml(g.host) + " — " + g.group.length + " enlaces en " + g.catCount + " categorías", g.group.map(function(l){ return l.id; }));
+      })
+    });
+
+    checks.push({
+      id: "tracking-params", label: "URLs con parámetros de seguimiento",
+      items: links.filter(function(l){ return hasTrackingParams(l.url); }).map(function(l){ return cleanupItem(cleanupLinkLabel(l), [l.id]); })
+    });
+
+    return checks;
+  }
+
+  function cleanupCheckFocusIds(check){
+    var ids = new Set();
+    check.items.forEach(function(it){ it.linkIds.forEach(function(id){ ids.add(id); }); });
+    return ids;
+  }
+
+  var CLEANUP_ITEM_CAP = 20;
+  var cleanupChecks = [];
+  var cleanupExpanded = new Set();
+  var cleanupModalOverlay = document.getElementById("cleanupModalOverlay");
+
+  function openCleanupPanel(){
+    cleanupChecks = computeCleanupChecks(); // R2.6: recalcula todo al abrir, los datos cambian entre aperturas
+    cleanupExpanded = new Set();
+    renderCleanupPanel();
+    cleanupModalOverlay.hidden = false;
+  }
+
+  function closeCleanupPanel(){
+    cleanupModalOverlay.hidden = true;
+  }
+
+  function renderCleanupPanel(){
+    var list = document.getElementById("cleanupList");
+    var visible = cleanupChecks.filter(function(c){ return c.items.length > 0; });
+    if(visible.length === 0){
+      list.innerHTML = '<p class="tag-empty">Nada que revisar: la colección está limpia.</p>';
+      return;
+    }
+    list.innerHTML = visible.map(function(check){
+      var expanded = cleanupExpanded.has(check.id);
+      var countLabel = check.items.length + (check.unit ? " " + check.unit : "");
+      var html = '<div class="cleanup-check">' +
+        '<button type="button" class="cleanup-check-header" data-action="toggle-check" data-check-id="' + check.id + '">' +
+          '<span class="cleanup-check-label">' + escapeHtml(check.label) + '</span>' +
+          '<span class="cleanup-check-count">' + countLabel + '</span>' +
+          '<span class="cleanup-check-arrow">' + (expanded ? "▾" : "▸") + '</span>' +
+        '</button>';
+      if(expanded){
+        var shown = check.items.slice(0, CLEANUP_ITEM_CAP);
+        var rest = check.items.length - shown.length;
+        var focusIds = cleanupCheckFocusIds(check);
+        html += '<div class="cleanup-check-body">' +
+          '<ul class="cleanup-item-list">' +
+            shown.map(function(it){ return "<li>" + it.label + "</li>"; }).join("") +
+            (rest > 0 ? '<li class="cleanup-item-more">y ' + rest + ' más</li>' : "") +
+          '</ul>' +
+          (focusIds.size > 0 ? '<button type="button" class="link-btn" data-action="focus-check" data-check-id="' + check.id + '">Ver estos ' + focusIds.size + '</button>' : "") +
+        '</div>';
+      }
+      return html + '</div>';
+    }).join("");
+  }
+
+  document.getElementById("cleanupList").addEventListener("click", function(e){
+    var toggleBtn = e.target.closest('[data-action="toggle-check"]');
+    if(toggleBtn){
+      var id = toggleBtn.getAttribute("data-check-id");
+      if(cleanupExpanded.has(id)) cleanupExpanded.delete(id); else cleanupExpanded.add(id);
+      renderCleanupPanel();
+      return;
+    }
+    var focusBtn = e.target.closest('[data-action="focus-check"]');
+    if(focusBtn){
+      var check = cleanupChecks.find(function(c){ return c.id === focusBtn.getAttribute("data-check-id"); });
+      if(!check) return;
+      state.focusIds = cleanupCheckFocusIds(check); // R3.6: aplica el foco y cierra el modal
+      closeCleanupPanel();
+      render();
+    }
+  });
+
+  function syncFocusBanner(){
+    var n = state.focusIds.size;
+    document.getElementById("focusBanner").hidden = n === 0;
+    if(n > 0){
+      document.getElementById("focusBannerText").textContent = "Mostrando " + linkCountText(n) + " de la revisión";
+    }
+  }
+
+  document.getElementById("btnClearFocus").addEventListener("click", function(){
+    state.focusIds = new Set();
+    render();
+  });
+
+  document.getElementById("btnCleanup").addEventListener("click", openCleanupPanel);
+  document.getElementById("btnCleanupClose").addEventListener("click", closeCleanupPanel);
+  registerOverlay(cleanupModalOverlay, closeCleanupPanel);
+
   // ---------- Paleta de comandos (Ctrl+K) ----------
   // COMMANDS es el único origen de verdad de las acciones globales de la app:
   // cada entrada llama a la misma función con nombre que llama el botón
@@ -4159,6 +4478,7 @@
           clearSelectionOnViewChange();
           state.excludedTags.delete(t);
           state.tags.add(t);
+          state.focusIds = new Set();
           saveExcludedTags();
           render();
         }
