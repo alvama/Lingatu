@@ -1231,6 +1231,11 @@
      leerlo, y lo que dice —de dónde salen los enlaces que estás viendo— no
      puede depender de que alguien baje a buscarlo. */
   .storage-badge{
+    /* Al final de la barra, esté en la primera línea o haya bajado a la
+       segunda: con el buscador ya en su ancho legible (F3 de la tarea 17) no
+       caben los dos en una sola fila por debajo de ~1300 px, y un indicador
+       suelto a la izquierda parece un descuido en vez de un estado. */
+    margin-left:auto;
     display:inline-flex;
     align-items:center;
     gap:6px;
@@ -1625,7 +1630,7 @@
          navegador) y del idioma, así que no hay nada que dejar escrito aquí. -->
     <div id="settingsBody"></div>
     <div class="modal-actions">
-      <button type="button" id="btnSettingsClose" class="btn-primary" data-i18n="settings.close">Cerrar</button>
+      <button type="button" id="btnSettingsClose" data-i18n="settings.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -4918,6 +4923,11 @@
     // justo al lado de un mensaje que dice que tus enlaces están en un archivo.
     // Es la misma mentira que la pantalla viene a evitar, dicha en voz baja.
     document.querySelectorAll(".sidebar-section").forEach(function(s){ s.hidden = appLocked; });
+    // Y con las secciones ocultas, el botón de plegarlas (que solo se ve en
+    // ventana estrecha) no tendría nada que plegar: pulsarlo no haría nada
+    // visible, que es justo la sensación de avería que evita el resto de esta
+    // función.
+    document.getElementById("btnSidebarToggle").hidden = appLocked;
     document.body.classList.toggle("is-locked", appLocked);
   }
 
