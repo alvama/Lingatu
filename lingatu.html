@@ -30,8 +30,21 @@
     --shadow-lg:0 10px 30px rgba(20,22,30,0.18);
     --radius:10px;
   }
+  /* Tema oscuro (4.30). El bloque de declaraciones va DOS veces a propósito, y
+     las dos copias tienen que decir exactamente lo mismo:
+       - la de @media es la que responde al sistema, y es la que evita el
+         parpadeo en claro al abrir, porque no depende de que el JavaScript haya
+         llegado a ejecutarse;
+       - la de [data-theme="dark"] es la que permite forzar el tema desde los
+         ajustes aunque el sistema esté en claro, cosa que desde dentro de una
+         @media query no se puede hacer.
+     CSS no deja reutilizar un bloque de declaraciones, y la alternativa
+     —light-dark()— dejaría la app ilegible, no solo fea, en cualquier navegador
+     anterior a 2024. **Si tocas un color aquí, tócalo en las dos copias.**
+     El :not() del @media es lo que hace que "Claro" gane con el sistema en
+     oscuro: sin él, el ajuste solo funcionaría en una dirección. */
   @media (prefers-color-scheme: dark){
-    :root{
+    :root:not([data-theme="light"]){
       --bg:#14161c;
       --surface:#1b1e26;
       --surface-2:#20232c;
@@ -55,6 +68,35 @@
       --shadow-lg:0 10px 30px rgba(0,0,0,0.5);
     }
   }
+  /* Segunda copia del tema oscuro: la del ajuste «Oscuro». Ver el comentario
+     largo de arriba antes de tocar un solo color de aquí. */
+  :root[data-theme="dark"]{
+    --bg:#14161c;
+    --surface:#1b1e26;
+    --surface-2:#20232c;
+    --border:#2c3039;
+    --text:#e7e9ee;
+    --text-muted:#9aa0ac;
+    --primary:#5b7cf0;
+    --primary-hover:#7691f5;
+    --primary-fg:#0d1017;
+    --danger:#e5605c;
+    --danger-hover:#f07d79;
+    --success:#3ec472;
+    --success-bg:#123425;
+    --inactive-bg:#262a33;
+    --inactive-fg:#6f7684;
+    --tag-bg:#242a3d;
+    --tag-fg:#a9b6f5;
+    --tag-active-bg:#5b7cf0;
+    --tag-active-fg:#0d1017;
+    --shadow:0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-lg:0 10px 30px rgba(0,0,0,0.5);
+  }
+  /* Que los controles nativos (barras de desplazamiento, campos de fecha) sigan
+     al tema elegido y no al del sistema. */
+  :root[data-theme="dark"]{color-scheme:dark;}
+  :root[data-theme="light"]{color-scheme:light;}
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -1087,7 +1129,8 @@
   }
   .storage-full-lead{margin:0 0 14px 0;font-size:13px;line-height:1.55;color:var(--text);}
 
-  /* Estado del almacenamiento (4.27): dónde se está guardando ahora mismo. */
+  /* Acciones sobre el archivo, en el pie (4.27). El **estado** ya no se pinta
+     aquí: subió a .storage-badge, en la barra superior (4.29). */
   .storage-status{
     flex:0 0 100%;
     display:flex;
@@ -1097,10 +1140,7 @@
     gap:8px;
     margin-top:6px;
   }
-  .storage-status-text{display:inline-flex;align-items:center;gap:5px;}
-  .storage-status.is-file .storage-status-text{color:var(--success);}
-  .storage-status.is-pending .storage-status-text{color:var(--text-muted);}
-  .storage-status.is-warn .storage-status-text{color:var(--danger);}
+  .storage-status:empty{display:none;}
 
   /* Conflicto con el archivo (4.27). */
   #fileConflictOverlay .modal{max-width:600px;}
@@ -1122,6 +1162,95 @@
     line-height:1.5;
   }
   .conflict-actions{flex-wrap:wrap;gap:8px;}
+
+  /* Indicador de almacenamiento en la barra superior (4.29). Sube aquí desde el
+     pie del lateral porque allí había que desplazarse hasta el final para
+     leerlo, y lo que dice —de dónde salen los enlaces que estás viendo— no
+     puede depender de que alguien baje a buscarlo. */
+  .storage-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+    font-size:12px;
+    padding:5px 10px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text-muted);
+    cursor:pointer;
+    width:auto;
+  }
+  .storage-badge:hover{border-color:var(--primary);}
+  .storage-badge.is-file{color:var(--success);}
+  .storage-badge.is-warn{color:var(--danger);border-color:var(--danger);}
+
+  /* Aviso permanente de modo local con archivo recordado (R8 del encargo 16).
+     No se puede descartar: mientras dure ese modo, decir de cuándo son los
+     datos que se ven es justo lo que evita la confusión que trajo aquí. */
+  .mode-notice{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px;
+    margin:0 0 14px 0;
+    padding:9px 12px;
+    border:1px solid var(--border);
+    border-left:3px solid var(--danger);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--text);
+  }
+  .mode-notice[hidden]{display:none;}
+  .mode-notice button{width:auto;padding:5px 10px;font-size:12px;}
+
+  /* Pantalla de apertura (4.29). Ocupa el sitio de las fichas y no se parece a
+     "no tienes enlaces": dice dónde están y cómo verlos. */
+  .open-gate{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:14px;
+    min-height:50vh;
+    padding:32px 20px;
+  }
+  .open-gate[hidden]{display:none;}
+  .open-gate-icon{font-size:44px;line-height:1;}
+  .open-gate h2{margin:0;font-size:19px;line-height:1.4;max-width:34em;}
+  .open-gate p{margin:0;font-size:14px;line-height:1.6;color:var(--text-muted);max-width:34em;}
+  .open-gate-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;margin-top:4px;}
+  .open-gate-actions .btn-primary{width:auto;padding:10px 18px;}
+  .open-gate-actions .link-btn{font-size:13px;}
+
+  /* Panel de ajustes (4.30). */
+  #settingsOverlay .modal{max-width:560px;}
+  .settings-block{
+    border-top:1px solid var(--border);
+    padding:14px 0 2px 0;
+  }
+  .settings-block:first-of-type{border-top:none;}
+  .settings-block h3{margin:0 0 8px 0;font-size:13px;}
+  .settings-options{display:flex;flex-direction:column;gap:8px;}
+  .settings-option{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    font-size:13px;
+    line-height:1.5;
+    cursor:pointer;
+  }
+  .settings-option input{margin-top:3px;flex:0 0 auto;}
+  .settings-option-hint{display:block;font-size:12px;color:var(--text-muted);}
+  .settings-inline{display:flex;flex-wrap:wrap;gap:14px;}
+  .settings-inline .settings-option{align-items:center;}
+  .settings-file-name{font-size:13px;margin:0 0 6px 0;}
+  .settings-file-note{font-size:12px;color:var(--text-muted);margin:0 0 10px 0;line-height:1.5;}
+  .settings-file-actions{display:flex;flex-wrap:wrap;gap:8px;}
+  .settings-file-actions button{width:auto;padding:6px 12px;font-size:12.5px;}
 
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
@@ -1199,7 +1328,15 @@
       <button type="button" id="btnSelectionMode" class="link-btn" style="white-space:nowrap;"></button>
       <button type="button" id="btnCommandPalette" class="link-btn" style="white-space:nowrap;" data-i18n="toolbar.commands" data-i18n-title="toolbar.commandsTitle" title="Buscar enlaces, categorías, vistas, etiquetas y acciones (atajo: Ctrl+K)">Comandos (Ctrl+K)</button>
       <span id="resultCount"></span>
+      <!-- El texto lo escribe syncStorageBadge() en cada render(): cambia con el
+           modo, con el archivo y con lo que quede por guardar. -->
+      <button type="button" id="storageBadge" class="storage-badge"></button>
     </div>
+    <!-- Aviso permanente de "estás en modo local pero tienes un archivo" (R8). -->
+    <div id="modeNotice" class="mode-notice" hidden></div>
+    <!-- Pantalla de apertura (R4). Ocupa el sitio de las fichas; su contenido lo
+         escribe renderOpenGate(). -->
+    <section id="openGate" class="open-gate" data-i18n-aria="gate.aria" aria-label="Tus enlaces están en un archivo" hidden></section>
     <div id="focusBanner" class="focus-banner" hidden>
       <span id="focusBannerText"></span>
       <button type="button" id="btnClearFocus" class="link-btn" data-i18n="focus.clear">Quitar</button>
@@ -1393,6 +1530,20 @@
   </div>
 </div>
 
+<div id="settingsOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <h2 id="settingsTitle" data-i18n="settings.title">Ajustes</h2>
+    <p class="help-intro" data-i18n="settings.intro">Cuatro decisiones. Ninguna de ellas toca tus enlaces.</p>
+    <!-- El cuerpo entero lo escribe renderSettings(): los cuatro ajustes
+         dependen del estado (modo actual, archivo recordado, soporte del
+         navegador) y del idioma, así que no hay nada que dejar escrito aquí. -->
+    <div id="settingsBody"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnSettingsClose" class="btn-primary" data-i18n="settings.close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div id="commandPaletteOverlay" class="modal-overlay palette-overlay" hidden>
   <div class="modal palette">
     <input type="text" id="commandPaletteInput" class="palette-input" data-i18n-placeholder="palette.placeholder" placeholder="Busca una acción, un enlace, una categoría, una vista o una etiqueta..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="commandPaletteResults" data-i18n-aria="palette.aria" aria-label="Paleta de comandos">
@@ -1416,6 +1567,12 @@
   var CATEGORY_ICONS_KEY = "enlaces_category_icons_v1";
   var EXCLUDED_TAGS_KEY = "enlaces_excluded_tags_v1";
   var VIEW_PROFILES_KEY = "enlaces_view_profiles_v1";
+
+  // Configuración de ESTA instalación, no contenido de la colección: por eso
+  // ninguna de las dos entra en STATE_SLOTS, no viaja en el archivo de datos y
+  // no se restaura al restaurar una copia. Mismo prefijo heredado, como todas.
+  var STORAGE_MODE_KEY = "enlaces_storage_mode_v1";  // "local" | "file" (4.29)
+  var THEME_KEY = "enlaces_theme_v1";                // "light" | "dark" | "system" (4.30)
 
   // Claves de las salvaguardas (4.26). Mismo prefijo heredado que las once de
   // estado, por la misma razón: aquí el prefijo ya no es una decisión, es el
@@ -1697,6 +1854,7 @@
 
       // --- Pie: avisos ---
       "footer.help": "Ayuda (?)",
+      "footer.settings": "Ajustes",
       "footer.corrupt": "⚠️ Parte de tus datos guardados no se ha podido leer y no se está mostrando. <strong>De momento no se ha borrado nada</strong>, pero en cuanto guardes un cambio se escribirá encima. Antes de seguir: restaura una copia, o exporta lo que sí se ve.",
       "footer.seeCopies": "Ver las copias",
       "footer.exportVisible": "Exportar lo visible",
@@ -1749,12 +1907,8 @@
       "file.versionOnScreen": "{count} · lo que estás viendo ahora en pantalla",
       "file.savingIn": "Guardando en {name}",
       "file.notFound": "No se encuentra {name}",
-      "file.notFoundPending": "No se encuentra {name} — lo que has cambiado todavía no está ahí",
       "file.notConnected": "Sin conectar con {name}",
-      "file.notConnectedPending": "Sin conectar con {name} — lo que has cambiado todavía no está ahí",
       "file.savingHere": "Guardando en este navegador",
-      "file.heldBack": "⚠️ Lo que ves no está en {name}",
-      "file.savingEllipsis": "Guardando en {name}…",
       "file.savedAt": "📄 {name} · guardado a las {time}",
       "file.savedNoTime": "📄 {name}",
       "file.saveNow": "Guardar ahora",
@@ -1766,8 +1920,8 @@
       "file.createAnother": "Crear otro",
       "file.createAnotherTitle": "Empezar de nuevo con un archivo nuevo",
       "file.forgetIt": "Olvidarlo",
-      "file.reconnect": "Reconectar",
-      "file.reconnectTitle": "Devolver a Lingatu el permiso para escribir en el archivo",
+      "file.reconnect": "Abrir mis enlaces",
+      "file.reconnectTitle": "Abrir tu archivo para ver y guardar en él tus enlaces",
       "file.connect": "Guardar en un archivo…",
       "file.connectTitle": "Crear el archivo: se abre la ventana de guardar de tu sistema y el navegador lo crea donde le digas. No tienes que prepararlo antes",
       "file.openExisting": "Ya tengo uno",
@@ -1794,12 +1948,12 @@
       "file.notLingatu": "Ese archivo no parece un archivo de datos de Lingatu.",
       "file.useAnyway": "{warning}\n\n¿Quieres usarlo de todas formas y escribir encima tus {count}? Su contenido actual se perderá.",
       "file.openFailed": "No se ha podido abrir el archivo{detail}. No se ha tocado nada.",
-      "file.noPermissionKeeps": "Sin ese permiso, Lingatu sigue funcionando y guardando en este navegador, pero no puede escribir en {name}.",
-      "file.missingAlert": "El archivo {name} ya no está donde estaba: puede que lo hayas movido, renombrado o borrado.\n\nNo se ha perdido nada — tus datos siguen en este navegador. Puedes elegir otro archivo desde el pie de la página.",
+      "file.noPermissionKeeps": "Sin ese permiso, Lingatu no puede abrir {name}.\n\nPuedes intentarlo otra vez, o trabajar mientras tanto con los datos de este navegador.",
+      "file.missingAlert": "El archivo {name} ya no está donde estaba: puede que lo hayas movido, renombrado o borrado.\n\nNo se ha perdido nada. Puedes buscarlo donde esté ahora, o trabajar con los datos de este navegador.",
       "file.unreadable": "El archivo {name} no se ha podido leer{reason}\n\nNo se ha escrito nada encima. Tus datos siguen en este navegador.",
       "file.unreadableNewer": ": lo guardó una versión más reciente de Lingatu.",
       "file.unreadableDot": ".",
-      "file.reconnectFailed": "No se ha podido reconectar{detail}. No se ha tocado nada.",
+      "file.reconnectFailed": "No se ha podido abrir el archivo{detail}. No se ha tocado nada.",
       "file.disconnectConfirm": "Dejar de guardar en {name}.\n\nEl archivo se queda como está, con todo lo que tiene dentro, y tus {count} siguen guardados en este navegador. ¿Continuar?",
       "file.disconnected": "Desconectado. Lingatu vuelve a guardar solo en este navegador.",
       "file.conflictDiskConfirm": "Vas a sustituir lo que tienes ahora ({now}) por lo que hay en el archivo ({inFile}).\n\n¿Continuar?",
@@ -1810,6 +1964,58 @@
       "file.savedApart": "Guardado como {name}. El archivo anterior se queda intacto, con su contenido.",
       "file.savedApartFailed": "No se ha podido escribir en el archivo nuevo. No se ha tocado nada.",
       "file.createFailed": "No se ha podido crear el archivo{detail}.",
+
+      // --- Modo de trabajo y pantalla de apertura (4.29) ---
+      "gate.aria": "Tus enlaces están en un archivo",
+      "gate.titleFile": "Tus enlaces están en {name}.",
+      "gate.leadFile": "Ábrelo para verlos y trabajar con ellos.",
+      "gate.open": "Abrir mis enlaces",
+      "gate.openTitle": "Pide al navegador el permiso para leer y escribir tu archivo",
+      "gate.titleMissing": "No encuentro {name}.",
+      "gate.leadMissing": "Puede que lo hayas movido, lo hayas renombrado o esté en un disco que ahora no está conectado. No se ha perdido nada: el archivo sigue donde esté.",
+      "gate.find": "Buscar mi archivo",
+      "gate.findTitle": "Elegirlo donde esté ahora",
+      "gate.titleNoFile": "Todavía no has elegido tu archivo.",
+      "gate.leadNoFile": "Elige el archivo donde quieres que vivan tus enlaces, o crea uno nuevo.",
+      "gate.openExisting": "Abrir un archivo que ya tengo",
+      "gate.create": "Crear un archivo nuevo",
+      "gate.titleUnsupported": "Este navegador no puede abrir archivos.",
+      "gate.leadUnsupported": "Chrome y Edge sí pueden; Firefox, de momento, no. Tus enlaces siguen donde estén: aquí solo puedes trabajar con los datos de este navegador.",
+      "gate.useLocal": "Trabajar con los datos de este navegador",
+      "gate.useLocalTitle": "Ver la última copia guardada aquí. Tu archivo no se toca",
+      "gate.blocked": "Antes de trabajar con tus enlaces hay que abrir {name}.\n\nPulsa «Abrir mis enlaces». Si prefieres no hacerlo ahora, puedes trabajar con los datos de este navegador.",
+      "gate.blockedNoFile": "Antes de trabajar con tus enlaces hay que abrir tu archivo.",
+
+      // --- Indicador de la barra superior (4.29) ---
+      "badge.pending": "⚠️ Hay cambios que aún no están en {name}",
+      "badge.local": "💻 Guardando en este navegador",
+      "badge.closed": "📄 {name} · sin abrir",
+      "badge.title": "Dónde se están guardando tus enlaces. Se cambia en los ajustes",
+
+      // --- Aviso de modo local con archivo recordado (4.29) ---
+      "mode.localNotice": "Estás viendo la última copia guardada en este navegador el {date} a las {time}, no tu archivo {name}.",
+      "mode.localNoticeNoDate": "Estás viendo los datos de este navegador, no tu archivo {name}.",
+      "mode.localNoticeOpen": "Abrir mi archivo",
+
+      // --- Ajustes (4.30) ---
+      "settings.title": "Ajustes",
+      "settings.intro": "Cuatro decisiones. Ninguna de ellas toca tus enlaces.",
+      "settings.close": "Cerrar",
+      "settings.modeTitle": "Modo de trabajo",
+      "settings.modeLocal": "Este navegador",
+      "settings.modeLocalHint": "Los enlaces se guardan dentro de este navegador, en este equipo. No hay nada que abrir.",
+      "settings.modeFile": "Un archivo mío",
+      "settings.modeFileHint": "Los enlaces viven en un archivo tuyo, y lo abres al empezar. El navegador no recuerda el permiso de una vez para otra, así que hay que abrirlo cada vez que lo cierras.",
+      "settings.langTitle": "Idioma",
+      "settings.themeTitle": "Tema",
+      "settings.fileTitle": "Archivo de datos",
+      "settings.fileNone": "Todavía no has elegido ninguno.",
+      "settings.fileCurrent": "Ahora mismo: {name}",
+      "settings.fileNoPath": "El navegador no dice en qué carpeta está, y no hay forma de escribir la ruta a mano: el archivo se elige siempre desde la ventana de tu sistema.",
+      "settings.fileOpen": "Abrir un archivo que ya tengo",
+      "settings.fileCreate": "Crear un archivo nuevo",
+      "settings.fileDrop": "Soltar el archivo",
+      "settings.fileDropTitle": "Dejar de usar el archivo. Ni el archivo ni tus datos se borran",
 
       // --- Ayuda ---
       "help.title": "Ayuda: atajos y gestos",
@@ -1844,9 +2050,11 @@
       "command.restoreBackup": "Restaurar una copia de seguridad",
       "command.connectFile": "Guardar en un archivo (crear uno nuevo)",
       "command.openFile": "Conectar con un archivo de Lingatu que ya tengo",
-      "command.reconnectFile": "Reconectar con el archivo",
+      "command.reconnectFile": "Abrir mis enlaces",
       "command.disconnectFile": "Dejar de guardar en el archivo",
       "command.switchLanguage": "Ver Lingatu en inglés",
+      "command.settings": "Ajustes: modo de trabajo, idioma, tema y archivo",
+      "command.useLocal": "Trabajar con los datos de este navegador",
 
       // --- Idioma ---
       "lang.label": "Idioma",
@@ -1855,6 +2063,11 @@
       "lang.en": "English",
       "lang.notice": "Lingatu ya está también en inglés. Puedes cambiar de idioma en el pie de este lateral, sin que ninguno de tus datos se toque.",
       "lang.noticeDismiss": "Entendido",
+
+      // --- Tema ---
+      "theme.light": "Claro",
+      "theme.dark": "Oscuro",
+      "theme.system": "El del sistema",
 
       // --- Comunes ---
       "common.links": { one: "{n} enlace", other: "{n} enlaces" },
@@ -2101,6 +2314,7 @@
 
       // --- Pie: avisos ---
       "footer.help": "Help (?)",
+      "footer.settings": "Settings",
       "footer.corrupt": "⚠️ Part of your saved data could not be read and is not being shown. <strong>Nothing has been deleted so far</strong>, but as soon as you save a change it will be written over. Before going on: restore a copy, or export what you can still see.",
       "footer.seeCopies": "See the copies",
       "footer.exportVisible": "Export what is visible",
@@ -2153,12 +2367,8 @@
       "file.versionOnScreen": "{count} · what you are seeing on screen now",
       "file.savingIn": "Saving to {name}",
       "file.notFound": "{name} cannot be found",
-      "file.notFoundPending": "{name} cannot be found — what you changed is not there yet",
       "file.notConnected": "Not connected to {name}",
-      "file.notConnectedPending": "Not connected to {name} — what you changed is not there yet",
       "file.savingHere": "Saving in this browser",
-      "file.heldBack": "⚠️ What you see is not in {name}",
-      "file.savingEllipsis": "Saving to {name}…",
       "file.savedAt": "📄 {name} · saved at {time}",
       "file.savedNoTime": "📄 {name}",
       "file.saveNow": "Save now",
@@ -2170,8 +2380,8 @@
       "file.createAnother": "Create another",
       "file.createAnotherTitle": "Start again with a new file",
       "file.forgetIt": "Forget it",
-      "file.reconnect": "Reconnect",
-      "file.reconnectTitle": "Give Lingatu back permission to write to the file",
+      "file.reconnect": "Open my links",
+      "file.reconnectTitle": "Open your file to see your links and save in it",
       "file.connect": "Save to a file…",
       "file.connectTitle": "Create the file: your system's save dialog opens and the browser creates it wherever you say. You do not have to prepare it beforehand",
       "file.openExisting": "I already have one",
@@ -2198,12 +2408,12 @@
       "file.notLingatu": "That file does not look like a Lingatu data file.",
       "file.useAnyway": "{warning}\n\nDo you want to use it anyway and write your {count} over it? Its current contents will be lost.",
       "file.openFailed": "The file could not be opened{detail}. Nothing has been touched.",
-      "file.noPermissionKeeps": "Without that permission, Lingatu keeps working and saving in this browser, but cannot write to {name}.",
-      "file.missingAlert": "The file {name} is no longer where it was: you may have moved, renamed or deleted it.\n\nNothing has been lost — your data is still in this browser. You can choose another file from the page footer.",
+      "file.noPermissionKeeps": "Without that permission, Lingatu can't open {name}.\n\nYou can try again, or work with this browser's data in the meantime.",
+      "file.missingAlert": "The file {name} is no longer where it was: you may have moved, renamed or deleted it.\n\nNothing has been lost. You can find it wherever it is now, or work with this browser's data.",
       "file.unreadable": "The file {name} could not be read{reason}\n\nNothing has been written over it. Your data is still in this browser.",
       "file.unreadableNewer": ": it was saved by a more recent version of Lingatu.",
       "file.unreadableDot": ".",
-      "file.reconnectFailed": "Could not reconnect{detail}. Nothing has been touched.",
+      "file.reconnectFailed": "The file could not be opened{detail}. Nothing has been touched.",
       "file.disconnectConfirm": "Stop saving to {name}.\n\nThe file stays as it is, with everything inside it, and your {count} stay saved in this browser. Continue?",
       "file.disconnected": "Disconnected. Lingatu saves in this browser only again.",
       "file.conflictDiskConfirm": "You are about to replace what you have now ({now}) with what is in the file ({inFile}).\n\nContinue?",
@@ -2214,6 +2424,58 @@
       "file.savedApart": "Saved as {name}. The previous file is left intact, with its contents.",
       "file.savedApartFailed": "The new file could not be written to. Nothing has been touched.",
       "file.createFailed": "The file could not be created{detail}.",
+
+      // --- Modo de trabajo y pantalla de apertura (4.29) ---
+      "gate.aria": "Your links are in a file",
+      "gate.titleFile": "Your links are in {name}.",
+      "gate.leadFile": "Open it to see them and work with them.",
+      "gate.open": "Open my links",
+      "gate.openTitle": "Ask the browser for permission to read and write your file",
+      "gate.titleMissing": "I can't find {name}.",
+      "gate.leadMissing": "You may have moved it, renamed it, or it may be on a drive that isn't connected right now. Nothing has been lost: the file is still wherever it is.",
+      "gate.find": "Find my file",
+      "gate.findTitle": "Pick it wherever it is now",
+      "gate.titleNoFile": "You haven't chosen your file yet.",
+      "gate.leadNoFile": "Choose the file where you want your links to live, or create a new one.",
+      "gate.openExisting": "Open a file I already have",
+      "gate.create": "Create a new file",
+      "gate.titleUnsupported": "This browser can't open files.",
+      "gate.leadUnsupported": "Chrome and Edge can; Firefox, for now, can't. Your links are still wherever they are: here you can only work with this browser's data.",
+      "gate.useLocal": "Work with this browser's data",
+      "gate.useLocalTitle": "See the last copy saved here. Your file is not touched",
+      "gate.blocked": "Before working with your links, {name} has to be opened.\n\nClick “Open my links”. If you'd rather not right now, you can work with this browser's data.",
+      "gate.blockedNoFile": "Before working with your links, your file has to be opened.",
+
+      // --- Indicador de la barra superior (4.29) ---
+      "badge.pending": "⚠️ There are changes that aren't in {name} yet",
+      "badge.local": "💻 Saving in this browser",
+      "badge.closed": "📄 {name} · not open",
+      "badge.title": "Where your links are being saved. You change it in the settings",
+
+      // --- Aviso de modo local con archivo recordado (4.29) ---
+      "mode.localNotice": "You're looking at the last copy saved in this browser on {date} at {time}, not at your file {name}.",
+      "mode.localNoticeNoDate": "You're looking at this browser's data, not at your file {name}.",
+      "mode.localNoticeOpen": "Open my file",
+
+      // --- Ajustes (4.30) ---
+      "settings.title": "Settings",
+      "settings.intro": "Four decisions. None of them touches your links.",
+      "settings.close": "Close",
+      "settings.modeTitle": "Where you work",
+      "settings.modeLocal": "This browser",
+      "settings.modeLocalHint": "Links are saved inside this browser, on this computer. There is nothing to open.",
+      "settings.modeFile": "A file of mine",
+      "settings.modeFileHint": "Links live in a file of yours, and you open it when you start. The browser doesn't remember the permission from one time to the next, so you have to open it every time you close it.",
+      "settings.langTitle": "Language",
+      "settings.themeTitle": "Theme",
+      "settings.fileTitle": "Data file",
+      "settings.fileNone": "You haven't chosen one yet.",
+      "settings.fileCurrent": "Right now: {name}",
+      "settings.fileNoPath": "The browser doesn't say which folder it's in, and there's no way to type the path by hand: the file is always chosen from your system's own window.",
+      "settings.fileOpen": "Open a file I already have",
+      "settings.fileCreate": "Create a new file",
+      "settings.fileDrop": "Let go of the file",
+      "settings.fileDropTitle": "Stop using the file. Neither the file nor your data is deleted",
 
       // --- Ayuda ---
       "help.title": "Help: shortcuts and gestures",
@@ -2248,8 +2510,10 @@
       "command.restoreBackup": "Restore a backup",
       "command.connectFile": "Save to a file (create a new one)",
       "command.openFile": "Connect to a Lingatu file I already have",
-      "command.reconnectFile": "Reconnect to the file",
+      "command.reconnectFile": "Open my links",
       "command.disconnectFile": "Stop saving to the file",
+      "command.settings": "Settings: where you work, language, theme and file",
+      "command.useLocal": "Work with this browser's data",
       "command.switchLanguage": "Ver Lingatu en español",
 
       // --- Idioma ---
@@ -2259,6 +2523,11 @@
       "lang.en": "English",
       "lang.notice": "Lingatu is now also in English. You can change the language at the foot of this sidebar, without any of your data being touched.",
       "lang.noticeDismiss": "Got it",
+
+      // --- Tema ---
+      "theme.light": "Light",
+      "theme.dark": "Dark",
+      "theme.system": "The system's",
 
       // --- Comunes ---
       "common.links": { one: "{n} link", other: "{n} links" },
@@ -2444,6 +2713,41 @@
 
   function toggleLanguage(){
     setLanguage(currentLang === "es" ? "en" : "es");
+  }
+
+  // ---------- Tema (4.30) ----------
+  // Tres valores, y el de por defecto es el de siempre: "system" no pone ningún
+  // atributo y deja mandar a la @media de prefers-color-scheme, que es como
+  // funcionaba la app antes de existir este ajuste. Elegir claro u oscuro pone
+  // el atributo en <html> y redefine las variables de :root; no hay ni un color
+  // aquí, todos viven en el CSS.
+  var THEMES = ["system", "light", "dark"];
+  var currentTheme = "system";
+
+  function loadTheme(){
+    var saved = localStorage.getItem(THEME_KEY);
+    return THEMES.indexOf(saved) !== -1 ? saved : "system";
+  }
+
+  function applyTheme(){
+    if(currentTheme === "system"){
+      document.documentElement.removeAttribute("data-theme");
+    }else{
+      document.documentElement.setAttribute("data-theme", currentTheme);
+    }
+  }
+
+  function initTheme(){
+    currentTheme = loadTheme();
+    applyTheme();
+  }
+
+  function setTheme(theme){
+    if(THEMES.indexOf(theme) === -1 || theme === currentTheme) return;
+    currentTheme = theme;
+    storageWriteQuiet(THEME_KEY, theme);
+    applyTheme();
+    renderSettings();
   }
 
   var state = {
@@ -2907,6 +3211,13 @@
   // evita guardar tres veces lo mismo — que es tener una sola copia ocupando
   // el triple justo en el almacén cuyo problema es el tamaño.
   function rotateBackups(){
+    // Con la pantalla de apertura puesta (4.29), el estado en memoria está
+    // vacío a propósito: no representa la colección, representa que todavía no
+    // se ha abierto. Copiarlo desplazaría hacia atrás las tres copias buenas
+    // con tres instantáneas de nada. Es la misma cautela que la de abajo, por
+    // el mismo motivo (R7 del encargo 16).
+    if(appLocked) return;
+
     // Con datos ilegibles, el estado en memoria está degradado: copiarlo
     // desplazaría hacia atrás las copias buenas y, en tres arranques, no
     // quedaría ninguna. Es justo el caso para el que existen.
@@ -3010,9 +3321,15 @@
 
   // ---------- Archivo como fuente de verdad (4.27) ----------
   // Ruta A′ de la Fase 0: el handle sobrevive al cierre del navegador guardado
-  // en IndexedDB, pero el permiso no — con origen file:// vuelve a "prompt" en
-  // cada carga. De ahí que exista "Reconectar" y que la app nunca se bloquee
-  // esperando un permiso que solo un gesto del usuario puede devolver.
+  // en IndexedDB, pero el permiso no — vuelve a "prompt" en cada arranque del
+  // navegador. Y no es cosa del origen opaco de file://: P11 midió lo mismo con
+  // un origen normal y estable. De ahí que haya que abrir el archivo una vez por
+  // sesión, con un gesto que solo el usuario puede dar.
+  //
+  // Lo que cambió en 4.29: mientras ese gesto no llega, la app **no** sigue
+  // trabajando con la copia del navegador como si nada. Enseña la pantalla de
+  // apertura y no deja tocar nada, porque un enlace guardado "en algún sitio"
+  // es el fallo que este archivo entero intenta que no vuelva a pasar.
   var FILE_DB = "lingatu_file_v1";
   var FILE_STORE = "handles";
   var FILE_HANDLE_KEY = "archivo";
@@ -3023,6 +3340,55 @@
   // así que allí el modo archivo no se ofrece: ni botón, ni comando.
   function supportsFileMode(){
     return typeof window.showSaveFilePicker === "function";
+  }
+
+  // ---------- Modo de trabajo (4.29) ----------
+  // La inversión que trae el encargo 16: el modo lo elige el usuario y se
+  // persiste. ANTES se derivaba del permiso del navegador, y como ese permiso
+  // no sobrevive al cierre (P6, y tampoco con un origen no opaco: P11), el modo
+  // cambiaba solo bajo los pies del usuario y la app seguía funcionando como si
+  // nada. De ahí salía toda la confusión: enlaces en pantalla sin poder decir de
+  // dónde salían.
+  //
+  // Ahora son dos preguntas distintas y separadas:
+  //   getMode()      ¿dónde ha dicho el usuario que quiere trabajar?
+  //   isFileReady()  ¿puedo leer y escribir el archivo AHORA MISMO?
+  // Lo único que decide el permiso es la segunda. Cuando la respuesta es no y
+  // el modo es "file", la app no enseña enlaces: enseña la pantalla de apertura.
+  var storageMode = "local";
+
+  // Con la pantalla de apertura puesta: el estado en memoria no representa
+  // ninguna colección y NADA puede escribir, exportar ni copiar. Es la
+  // invariante 2 del encargo hecha una sola bandera.
+  var appLocked = false;
+
+  function loadStorageMode(){
+    var saved = localStorage.getItem(STORAGE_MODE_KEY);
+    return (saved === "file" || saved === "local") ? saved : null;
+  }
+
+  function saveStorageMode(mode){
+    storageMode = mode;
+    storageWriteQuiet(STORAGE_MODE_KEY, mode);
+  }
+
+  // R3: migración sin que nadie tenga que configurar nada. Quien ya tenía un
+  // archivo recordado arranca en modo archivo; el resto, en local. El modo
+  // nunca se deduce del permiso, que es justo lo que se está eliminando.
+  // El handle de IndexedDB llega después (es asíncrono): esa segunda mitad de
+  // la migración la remata StorageAdapter.init().
+  function initStorageMode(){
+    var saved = loadStorageMode();
+    if(saved){
+      storageMode = saved;
+    }else{
+      storageMode = (supportsFileMode() && loadFileMeta().name) ? "file" : "local";
+      saveStorageMode(storageMode);
+    }
+    // Un modo archivo heredado en un navegador que no puede abrir archivos
+    // (Firefox, R17) dejaría la app con una pantalla de apertura sin salida
+    // útil. Ahí el modo se corrige solo, y el archivo recordado no se toca.
+    if(storageMode === "file" && !supportsFileMode()) storageMode = "local";
   }
 
   var fileState = {
@@ -3226,7 +3592,7 @@
     // nada, y eso tenía dos consecuencias graves: al reconectar no se volcaba
     // (fileState.dirty seguía en false, ver syncAfterReconnect) y el pie decía
     // "guardado" delante de un archivo que no tenía ese cambio.
-    if(StorageAdapter.getMode() !== "file"){
+    if(!StorageAdapter.isFileReady()){
       fileState.dirty = true;
       syncStorageStatus();
       return;
@@ -3242,7 +3608,7 @@
 
   function flushFileSave(){
     if(!fileState.dirty || fileState.saving) return Promise.resolve({ ok:false, reason:"nada-que-hacer" });
-    if(StorageAdapter.getMode() !== "file") return Promise.resolve({ ok:false, reason:"sin-archivo" });
+    if(!StorageAdapter.isFileReady()) return Promise.resolve({ ok:false, reason:"sin-archivo" });
     fileState.saving = true;
     if(fileState.timer){ clearTimeout(fileState.timer); fileState.timer = null; }
     return writeFileState().then(function(r){
@@ -3266,30 +3632,35 @@
   // pasa a ser la caché y la red de seguridad (R23) — nunca se vacía al migrar.
   var StorageAdapter = {
     init: function(){
-      if(!supportsFileMode()) return Promise.resolve({ ready:true, mode:"localstorage", label:StorageAdapter.getStatusLabel() });
+      if(!supportsFileMode()) return Promise.resolve({ ready:true, mode:StorageAdapter.getMode(), fileReady:false });
       var meta = loadFileMeta();
       fileState.name = meta.name;
       fileState.lastModified = meta.lastModified;
       fileState.lastSavedAt = meta.savedAt || null;
       return idbGet(FILE_HANDLE_KEY).then(function(h){
         if(!h || typeof h.queryPermission !== "function"){
-          return { ready:true, mode:"localstorage", label:StorageAdapter.getStatusLabel() };
+          return { ready:true, mode:StorageAdapter.getMode(), fileReady:false };
         }
         fileState.handle = h;
         if(!fileState.name) fileState.name = h.name || "";
+        // Segunda mitad de la migración de R3: si no había modo guardado y
+        // tampoco nombre de archivo en localStorage, pero sí un handle
+        // recordado, esta instalación venía trabajando con archivo.
+        if(loadStorageMode() === null) saveStorageMode("file");
         return fileHasPermission("readwrite").then(function(ok){
-          // Sin permiso no se bloquea nada (R24): se arranca con los datos del
-          // navegador y se ofrece reconectar cuando al usuario le venga bien.
+          // El permiso ya NO decide el modo (4.29): decide si el archivo está
+          // disponible. Sin él, en modo archivo, la app no enseña enlaces —
+          // enseña la pantalla de apertura.
           fileState.needsReconnect = !ok;
-          return { ready:true, mode:StorageAdapter.getMode(), label:StorageAdapter.getStatusLabel() };
+          return { ready:true, mode:StorageAdapter.getMode(), fileReady:StorageAdapter.isFileReady() };
         });
       }).catch(function(){
-        return { ready:true, mode:"localstorage", label:StorageAdapter.getStatusLabel() };
+        return { ready:true, mode:StorageAdapter.getMode(), fileReady:false };
       });
     },
 
     loadAll: function(){
-      if(StorageAdapter.getMode() !== "file") return Promise.resolve(null);
+      if(!StorageAdapter.isFileReady()) return Promise.resolve(null);
       return readFileState().then(function(r){
         return r.ok ? r.data : null;
       });
@@ -3299,12 +3670,21 @@
       return flushFileSave();
     },
 
+    // El modo ELEGIDO, no el derivado del permiso. Ver el bloque de "Modo de
+    // trabajo" más arriba: separar esto de isFileReady() es el encargo entero.
     getMode: function(){
-      return (fileState.handle && !fileState.needsReconnect && !fileState.missing) ? "file" : "localstorage";
+      return storageMode;
+    },
+
+    // ¿Puedo leer y escribir el archivo ahora mismo? Es lo único que decide el
+    // permiso del navegador.
+    isFileReady: function(){
+      return storageMode === "file" && !!fileState.handle &&
+             !fileState.needsReconnect && !fileState.missing;
     },
 
     getStatusLabel: function(){
-      if(StorageAdapter.getMode() === "file"){
+      if(StorageAdapter.isFileReady()){
         return t("file.savingIn", { name: fileState.name });
       }
       if(fileState.missing) return t("file.notFound", { name: fileState.name });
@@ -3314,6 +3694,9 @@
 
     disconnect: function(){
       // Suelta el archivo; jamás borra su contenido ni el de localStorage.
+      // Soltar el archivo es además elegir el otro modo: quedarse en modo
+      // archivo sin archivo dejaría la app pidiendo abrir algo que ya no existe.
+      saveStorageMode("local");
       if(fileState.timer){ clearTimeout(fileState.timer); fileState.timer = null; }
       fileState.handle = null;
       fileState.name = "";
@@ -4036,9 +4419,22 @@
   }
 
   function renderCards(){
-    var filtered = getFilteredLinks();
     var container = document.getElementById("linksContainer");
     var emptyState = document.getElementById("emptyState");
+
+    // R4: con la pantalla de apertura puesta no se pinta ni una ficha, y el
+    // estado vacío tampoco — decir "no se encontraron enlaces" delante de una
+    // colección que sencillamente no se ha abierto es la mentira que este
+    // encargo viene a quitar.
+    renderOpenGate();
+    if(appLocked){
+      container.innerHTML = "";
+      emptyState.hidden = true;
+      document.getElementById("resultCount").textContent = "";
+      return;
+    }
+
+    var filtered = getFilteredLinks();
     document.getElementById("resultCount").textContent = linkCountText(filtered.length);
 
     if(filtered.length === 0){
@@ -4244,7 +4640,192 @@
     syncFocusBanner();
     syncFooterNotices();
     syncStorageStatus();
+    // Los tres de 4.29 van al final: los dos primeros dependen de lo que
+    // acaban de pintar los anteriores, y syncLockedUi() tiene que poder
+    // desactivar controles que renderSidebar() acaba de crear.
+    syncStorageBadge();
+    syncModeNotice();
+    syncLockedUi();
   }
+
+  // ---------- Pantalla de apertura (4.29) ----------
+  // Invariante del encargo 16: nunca se muestran enlaces sin poder decir de
+  // dónde salen. Con modo archivo y el archivo no disponible, el estado en
+  // memoria se queda vacío, no se pinta ni una ficha, y esta pantalla ocupa la
+  // zona de contenido. No se parece a "no tienes enlaces" a propósito: esa es
+  // la lectura que hace cualquiera ante un hueco vacío, y lleva a creer que se
+  // han perdido.
+  //
+  // Cuatro variantes, porque cuatro son las situaciones en las que un archivo
+  // no está disponible, y decirlas con las mismas palabras sería mentir en tres
+  // de ellas.
+  // "pick" y "closed" se distinguen por el HANDLE, no por el nombre: con el
+  // nombre recordado pero sin handle —IndexedDB vaciado, perfil nuevo, otro
+  // equipo— no hay nada que reabrir, hay que volver a elegir el archivo. Si eso
+  // se tratara como "closed", el botón acabaría llamando al selector de
+  // *guardar como* delante de un archivo que contiene la única copia de la
+  // colección, con su "¿desea reemplazarlo?": la pregunta exacta que un usuario
+  // prudente responde mal.
+  function gateVariant(){
+    if(!supportsFileMode()) return "unsupported";
+    if(fileState.missing) return "missing";
+    if(!fileState.handle) return "pick";
+    return "closed";
+  }
+
+  function renderOpenGate(){
+    var gate = document.getElementById("openGate");
+    if(!gate) return;
+    if(!appLocked){
+      gate.hidden = true;
+      gate.innerHTML = "";
+      return;
+    }
+    var variante = gateVariant();
+    var nombre = '<strong>' + escapeHtml(fileState.name || t("file.fallbackName")) + '</strong>';
+    var icono = "📄", titulo = "", texto = "", acciones = "";
+
+    // El botón de "trabajar con los datos de este navegador" es la segunda
+    // salida, y está en las cuatro variantes: R6 dice que solo hay dos salidas,
+    // pero también que las dos tienen que estar siempre.
+    var salidaLocal = '<button type="button" class="link-btn" data-action="gate-local" title="' +
+      escapeHtml(t("gate.useLocalTitle")) + '">' + escapeHtml(t("gate.useLocal")) + '</button>';
+
+    if(variante === "missing"){
+      icono = "🔍";
+      titulo = t("gate.titleMissing", { name: nombre });
+      texto = escapeHtml(t("gate.leadMissing"));
+      acciones = '<button type="button" class="btn-primary" data-action="gate-find" title="' +
+        escapeHtml(t("gate.findTitle")) + '">' + escapeHtml(t("gate.find")) + '</button>' + salidaLocal;
+    }else if(variante === "pick"){
+      icono = "📁";
+      // Con el nombre recordado se nombra —"tus enlaces están en X"—, aunque
+      // haya que volver a buscarlo: es la información que hace falta para
+      // reconocerlo en la ventana del sistema.
+      titulo = fileState.name ? t("gate.titleFile", { name: nombre }) : escapeHtml(t("gate.titleNoFile"));
+      texto = escapeHtml(fileState.name ? t("gate.leadFile") : t("gate.leadNoFile"));
+      acciones = '<button type="button" class="btn-primary" data-action="gate-find">' + escapeHtml(t("gate.openExisting")) + '</button>' +
+        '<button type="button" data-action="gate-create" style="width:auto;">' + escapeHtml(t("gate.create")) + '</button>' + salidaLocal;
+    }else if(variante === "unsupported"){
+      icono = "🌐";
+      titulo = escapeHtml(t("gate.titleUnsupported"));
+      texto = escapeHtml(t("gate.leadUnsupported"));
+      acciones = '<button type="button" class="btn-primary" data-action="gate-local">' + escapeHtml(t("gate.useLocal")) + '</button>';
+    }else{
+      titulo = t("gate.titleFile", { name: nombre });
+      texto = escapeHtml(t("gate.leadFile"));
+      acciones = '<button type="button" class="btn-primary" data-action="gate-open" title="' +
+        escapeHtml(t("gate.openTitle")) + '">' + escapeHtml(t("gate.open")) + '</button>' + salidaLocal;
+    }
+
+    gate.innerHTML =
+      '<div class="open-gate-icon" aria-hidden="true">' + icono + '</div>' +
+      '<h2>' + titulo + '</h2>' +
+      '<p>' + texto + '</p>' +
+      '<div class="open-gate-actions">' + acciones + '</div>';
+    gate.hidden = false;
+  }
+
+  document.getElementById("openGate").addEventListener("click", function(e){
+    if(e.target.closest('[data-action="gate-open"]')){ reconnectFile(); return; }
+    if(e.target.closest('[data-action="gate-find"]')){ openExistingFile(); return; }
+    if(e.target.closest('[data-action="gate-create"]')){ connectToFile(); return; }
+    if(e.target.closest('[data-action="gate-local"]')){ switchToLocalMode(); return; }
+  });
+
+  // Con la pantalla puesta, todo lo que no sea una de las dos salidas queda
+  // desactivado (R6). Dos capas, y las dos hacen falta: los `disabled` para que
+  // nadie vea un botón que parece que funciona, y las guardas de
+  // bloqueadoPorApertura() para los caminos que no pasan por un botón —atajos de
+  // teclado, paleta de comandos, arrastrar y soltar, y el puente de la extensión.
+  var LOCKED_CONTROLS = [
+    "btnAdd", "btnEditTitle", "btnManageCategories", "btnManageTags",
+    "btnSaveViewProfile", "btnClearTagSelection", "btnExport", "btnImport",
+    "btnCleanup", "searchInput", "btnToggleAllGroups", "btnSelectionMode",
+    "btnCommandPalette"
+  ];
+
+  function syncLockedUi(){
+    LOCKED_CONTROLS.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.disabled = appLocked;
+    });
+    document.getElementById("statusToggle").querySelectorAll("button").forEach(function(b){ b.disabled = appLocked; });
+    document.getElementById("viewToggle").querySelectorAll("button").forEach(function(b){ b.disabled = appLocked; });
+    document.body.classList.toggle("is-locked", appLocked);
+  }
+
+  // Guarda única de las acciones que no pasan por un botón desactivado. Avisa
+  // con palabras en vez de no hacer nada: un clic que no responde parece una
+  // avería, y la avería la arreglaría cerrar y volver a abrir, que es justo lo
+  // que no queremos que haga nadie.
+  function bloqueadoPorApertura(silencioso){
+    if(!appLocked) return false;
+    if(!silencioso){
+      alert(fileState.name
+        ? t("gate.blocked", { name: fileState.name })
+        : t("gate.blockedNoFile"));
+    }
+    return true;
+  }
+
+  // ---------- Indicador de la barra superior (R11) ----------
+  function syncStorageBadge(){
+    var el = document.getElementById("storageBadge");
+    if(!el) return;
+    var clase = "storage-badge", texto;
+    if(storageMode !== "file"){
+      texto = t("badge.local");
+    }else if(!StorageAdapter.isFileReady()){
+      clase += " is-warn";
+      texto = t("badge.closed", { name: fileState.name || t("file.fallbackName") });
+    }else if(fileState.dirty || fileState.saving || fileState.heldBack){
+      clase += " is-warn";
+      texto = t("badge.pending", { name: fileState.name });
+    }else{
+      clase += " is-file";
+      texto = fileState.lastSavedAt
+        ? t("file.savedAt", { name: fileState.name, time: horaCorta(fileState.lastSavedAt) })
+        : t("file.savedNoTime", { name: fileState.name });
+    }
+    el.className = clase;
+    el.title = t("badge.title");
+    el.textContent = texto;
+  }
+
+  document.getElementById("storageBadge").addEventListener("click", function(){ openSettings(); });
+
+  // ---------- Aviso de modo local con archivo recordado (R8) ----------
+  // Sin la fecha delante, cambiar de modo reintroduciría por la puerta de atrás
+  // la confusión que el encargo entero viene a eliminar: enlaces en pantalla sin
+  // saber de cuándo son.
+  function syncModeNotice(){
+    var el = document.getElementById("modeNotice");
+    if(!el) return;
+    var meta = loadFileMeta();
+    if(appLocked || storageMode === "file" || !meta.name){
+      el.hidden = true;
+      el.innerHTML = "";
+      return;
+    }
+    var d = meta.savedAt ? new Date(meta.savedAt) : null;
+    var texto = (d && !isNaN(d.getTime()))
+      ? t("mode.localNotice", {
+          date: d.toLocaleDateString(currentLocale()),
+          time: horaCorta(meta.savedAt),
+          name: escapeHtml(meta.name)
+        })
+      : t("mode.localNoticeNoDate", { name: escapeHtml(meta.name) });
+    el.innerHTML = '<span>' + texto + '</span>' +
+      (supportsFileMode()
+        ? '<button type="button" data-action="mode-open-file">' + escapeHtml(t("mode.localNoticeOpen")) + '</button>'
+        : "");
+    el.hidden = false;
+  }
+
+  document.getElementById("modeNotice").addEventListener("click", function(e){
+    if(e.target.closest('[data-action="mode-open-file"]')) switchToFileMode();
+  });
 
   function syncExportButtonLabel(){
     var btn = document.getElementById("btnExport");
@@ -4418,6 +4999,7 @@
   // "focusNotes" solo lo usa el indicador 📝 de las fichas (4.23): abre el modal
   // directamente donde está el contenido, en vez de dejar el foco en Categoría.
   function openModal(link, focusNotes){
+    if(bloqueadoPorApertura()) return;
     editingId = link ? link.id : null;
     document.getElementById("modalTitle").textContent = t(link ? "modal.editLink" : "modal.newLink");
     document.getElementById("linkId").value = link ? link.id : "";
@@ -4926,21 +5508,41 @@
     document.getElementById("fieldTitle").focus();
   }
 
+  // Invariante 3 del encargo 16: con la pantalla de apertura puesta, el puente
+  // tiene que fallar de forma limpia y VISIBLE, nunca escribir en una colección
+  // que no está cargada. Devolver "no hay duplicado" sería lo peor de todo:
+  // la extensión daría el guardado por bueno y el enlace no existiría en ningún
+  // sitio. Lanzar es justo lo que la extensión ya sabe interpretar — su función
+  // inyectada devuelve undefined y ella enseña su badge rojo "!" (ver
+  // warnBridgeMissing en extension/background.js), que es el mismo aviso que da
+  // cuando el puente no está.
+  function bridgeGuard(){
+    if(appLocked) throw new Error("Lingatu: tus enlaces todavía no están abiertos.");
+  }
+
   window.LingatuBridge = {
     // Comprueba si la URL ya existe. Devuelve {id, title, category} o null.
     checkDuplicate: function(url){
+      bridgeGuard();
       var d = findDuplicateUrl(url, null);
       return d ? { id: d.id, title: d.title, category: d.category } : null;
     },
     // Desplaza la vista hasta el enlace existente y lo resalta brevemente.
     focusExisting: function(url){
+      bridgeGuard();
       var d = findDuplicateUrl(url, null);
       if(d) highlightLink(d.id);
     },
     // Heurística simple: propone una categoría ya existente según coincidencias
     // de palabras en título/descripción/dominio. No inventa categorías nuevas.
-    suggestCategory: suggestCategory,
-    prefillAndOpen: prefillAndOpen,
+    suggestCategory: function(title, description, url){
+      bridgeGuard();
+      return suggestCategory(title, description, url);
+    },
+    prefillAndOpen: function(data){
+      bridgeGuard();
+      return prefillAndOpen(data);
+    },
     // Añade una nota al enlace de esa URL. El texto llega ya formateado como el
     // usuario lo quiere ver (una selección capturada llega como cita "> ..."):
     // aquí solo se le pone el encabezado de fecha y se acumula al final.
@@ -4953,6 +5555,7 @@
     // sepa si tiene que saltar a esta pestaña (creación) o basta con avisar en
     // la página donde está el usuario (añadido), y con qué recuento.
     appendNote: function(data){
+      bridgeGuard();
       data = data || {};
       var url = String(data.url == null ? "" : data.url).trim();
       var note = String(data.note == null ? "" : data.note).trim();
@@ -5005,6 +5608,8 @@
       '<span>·</span>' +
       '<button type="button" id="btnHelp">' + escapeHtml(t("footer.help")) + '</button>' +
       '<span>·</span>' +
+      '<button type="button" id="btnSettings">' + escapeHtml(t("footer.settings")) + '</button>' +
+      '<span>·</span>' +
       // Selector de idioma (R8). Cambia con setLanguage(), la misma función que
       // llama el comando de la paleta: un solo camino para las dos vías.
       '<select id="langSelect" class="lang-select" aria-label="' + escapeHtml(t("lang.aria")) + '">' +
@@ -5026,6 +5631,15 @@
   function syncFooterNotices(){
     var el = document.getElementById("footerNotices");
     if(!el) return;
+    // Con la pantalla de apertura puesta no hay colección cargada, así que
+    // ninguno de estos avisos dice la verdad —y los tres ofrecen exportar, que
+    // es justo lo que R6 prohíbe: produciría un JSON de los datos del navegador
+    // con el nombre de la colección del archivo.
+    if(appLocked){
+      el.innerHTML = "";
+      el.hidden = true;
+      return;
+    }
     var html = "";
 
     // Va el primero porque es el único que describe algo que ya ha pasado.
@@ -5078,6 +5692,7 @@
     el.hidden = html === "";
   }
   function promptSiteTitle(){
+    if(bloqueadoPorApertura()) return;
     var next = prompt(t("modal.siteTitlePrompt"), state.siteTitle);
     if(next === null) return;
     next = next.trim();
@@ -5101,6 +5716,7 @@
   var manageAddInput = document.getElementById("manageAddInput");
 
   function openManageModal(type){
+    if(bloqueadoPorApertura()) return;
     manageType = type;
     manageEditingName = null;
     manageIconPickerFor = null;
@@ -5676,6 +6292,7 @@
   // cada punto que las necesita (el chip del sidebar y la paleta de comandos):
   // así, cuando cambia lo que una vista fija, solo hay un sitio que tocar.
   function applyViewProfile(profile){
+    if(bloqueadoPorApertura()) return;
     state.tags = new Set(profile.tags);
     state.excludedTags = new Set(profile.excludedTags);
     state.selectedCategories = new Set(profile.selectedCategories);
@@ -5711,6 +6328,7 @@
   // aplicado es una vista por selección), aunque no haya ninguna — "todo sin
   // filtrar" es una vista válida.
   function promptSaveViewProfile(){
+    if(bloqueadoPorApertura()) return;
     var name = prompt(t("view.namePrompt"));
     if(name === null) return;
     name = name.trim();
@@ -5807,6 +6425,9 @@
     var tag = (e.target.tagName || "").toLowerCase();
     var isTyping = tag === "input" || tag === "textarea" || e.target.isContentEditable;
     if(isTyping || anyOverlayOpen()) return;
+    // Con la pantalla de apertura puesta solo sigue vivo "?" (la ayuda):
+    // buscar y crear enlaces no tienen sobre qué actuar (R6).
+    if(appLocked && e.key !== "?") return;
     if(e.key === "/"){
       e.preventDefault();
       document.getElementById("searchInput").focus();
@@ -5824,6 +6445,7 @@
   // así cualquier vía de exportación (botón o paleta de comandos) avisa igual de
   // que solo se van a exportar los enlaces de la selección, no todos.
   function exportLinks(){
+    if(bloqueadoPorApertura()) return;
     var links = getLinksForExport();
     if(hasLinkSelection()){
       if(!confirm(plural("export.filteredConfirm", links.length))) return;
@@ -6028,6 +6650,7 @@
   // Parte compartida entre el selector de archivo (#fileImport) y soltar un archivo sobre
   // la página: valida, rellena el resumen y abre el modal de importación.
   function handleImportFileText(text){
+    if(bloqueadoPorApertura()) return;
     var result;
     try{
       result = parseImportFile(text);
@@ -6117,6 +6740,7 @@
   // Con nombre propio, como exportLinks(): las dos producen un archivo que el
   // usuario guarda, así que las dos registran la fecha de la última copia.
   function exportCategories(){
+    if(bloqueadoPorApertura()) return;
     var data = state.categories.map(function(name){
       return {
         name: name,
@@ -6376,6 +7000,7 @@
   var cleanupModalOverlay = document.getElementById("cleanupModalOverlay");
 
   function openCleanupPanel(){
+    if(bloqueadoPorApertura()) return;
     cleanupChecks = computeCleanupChecks(); // R2.6: recalcula todo al abrir, los datos cambian entre aperturas
     refreshStorageUsage();                  // ídem para la fila de copias y espacio (4.26)
     cleanupExpanded = new Set();
@@ -6539,6 +7164,7 @@
   var restoreBackupOverlay = document.getElementById("restoreBackupOverlay");
 
   function openRestoreBackup(){
+    if(bloqueadoPorApertura()) return;
     renderRestoreBackupList();
     restoreBackupOverlay.hidden = false;
   }
@@ -6630,9 +7256,16 @@
       fileState.missing = false;
       fileState.lastModified = 0;
       fileState.error = "";
+      // Elegir un archivo es elegir el modo archivo (4.29): a partir de aquí,
+      // ese archivo es donde viven los enlaces.
+      saveStorageMode("file");
       return idbSet(FILE_HANDLE_KEY, h).catch(function(){}).then(function(){
         return readFileState();
       }).then(function(actual){
+        // Con la pantalla de apertura puesta no hay dos versiones que comparar:
+        // en memoria no hay nada. Manda el archivo si trae algo, y si está
+        // recién creado recibe lo que guarda este navegador.
+        if(appLocked) return unlockFromFile(actual);
         // Si el archivo ya traía una colección, mandar la de aquí encima sin
         // preguntar sería destruirla. Se decide con los dos recuentos delante.
         if(actual.ok && actual.linkCount > 0){
@@ -6695,9 +7328,13 @@
         fileState.missing = false;
         fileState.heldBack = false;
         fileState.lastModified = 0;
+        saveStorageMode("file");
         return idbSet(FILE_HANDLE_KEY, h).catch(function(){}).then(function(){
           return readFileState();
         }).then(function(actual){
+          // Desde la pantalla de apertura manda el archivo, sin preguntas: no
+          // hay ninguna otra versión con la que competir (4.29).
+          if(appLocked && (actual.ok || actual.reason === "vacio")) return unlockFromFile(actual);
           if(actual.ok){
             var msg = t("file.contains", {
               inFile: linkCountText(actual.linkCount),
@@ -6726,6 +7363,18 @@
             });
           }
           var aviso = t(actual.reason === "newer" ? "file.notLingatuNewer" : "file.notLingatu");
+          // Con la pantalla de apertura puesta, "escribir lo mío encima" sería
+          // escribir la nada encima de un archivo ajeno: en memoria no hay
+          // ninguna colección. Aquí solo se avisa y se sigue esperando.
+          if(appLocked){
+            alert(t("file.unreadable", {
+              name: fileState.name,
+              reason: t(actual.reason === "newer" ? "file.unreadableNewer" : "file.unreadableDot")
+            }));
+            fileState.needsReconnect = true;
+            render();
+            return;
+          }
           if(!confirm(t("file.useAnyway", { warning: aviso, count: linkCountText(state.links.length) }))){
             StorageAdapter.disconnect();
             return;
@@ -6756,6 +7405,22 @@
           fileState.missing = true;
           alert(t("file.missingAlert", { name: fileState.name }));
           return;
+        }
+        // Desde la pantalla de apertura (4.29) manda el archivo y no hay nada
+        // que comparar: en memoria no había ninguna colección. El modal de
+        // conflicto sigue existiendo para el otro caso —volver a modo archivo
+        // habiendo trabajado en local— que es el único en el que de verdad hay
+        // dos versiones.
+        if(appLocked){
+          if(!actual.ok && actual.reason !== "vacio"){
+            alert(t("file.unreadable", {
+              name: fileState.name,
+              reason: t(actual.reason === "newer" ? "file.unreadableNewer" : "file.unreadableDot")
+            }));
+            fileState.needsReconnect = true;
+            return;
+          }
+          return unlockFromFile(actual);
         }
         if(actual.reason === "vacio"){
           // Un archivo vacío no compite con nada: recibe el volcado y ya está.
@@ -6814,9 +7479,117 @@
     var nombre = fileState.name;
     if(!confirm(t("file.disconnectConfirm", { name: nombre, count: linkCountText(state.links.length) }))) return;
     StorageAdapter.disconnect().then(function(){
+      // Soltar el archivo deja el modo en local (ver StorageAdapter.disconnect),
+      // así que si la pantalla de apertura estaba puesta hay que retirarla y
+      // cargar los datos del navegador: ya se puede volver a decir de dónde
+      // salen los enlaces que se ven.
+      if(appLocked){
+        reloadStateFromStorage();
+        unlockApp();
+      }
       render();
       alert(t("file.disconnected"));
     });
+  }
+
+  // ---------- Bloqueo y cambio de modo (4.29) ----------
+  // Poner la pantalla de apertura NO es solo pintar: el estado en memoria se
+  // vacía, porque mientras no se sepa de dónde salen los enlaces no puede haber
+  // enlaces. localStorage no se toca (decisión 52 sigue vigente): sigue siendo
+  // la caché, y de ahí se recuperan al pasar a modo local.
+  function lockApp(){
+    appLocked = true;
+    state.links = [];
+    state.categories = [];
+    state.allTags = [];
+    state.viewProfiles = [];
+    state.collapsedCategories = new Set();
+    state.selectedCategories = new Set();
+    state.tags = new Set();
+    state.excludedTags = new Set();
+    state.viewLinkIds = new Set();
+    state.focusIds = new Set();
+    state.selectedLinks = new Set();
+    state.selectionMode = false;
+    state.activeViewProfile = null;
+    state.search = "";
+    var buscador = document.getElementById("searchInput");
+    if(buscador) buscador.value = "";
+  }
+
+  // Quitar la pantalla es también el momento en que las salvaguardas de 4.26
+  // vuelven a tener sentido: hasta ahora se saltaban porque el estado no
+  // representaba ninguna colección (R7).
+  function unlockApp(){
+    appLocked = false;
+    rotateBackups();
+    startBackupClockIfNeeded();
+    refreshStorageUsage();
+  }
+
+  // Al abrir el archivo desde la pantalla de apertura no hay dos versiones que
+  // comparar: en memoria no había nada. Manda el archivo, y no hace falta
+  // ningún mecanismo nuevo ni ninguna pregunta. Si el archivo está vacío
+  // —recién creado por el selector— la única colección que existe es la que
+  // guarda este navegador, y su sitio es ese archivo.
+  function unlockFromFile(actual){
+    fileState.needsReconnect = false;
+    fileState.missing = false;
+    if(actual && actual.ok){
+      applyStateSnapshot(actual.data);
+      resetFiltersAfterImport();
+      fileState.lastModified = actual.lastModified;
+      fileState.lastSavedAt = new Date().toISOString();
+      fileState.dirty = false;
+      fileState.heldBack = false;
+      saveFileMeta();
+      unlockApp();
+      render();
+      return Promise.resolve({ ok:true, loaded:true });
+    }
+    reloadStateFromStorage();
+    unlockApp();
+    fileState.dirty = true;
+    return flushFileSave().then(function(){
+      render();
+      return { ok:true, loaded:false };
+    });
+  }
+
+  // R8: de archivo a local. Se cargan los datos del navegador y queda el aviso
+  // con su fecha (syncModeNotice) mientras dure el modo. No se borra nada:
+  // ni el archivo, ni el handle recordado, ni localStorage (R10).
+  function switchToLocalMode(){
+    if(storageMode === "local" && !appLocked) return;
+    saveStorageMode("local");
+    reloadStateFromStorage();
+    if(appLocked) unlockApp();
+    render();
+  }
+
+  // R9: de local a archivo. No se inventa nada: se abre el archivo y, si las
+  // dos versiones divergen, decide el modal de conflicto de tres salidas que ya
+  // existía (4.27). Aquí no se vacía el estado antes de abrir, y es
+  // deliberado: lo que hay en memoria es justo la versión "de esta sesión" que
+  // ese modal necesita para comparar.
+  function switchToFileMode(){
+    if(!supportsFileMode()){
+      alert(t("file.noOpenSupport"));
+      return;
+    }
+    saveStorageMode("file");
+    if(StorageAdapter.isFileReady()){
+      render();
+      return;
+    }
+    if(fileState.handle){
+      reconnectFile();
+      return;
+    }
+    // Sin archivo elegido todavía: la pantalla de apertura lo pide, con sus dos
+    // caminos (abrir uno que ya existe, o crear uno nuevo).
+    lockApp();
+    render();
   }
 
   var fileConflictOverlay = document.getElementById("fileConflictOverlay");
@@ -6920,60 +7693,61 @@
 
   registerOverlay(fileConflictOverlay, closeConflictModal);
 
-  // ---------- Indicador de estado del almacenamiento (4.27) ----------
+  // ---------- Acciones sobre el archivo, en el pie (4.27, revisado en 4.29) ----------
+  // El **estado** ya no se cuenta aquí: subió a la barra superior
+  // (syncStorageBadge), porque en el pie del lateral había que desplazarse
+  // hasta el final para leerlo. Lo que se queda son las acciones, que sí tienen
+  // sentido donde no estorban: abrir, cambiar de archivo y desconectar (R12).
   function syncStorageStatus(){
     var el = document.getElementById("storageStatus");
     if(!el) return;
-    var modo = StorageAdapter.getMode();
-    var clase = "storage-status", texto = "", botones = "";
+    var botones = "";
 
-    if(modo === "file"){
+    if(!supportsFileMode()){
+      // Firefox: no hay nada que ofrecer, y ofrecerlo en gris parecería una
+      // avería de Lingatu en vez de una limitación del navegador (R17).
+      el.className = "storage-status";
+      el.innerHTML = "";
+      return;
+    }
+
+    if(StorageAdapter.isFileReady()){
       if(fileState.heldBack){
-        clase += " is-warn";
-        texto = escapeHtml(t("file.heldBack", { name: fileState.name }));
-        botones = '<button type="button" data-action="file-flush" title="' + escapeHtml(t("file.saveNowTitle")) + '">' + escapeHtml(t("file.saveNow")) + '</button>' +
-                  '<button type="button" data-action="file-disconnect">' + escapeHtml(t("file.disconnect")) + '</button>';
-        el.className = clase;
-        el.innerHTML = '<span class="storage-status-text">' + texto + '</span>' + botones;
-        return;
+        botones = '<button type="button" data-action="file-flush" title="' + escapeHtml(t("file.saveNowTitle")) + '">' + escapeHtml(t("file.saveNow")) + '</button>';
       }
-      if(fileState.dirty || fileState.saving){
-        clase += " is-pending";
-        texto = escapeHtml(t("file.savingEllipsis", { name: fileState.name }));
-      }else{
-        clase += " is-file";
-        texto = escapeHtml(fileState.lastSavedAt
-          ? t("file.savedAt", { name: fileState.name, time: horaCorta(fileState.lastSavedAt) })
-          : t("file.savedNoTime", { name: fileState.name }));
-      }
-      botones = '<button type="button" data-action="file-disconnect" title="' + escapeHtml(t("file.disconnectTitle")) + '">' + escapeHtml(t("file.disconnect")) + '</button>';
+      botones += '<button type="button" data-action="file-disconnect" title="' + escapeHtml(t("file.disconnectTitle")) + '">' + escapeHtml(t("file.disconnect")) + '</button>';
     }else if(fileState.missing){
-      clase += " is-warn";
-      texto = "⚠️ " + escapeHtml(t(fileState.dirty ? "file.notFoundPending" : "file.notFound", { name: fileState.name }));
       botones = '<button type="button" data-action="file-open" title="' + escapeHtml(t("file.findItTitle")) + '">' + escapeHtml(t("file.findIt")) + '</button>' +
                 '<button type="button" data-action="file-connect" title="' + escapeHtml(t("file.createAnotherTitle")) + '">' + escapeHtml(t("file.createAnother")) + '</button>' +
                 '<button type="button" data-action="file-disconnect">' + escapeHtml(t("file.forgetIt")) + '</button>';
-    }else if(fileState.needsReconnect){
-      clase += " is-warn";
-      // Con cambios pendientes el aviso lo dice: callarlo es lo que hacía creer
-      // que el archivo estaba al día cuando no lo estaba.
-      texto = (fileState.dirty ? "⚠️ " : "") +
-        escapeHtml(t(fileState.dirty ? "file.notConnectedPending" : "file.notConnected", { name: fileState.name }));
+    }else if(fileState.handle){
+      // Hay archivo recordado pero no está abierto: la acción es abrirlo, y se
+      // llama abrir. "Reconectar" no describía nada que el usuario reconozca y
+      // sonaba a avería.
       botones = '<button type="button" data-action="file-reconnect" title="' + escapeHtml(t("file.reconnectTitle")) + '">' + escapeHtml(t("file.reconnect")) + '</button>';
+    }else if(fileState.name){
+      // Nombre recordado sin handle: hay que volver a elegirlo, no reabrirlo
+      // (ver gateVariant()).
+      botones = '<button type="button" data-action="file-open" title="' + escapeHtml(t("file.findItTitle")) + '">' + escapeHtml(t("file.findIt")) + '</button>' +
+                '<button type="button" data-action="file-connect" title="' + escapeHtml(t("file.createAnotherTitle")) + '">' + escapeHtml(t("file.createAnother")) + '</button>';
     }else{
-      texto = escapeHtml(t("file.savingHere"));
-      if(supportsFileMode()){
-        // Dos acciones, no una: crear el archivo la primera vez y abrir el que
-        // ya existe son caminos distintos, y confundirlos es justo lo que pone
-        // en peligro la colección de quien conecta desde un segundo equipo.
-        botones =
-          '<button type="button" data-action="file-connect" title="' + escapeHtml(t("file.connectTitle")) + '">' + escapeHtml(t("file.connect")) + '</button>' +
-          '<button type="button" data-action="file-open" title="' + escapeHtml(t("file.openExistingTitle")) + '">' + escapeHtml(t("file.openExisting")) + '</button>';
-      }
+      // Dos acciones, no una: crear el archivo la primera vez y abrir el que
+      // ya existe son caminos distintos, y confundirlos es justo lo que pone
+      // en peligro la colección de quien conecta desde un segundo equipo.
+      botones =
+        '<button type="button" data-action="file-connect" title="' + escapeHtml(t("file.connectTitle")) + '">' + escapeHtml(t("file.connect")) + '</button>' +
+        '<button type="button" data-action="file-open" title="' + escapeHtml(t("file.openExistingTitle")) + '">' + escapeHtml(t("file.openExisting")) + '</button>';
     }
 
-    el.className = clase;
-    el.innerHTML = '<span class="storage-status-text">' + texto + '</span>' + botones;
+    el.className = "storage-status";
+    el.innerHTML = botones;
+    // El indicador de la barra superior se refresca aquí y no solo en render():
+    // los guardados en el archivo son asíncronos y terminan fuera de cualquier
+    // repintado (el debounce de flushFileSave, el volcado de visibilitychange).
+    // Sin esto, el indicador se quedaba diciendo "hay cambios sin guardar"
+    // después de haberlos guardado — que es la clase de mentira que este
+    // encargo viene a quitar, solo que al revés.
+    syncStorageBadge();
   }
 
   function horaCorta(iso){
@@ -7017,17 +7791,23 @@
     // Mismas funciones con nombre que los botones del pie (decisión 25): la
     // paleta no puede desincronizarse de lo que hace la interfaz.
     { id: "connect-file", label: "command.connectFile",
-      available: function(){ return supportsFileMode() && StorageAdapter.getMode() !== "file"; },
+      available: function(){ return supportsFileMode() && !StorageAdapter.isFileReady(); },
       run: function(){ connectToFile(); } },
     { id: "open-file", label: "command.openFile",
-      available: function(){ return supportsFileMode() && StorageAdapter.getMode() !== "file"; },
+      available: function(){ return supportsFileMode() && !StorageAdapter.isFileReady(); },
       run: function(){ openExistingFile(); } },
     { id: "reconnect-file", label: "command.reconnectFile",
-      available: function(){ return !!fileState.handle && fileState.needsReconnect; },
+      available: function(){ return !!fileState.handle && !StorageAdapter.isFileReady(); },
       run: function(){ reconnectFile(); } },
     { id: "disconnect-file", label: "command.disconnectFile",
       available: function(){ return !!fileState.handle || !!fileState.name; },
       run: function(){ disconnectFile(); } },
+    // 4.29: cambiar de modo también desde la paleta, con la misma función con
+    // nombre que el panel de ajustes (decisión 25).
+    { id: "use-local", label: "command.useLocal",
+      available: function(){ return storageMode === "file"; },
+      run: function(){ switchToLocalMode(); } },
+    { id: "settings", label: "command.settings", run: function(){ openSettings(); } },
     // Su etiqueta nombra siempre el idioma AL QUE se cambia, así que en cada
     // diccionario está escrita en el otro idioma: buscar "english" en la paleta
     // tiene que encontrarlo aunque la app esté en español.
@@ -7204,6 +7984,10 @@
   }
 
   function openCommandPalette(){
+    // La paleta busca enlaces, categorías, vistas y etiquetas, y ejecuta
+    // acciones sobre ellos: con la pantalla de apertura puesta no hay nada de
+    // eso cargado. Las dos salidas que sí existen están en la propia pantalla.
+    if(bloqueadoPorApertura()) return;
     paletteInput.value = "";
     paletteOverlay.hidden = false;
     refreshPalette();
@@ -7321,15 +8105,24 @@
         "Cambiar de idioma <strong>no toca ni un dato</strong>: tus títulos, descripciones, categorías, etiquetas y notas son tuyos y se quedan tal cual los escribiste."
       ]},
       { title: "Tu archivo de datos", icon: "📄", items: [
-        "Puedes <strong>guardar tus enlaces en un archivo tuyo</strong>, además de en el navegador, con los botones del pie de este lateral. Funciona en Chrome y Edge; en Firefox todavía no.",
+        "Puedes <strong>guardar tus enlaces en un archivo tuyo</strong> en vez de dentro del navegador. Se elige en <kbd>Ajustes</kbd> → <em>Modo de trabajo</em>, y funciona en Chrome y Edge; en Firefox todavía no.",
         "<strong>La primera vez el archivo no existe, y no tienes que crearlo tú</strong>: pulsa <kbd>Guardar en un archivo…</kbd> y se abrirá la ventana de guardar de tu sistema, con el nombre <code>lingatu-datos.json</code> ya propuesto. Elige la carpeta, acepta, y <strong>el navegador lo crea en ese momento</strong>, con todo lo que tienes ahora dentro.",
         "Piensa <strong>dónde</strong> lo guardas: si eliges una carpeta que ya sincronizas (OneDrive, Drive, Dropbox, una unidad de red…), tendrás tu colección en todos tus equipos sin hacer nada más.",
         "<strong>En un segundo equipo no crees otro archivo</strong>: pulsa <kbd>Ya tengo uno</kbd> y selecciona el que ya existe. Lingatu lo lee <strong>antes</strong> de tocar nada y te pregunta si prefieres quedarte con lo que hay dentro o con lo que tengas en ese equipo.",
-        "Después, el navegador pide permiso <strong>una vez por sesión</strong>: al abrir Lingatu tras haber cerrado el navegador, pulsa <kbd>Reconectar</kbd> y el resto de la sesión se guarda solo. Recargar la página no lo vuelve a pedir, y el archivo no hay que elegirlo nunca más.",
-        "El pie te dice en todo momento dónde se está guardando, y avisa cuando algo que ves <strong>no</strong> ha llegado al archivo.",
+        "Después, el navegador pide permiso <strong>una vez por sesión</strong>: al abrir Lingatu tras haber cerrado el navegador te recibe una pantalla que dice dónde están tus enlaces, y pulsas <kbd>Abrir mis enlaces</kbd>. Recargar la página no lo vuelve a pedir, y el archivo no hay que elegirlo nunca más.",
+        "<strong>Mientras esa pantalla está puesta no se puede tocar nada</strong> —ni crear, ni importar, ni exportar— y es a propósito: lo que hay en el navegador es una copia, y trabajar sobre ella creyendo que trabajas sobre tu archivo es justo lo que hacía perder cambios.",
+        "Si no te viene bien abrirlo ahora, pulsa <kbd>Trabajar con los datos de este navegador</kbd>: verás la última copia guardada aquí, con un aviso permanente que te dice <strong>de cuándo es</strong>. Tu archivo no se toca. Cuando vuelvas a modo archivo, si las dos versiones han cambiado, Lingatu te deja elegir con cuál te quedas.",
+        "La <strong>barra superior</strong> te dice en todo momento dónde se está guardando, y avisa cuando algo que ves <strong>no</strong> ha llegado al archivo. Pulsándola se abren los ajustes.",
         "El archivo es texto y se puede abrir con cualquier editor. Aun así, <strong>no sustituye a exportar</strong>: conviene seguir guardando una copia aparte de vez en cuando.",
         "<strong>Esto no es sincronización</strong>, aunque el archivo esté en una carpeta que se sincroniza: es un archivo compartido. Trabaja en un equipo cada vez — si lo cambias en dos a la vez, Lingatu lo detecta al guardar y te deja elegir con cuál te quedas, sin machacar nada.",
         "Para dejar de usarlo, <kbd>Desconectar</kbd>. Ni el archivo ni tus enlaces se borran: el archivo se queda donde está y Lingatu vuelve a guardar solo en el navegador."
+      ]},
+      { title: "Ajustes", icon: "⚙️", items: [
+        "El botón <kbd>Ajustes</kbd> del pie del lateral —o la propia barra superior, que también los abre— reúne cuatro decisiones y ninguna toca tus enlaces: dónde trabajas, el idioma, el tema y el archivo de datos.",
+        "<strong>Modo de trabajo</strong>: <em>este navegador</em> (no hay nada que abrir) o <em>un archivo mío</em> (lo abres al empezar). Es tuyo y se recuerda: ya no cambia solo según lo que el navegador recuerde del permiso.",
+        "<strong>Tema</strong>: claro, oscuro o el del sistema, que es el de siempre. Se conserva al recargar.",
+        "<strong>Archivo de datos</strong>: ahí se ve cuál estás usando y se cambia. La ruta no se puede escribir a mano —el navegador no la da—, así que el archivo se elige siempre desde la ventana de tu sistema.",
+        "También desde <kbd>Ctrl</kbd>+<kbd>K</kbd>: escribe \"ajustes\" y se abre igual."
       ]}
     ],
 
@@ -7378,15 +8171,24 @@
         "Switching language <strong>touches no data at all</strong>: your titles, descriptions, categories, tags and notes are yours and stay exactly as you wrote them."
       ]},
       { title: "Your data file", icon: "📄", items: [
-        "You can <strong>save your links to a file of your own</strong>, as well as in the browser, with the buttons at the foot of this sidebar. It works in Chrome and Edge; not in Firefox yet.",
+        "You can <strong>save your links to a file of your own</strong> instead of inside the browser. You choose it in <kbd>Settings</kbd> → <em>Where you work</em>, and it works in Chrome and Edge; not in Firefox yet.",
         "<strong>The first time the file does not exist, and you do not have to create it yourself</strong>: press <kbd>Save to a file…</kbd> and your system's save dialog will open, with the name <code>lingatu-datos.json</code> already suggested. Choose the folder, accept, and <strong>the browser creates it right then</strong>, with everything you have now inside.",
         "Think about <strong>where</strong> you save it: if you choose a folder you already sync (OneDrive, Drive, Dropbox, a network drive…), you will have your collection on all your computers without doing anything else.",
         "<strong>On a second computer do not create another file</strong>: press <kbd>I already have one</kbd> and select the existing one. Lingatu reads it <strong>before</strong> touching anything and asks whether you prefer to keep what is inside it or what you have on that computer.",
-        "After that, the browser asks for permission <strong>once per session</strong>: when you open Lingatu after closing the browser, press <kbd>Reconnect</kbd> and the rest of the session saves on its own. Reloading the page does not ask again, and you never have to choose the file again.",
-        "The footer tells you at all times where things are being saved, and warns you when something you can see has <strong>not</strong> reached the file.",
+        "After that, the browser asks for permission <strong>once per session</strong>: when you open Lingatu after closing the browser you are met by a screen telling you where your links are, and you press <kbd>Open my links</kbd>. Reloading the page does not ask again, and you never have to choose the file again.",
+        "<strong>While that screen is up nothing can be touched</strong> — no creating, no importing, no exporting — and that is on purpose: what the browser holds is a copy, and working on it while believing you are working on your file is exactly what used to lose changes.",
+        "If opening it right now does not suit you, press <kbd>Work with this browser's data</kbd>: you will see the last copy saved here, with a permanent notice telling you <strong>when it is from</strong>. Your file is not touched. When you go back to file mode, if both versions have changed, Lingatu lets you choose which one you keep.",
+        "The <strong>top bar</strong> tells you at all times where things are being saved, and warns you when something you can see has <strong>not</strong> reached the file. Clicking it opens the settings.",
         "The file is text and can be opened with any editor. Even so, <strong>it does not replace exporting</strong>: it is worth still saving a separate copy now and then.",
         "<strong>This is not synchronization</strong>, even if the file sits in a folder that syncs: it is a shared file. Work on one computer at a time — if you change it on two at once, Lingatu detects it when saving and lets you choose which one you keep, without overwriting anything.",
         "To stop using it, <kbd>Disconnect</kbd>. Neither the file nor your links are deleted: the file stays where it is and Lingatu goes back to saving in the browser only."
+      ]},
+      { title: "Settings", icon: "⚙️", items: [
+        "The <kbd>Settings</kbd> button at the foot of the sidebar — or the top bar itself, which also opens them — gathers four decisions, and none of them touches your links: where you work, the language, the theme and the data file.",
+        "<strong>Where you work</strong>: <em>this browser</em> (nothing to open) or <em>a file of mine</em> (you open it when you start). It is yours and it is remembered: it no longer changes on its own depending on what the browser remembers about the permission.",
+        "<strong>Theme</strong>: light, dark or the system's, which is the usual one. It survives a reload.",
+        "<strong>Data file</strong>: that is where you see which one you are using and change it. The path cannot be typed by hand — the browser does not give it — so the file is always chosen from your system's own window.",
+        "Also from <kbd>Ctrl</kbd>+<kbd>K</kbd>: type \"settings\" and it opens just the same."
       ]}
     ]
   };
@@ -7419,6 +8221,108 @@
   document.getElementById("btnHelpClose").addEventListener("click", closeHelpPanel);
   registerOverlay(helpModalOverlay, closeHelpPanel);
 
+  // ---------- Panel de ajustes (4.30) ----------
+  // Cuatro ajustes y ni uno más: modo de trabajo, idioma, tema y archivo. Los
+  // cuatro son decisiones de esta instalación, no de la colección, y ninguno
+  // toca un solo dato del usuario.
+  var settingsOverlay = document.getElementById("settingsOverlay");
+
+  function radioHtml(grupo, valor, actual, etiqueta, pista){
+    return '<label class="settings-option">' +
+      '<input type="radio" name="' + grupo + '" value="' + escapeHtml(valor) + '"' +
+        (valor === actual ? ' checked' : '') + '>' +
+      '<span>' + escapeHtml(etiqueta) +
+        (pista ? '<span class="settings-option-hint">' + escapeHtml(pista) + '</span>' : '') +
+      '</span></label>';
+  }
+
+  function renderSettings(){
+    var body = document.getElementById("settingsBody");
+    if(!body) return;
+    var html = "";
+
+    // 1. Modo de trabajo. Donde no se puede abrir un archivo (Firefox), la
+    // opción no se enseña ni en gris (R17): enseñar desactivado algo que ese
+    // navegador no podrá hacer nunca parece una avería de Lingatu, no una
+    // limitación del navegador. Ahí el bloque entero sobra.
+    if(supportsFileMode()){
+      html += '<div class="settings-block"><h3>' + escapeHtml(t("settings.modeTitle")) + '</h3>' +
+        '<div class="settings-options">' +
+          radioHtml("settingsMode", "local", storageMode, t("settings.modeLocal"), t("settings.modeLocalHint")) +
+          radioHtml("settingsMode", "file", storageMode, t("settings.modeFile"), t("settings.modeFileHint")) +
+        '</div></div>';
+    }
+
+    // 2. Idioma. Mismo camino que el selector del pie: setLanguage().
+    html += '<div class="settings-block"><h3>' + escapeHtml(t("settings.langTitle")) + '</h3>' +
+      '<div class="settings-options settings-inline">' +
+        LANGS.map(function(code){
+          return radioHtml("settingsLang", code, currentLang, t("lang." + code), "");
+        }).join("") +
+      '</div></div>';
+
+    // 3. Tema. "El del sistema" es el comportamiento de siempre y el valor por
+    // defecto: el ajuste solo añade poder forzarlo.
+    html += '<div class="settings-block"><h3>' + escapeHtml(t("settings.themeTitle")) + '</h3>' +
+      '<div class="settings-options settings-inline">' +
+        radioHtml("settingsTheme", "light", currentTheme, t("theme.light"), "") +
+        radioHtml("settingsTheme", "dark", currentTheme, t("theme.dark"), "") +
+        radioHtml("settingsTheme", "system", currentTheme, t("theme.system"), "") +
+      '</div></div>';
+
+    // 4. Archivo de datos. Nombre y botones, nunca un campo de texto (R16): el
+    // navegador no da rutas y no hay forma de abrir un archivo por su ruta.
+    // Prometer aquí un campo donde escribirla sería mentir sobre lo que la
+    // plataforma permite.
+    if(supportsFileMode()){
+      var nombre = fileState.name || loadFileMeta().name;
+      html += '<div class="settings-block"><h3>' + escapeHtml(t("settings.fileTitle")) + '</h3>' +
+        '<p class="settings-file-name">' +
+          (nombre ? escapeHtml(t("settings.fileCurrent", { name: nombre })) : escapeHtml(t("settings.fileNone"))) +
+        '</p>' +
+        '<p class="settings-file-note">' + escapeHtml(t("settings.fileNoPath")) + '</p>' +
+        '<div class="settings-file-actions">' +
+          '<button type="button" data-action="settings-file-open">' + escapeHtml(t("settings.fileOpen")) + '</button>' +
+          '<button type="button" data-action="settings-file-create">' + escapeHtml(t("settings.fileCreate")) + '</button>' +
+          (nombre ? '<button type="button" data-action="settings-file-drop" title="' + escapeHtml(t("settings.fileDropTitle")) + '">' + escapeHtml(t("settings.fileDrop")) + '</button>' : "") +
+        '</div></div>';
+    }
+
+    body.innerHTML = html;
+  }
+
+  function openSettings(){
+    renderSettings();
+    settingsOverlay.hidden = false;
+  }
+
+  function closeSettings(){
+    settingsOverlay.hidden = true;
+  }
+
+  document.getElementById("settingsBody").addEventListener("change", function(e){
+    var radio = e.target.closest('input[type="radio"]');
+    if(!radio) return;
+    if(radio.name === "settingsLang"){ setLanguage(radio.value); renderSettings(); return; }
+    if(radio.name === "settingsTheme"){ setTheme(radio.value); return; }
+    if(radio.name === "settingsMode"){
+      // El panel se cierra antes de cambiar: lo que pasa a continuación —la
+      // pantalla de apertura, el selector de archivos del sistema o el aviso
+      // con la fecha— ocurre detrás de él y hay que verlo.
+      closeSettings();
+      if(radio.value === "file") switchToFileMode(); else switchToLocalMode();
+    }
+  });
+
+  document.getElementById("settingsBody").addEventListener("click", function(e){
+    if(e.target.closest('[data-action="settings-file-open"]')){ closeSettings(); openExistingFile(); return; }
+    if(e.target.closest('[data-action="settings-file-create"]')){ closeSettings(); connectToFile(); return; }
+    if(e.target.closest('[data-action="settings-file-drop"]')){ closeSettings(); disconnectFile(); return; }
+  });
+
+  document.getElementById("btnSettingsClose").addEventListener("click", closeSettings);
+  registerOverlay(settingsOverlay, closeSettings);
+
   // #appFooter se pinta una sola vez (renderFooter(), en el arranque) y
   // render() no lo toca: delegado sobre el contenedor, igual que
   // #btnEmptyStateAdd sobre #emptyState, en vez de un listener directo sobre
@@ -7432,6 +8336,7 @@
 
   document.getElementById("appFooter").addEventListener("click", function(e){
     if(e.target.closest("#btnHelp")){ openHelpPanel(); return; }
+    if(e.target.closest("#btnSettings")){ openSettings(); return; }
     if(e.target.closest('[data-action="footer-export"]')){ exportLinks(); return; }
     if(e.target.closest('[data-action="footer-restore"]')){ openRestoreBackup(); return; }
     if(e.target.closest('[data-action="file-connect"]')){ connectToFile(); return; }
@@ -7464,40 +8369,66 @@
   initLang();
   initUncategorizedName();
   applyI18n();
+  initTheme();
 
-  reloadStateFromStorage();
+  // El modo de trabajo se resuelve antes de cargar nada, porque decide si se
+  // carga algo (4.29). Con modo archivo, la app arranca BLOQUEADA: el permiso
+  // no sobrevive al cierre del navegador (P6, P11), así que en la inmensa
+  // mayoría de las aperturas el archivo no está disponible todavía, y enseñar
+  // mientras tanto la copia del navegador es exactamente lo que hacía dudar de
+  // qué se estaba mirando. Si resulta que el permiso sigue vivo —una recarga
+  // dentro de la misma sesión—, StorageAdapter.init() lo desbloquea enseguida.
+  initStorageMode();
 
-  // Salvaguardas (4.26), en este orden: la instantánea se toma con el estado
-  // recién cargado y antes de que el usuario pueda tocar nada, para que la
-  // copia refleje lo que había al abrir; el reloj de "nunca has exportado"
-  // necesita saber cuántos enlaces hay; y la ocupación se mide al final, ya
-  // contando la copia que se acaba de escribir.
-  rotateBackups();
-  startBackupClockIfNeeded();
-  refreshStorageUsage();
+  if(storageMode === "file"){
+    lockApp();
+    renderFooter();
+    render();
+  }else{
+    reloadStateFromStorage();
+
+    // Salvaguardas (4.26), en este orden: la instantánea se toma con el estado
+    // recién cargado y antes de que el usuario pueda tocar nada, para que la
+    // copia refleje lo que había al abrir; el reloj de "nunca has exportado"
+    // necesita saber cuántos enlaces hay; y la ocupación se mide al final, ya
+    // contando la copia que se acaba de escribir.
+    rotateBackups();
+    startBackupClockIfNeeded();
+    refreshStorageUsage();
+
+    // El título ya lo ha aplicado reloadStateFromStorage().
+    renderFooter();
+    render();
+  }
   probeQuotaEstimate();
-
-  // El título ya lo ha aplicado reloadStateFromStorage().
-  renderFooter();
-  render();
 
   // El archivo (4.27) se resuelve después del primer pintado, no antes: es
   // asíncrono y la app no puede quedarse en blanco esperando a IndexedDB ni,
-  // menos aún, a un permiso que solo un gesto del usuario puede devolver (R24).
+  // menos aún, a un permiso que solo un gesto del usuario puede devolver.
   StorageAdapter.init().then(function(){
-    if(StorageAdapter.getMode() !== "file"){
-      syncStorageStatus();
+    if(!StorageAdapter.isFileReady()){
+      // Modo archivo sin archivo disponible: se queda la pantalla de apertura,
+      // que ya está puesta. Modo local: nada que hacer.
+      render();
       return;
     }
-    // Con permiso ya concedido, el archivo manda: es la fuente de verdad.
+    // El permiso seguía concedido (recarga dentro de la misma sesión): el
+    // archivo manda, es la fuente de verdad, y ya se puede decir de dónde
+    // salen los enlaces.
     return StorageAdapter.loadAll().then(function(data){
       if(data){
         applyStateSnapshot(data);
+        fileState.dirty = false;
+        unlockApp();
         render();
+        return;
       }
-      syncStorageStatus();
+      // Con permiso pero sin poder leer nada (archivo vacío o ilegible), lo
+      // honesto es seguir preguntando en vez de inventarse una colección.
+      fileState.needsReconnect = true;
+      render();
     });
-  }).catch(function(){ syncStorageStatus(); });
+  }).catch(function(){ render(); });
 
   // R20: el debounce de medio segundo deja una ventana en la que un cambio
   // podría no haber llegado al archivo. Estos dos la cierran.
@@ -7506,7 +8437,7 @@
   });
 
   window.addEventListener("beforeunload", function(e){
-    if(StorageAdapter.getMode() !== "file" || !fileState.dirty) return;
+    if(!StorageAdapter.isFileReady() || !fileState.dirty) return;
     flushFileSave();
     // Solo cuando de verdad queda algo sin volcar: en uso normal no aparece.
     e.preventDefault();
