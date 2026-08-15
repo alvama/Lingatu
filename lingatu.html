@@ -1081,6 +1081,42 @@
   }
   .storage-full-lead{margin:0 0 14px 0;font-size:13px;line-height:1.55;color:var(--text);}
 
+  /* Estado del almacenamiento (4.27): dónde se está guardando ahora mismo. */
+  .storage-status{
+    flex:0 0 100%;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-top:6px;
+  }
+  .storage-status-text{display:inline-flex;align-items:center;gap:5px;}
+  .storage-status.is-file .storage-status-text{color:var(--success);}
+  .storage-status.is-pending .storage-status-text{color:var(--text-muted);}
+  .storage-status.is-warn .storage-status-text{color:var(--danger);}
+
+  /* Conflicto con el archivo (4.27). */
+  #fileConflictOverlay .modal{max-width:600px;}
+  .conflict-versions{display:flex;flex-direction:column;gap:10px;margin:16px 0;}
+  .conflict-version{
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--surface-2);
+    padding:12px 14px;
+  }
+  .conflict-version h3{margin:0 0 4px 0;font-size:13px;}
+  .conflict-version p{margin:0;font-size:12px;color:var(--text-muted);}
+  .conflict-note{
+    margin:0 0 14px 0;
+    font-size:12px;
+    color:var(--text-muted);
+    border-left:3px solid var(--border);
+    padding-left:10px;
+    line-height:1.5;
+  }
+  .conflict-actions{flex-wrap:wrap;gap:8px;}
+
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
     .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
@@ -1333,6 +1369,20 @@
   </div>
 </div>
 
+<div id="fileConflictOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="fileConflictTitle">
+    <h2 id="fileConflictTitle">El archivo ha cambiado por fuera</h2>
+    <p class="help-intro">Alguien ha modificado el archivo desde la última vez que Lingatu escribió en él: otro equipo a través de la carpeta sincronizada, otra pestaña, o una edición a mano. <strong>No se ha tocado nada todavía.</strong> Elige con cuál te quedas.</p>
+    <div id="fileConflictVersions" class="conflict-versions"></div>
+    <p class="conflict-note">Esto no es sincronización: es un archivo compartido con detección de conflictos. Sirve para trabajar en un equipo cada vez, no para editar en dos a la vez.</p>
+    <div class="modal-actions conflict-actions">
+      <button type="button" id="btnConflictDisk">Quedarme con la del archivo</button>
+      <button type="button" id="btnConflictSession">Quedarme con la de esta sesión</button>
+      <button type="button" id="btnConflictNew" class="btn-primary" style="width:auto;">Guardar la mía aparte</button>
+    </div>
+  </div>
+</div>
+
 <div id="commandPaletteOverlay" class="modal-overlay palette-overlay" hidden>
   <div class="modal palette">
     <input type="text" id="commandPaletteInput" class="palette-input" placeholder="Busca una acción, un enlace, una categoría, una vista o una etiqueta..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="commandPaletteResults" aria-label="Paleta de comandos">
@@ -1432,7 +1482,20 @@
     }
     storageWriteCount++;
     if(storageWriteCount % STORAGE_CHECK_EVERY === 0) refreshStorageUsage();
+    // Con un archivo conectado (4.27), cualquier cambio en una de las once
+    // claves de estado programa además su volcado. Las claves de las
+    // salvaguardas no: son metadatos de esta instalación, no de la colección.
+    if(isStateKey(key)) scheduleFileSave();
     return true;
+  }
+
+  var STATE_KEY_LOOKUP = null;
+  function isStateKey(key){
+    if(!STATE_KEY_LOOKUP){
+      STATE_KEY_LOOKUP = {};
+      STATE_SLOTS.forEach(function(s){ STATE_KEY_LOOKUP[s.key] = true; });
+    }
+    return STATE_KEY_LOOKUP[key] === true;
   }
 
   // Para los metadatos de las salvaguardas (fecha de la última copia, reloj de
@@ -1688,6 +1751,12 @@
       saveCategories();
       saveAllTags();
     }
+
+    // El título de la página no lo repinta render(): es de las pocas cosas que
+    // se aplican una vez al arrancar. Cuando esta función se llama para
+    // *reemplazar* el estado —restaurar una copia (4.26) o cargar un archivo
+    // (4.27)—, sin esto el título seguiría siendo el anterior hasta recargar.
+    applySiteTitle();
   }
 
   // ---------- Ocupación ----------
@@ -1907,6 +1976,315 @@
     return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear() +
       " a las " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
   }
+
+  // ---------- Archivo como fuente de verdad (4.27) ----------
+  // Ruta A′ de la Fase 0: el handle sobrevive al cierre del navegador guardado
+  // en IndexedDB, pero el permiso no — con origen file:// vuelve a "prompt" en
+  // cada carga. De ahí que exista "Reconectar" y que la app nunca se bloquee
+  // esperando un permiso que solo un gesto del usuario puede devolver.
+  var FILE_DB = "lingatu_file_v1";
+  var FILE_STORE = "handles";
+  var FILE_HANDLE_KEY = "archivo";
+  var FILE_META_KEY = "enlaces_file_meta_v1";
+  var FILE_SAVE_DEBOUNCE = 500;
+
+  // Firefox no implementa la File System Access API en ninguna forma (Fase 0),
+  // así que allí el modo archivo no se ofrece: ni botón, ni comando.
+  function supportsFileMode(){
+    return typeof window.showSaveFilePicker === "function";
+  }
+
+  var fileState = {
+    handle: null,        // FileSystemFileHandle, o null
+    name: "",            // nombre del archivo, recordado aunque falte permiso
+    lastModified: 0,     // marca del archivo tras nuestra última escritura (R25)
+    lastSavedAt: null,   // hora de nuestro último volcado correcto
+    dirty: false,        // hay cambios en localStorage que aún no están en el archivo
+    saving: false,
+    timer: null,
+    needsReconnect: false, // hay handle recordado pero sin permiso todavía
+    missing: false,        // el archivo ya no está donde estaba
+    heldBack: false,       // hay cambios que a propósito NO se han escrito
+    error: ""
+  };
+
+  function idbOpen(){
+    return new Promise(function(res, rej){
+      var r;
+      try{ r = indexedDB.open(FILE_DB, 1); }catch(e){ rej(e); return; }
+      r.onupgradeneeded = function(){
+        try{ r.result.createObjectStore(FILE_STORE); }catch(e){}
+      };
+      r.onsuccess = function(){ res(r.result); };
+      r.onerror = function(){ rej(r.error); };
+    });
+  }
+
+  function idbSet(key, value){
+    return idbOpen().then(function(db){
+      return new Promise(function(res, rej){
+        var tx = db.transaction(FILE_STORE, "readwrite");
+        tx.objectStore(FILE_STORE).put(value, key);
+        tx.oncomplete = function(){ res(true); };
+        tx.onerror = function(){ rej(tx.error); };
+      });
+    });
+  }
+
+  function idbGet(key){
+    return idbOpen().then(function(db){
+      return new Promise(function(res, rej){
+        var tx = db.transaction(FILE_STORE, "readonly");
+        var q = tx.objectStore(FILE_STORE).get(key);
+        q.onsuccess = function(){ res(q.result); };
+        q.onerror = function(){ rej(q.error); };
+      });
+    });
+  }
+
+  function idbDelete(key){
+    return idbOpen().then(function(db){
+      return new Promise(function(res, rej){
+        var tx = db.transaction(FILE_STORE, "readwrite");
+        tx.objectStore(FILE_STORE).delete(key);
+        tx.oncomplete = function(){ res(true); };
+        tx.onerror = function(){ rej(tx.error); };
+      });
+    });
+  }
+
+  // Datos del archivo conectado que sí caben en localStorage: sirven para poder
+  // decir "estás conectado a lingatu-datos.json" antes de tener permiso, y para
+  // detectar que el archivo cambió por fuera (R25).
+  function loadFileMeta(){
+    var m = readJson(FILE_META_KEY, {});
+    return {
+      name: typeof m.name === "string" ? m.name : "",
+      lastModified: typeof m.lastModified === "number" ? m.lastModified : 0,
+      savedAt: typeof m.savedAt === "string" ? m.savedAt : ""
+    };
+  }
+
+  function saveFileMeta(){
+    storageWriteQuiet(FILE_META_KEY, JSON.stringify({
+      name: fileState.name,
+      lastModified: fileState.lastModified,
+      savedAt: fileState.lastSavedAt || ""
+    }));
+  }
+
+  function clearFileMeta(){
+    try{ localStorage.removeItem(FILE_META_KEY); }catch(e){}
+  }
+
+  // ¿Esta escritura encoge la colección lo bastante como para parar y
+  // preguntar? Vaciarla del todo siempre cuenta. Por debajo de eso, el criterio
+  // es la mitad: borrar un enlace de cuatrocientos es trabajo normal, quedarse
+  // con ciento cincuenta de cuatrocientos no se hace sin querer, y si se hizo a
+  // propósito el usuario solo tiene que confirmar una vez.
+  function perdidaGrande(nuevos, enArchivo){
+    if(enArchivo <= 0) return false;
+    if(nuevos === 0) return true;
+    return nuevos < enArchivo / 2;
+  }
+
+  function fileHasPermission(mode){
+    if(!fileState.handle) return Promise.resolve(false);
+    return fileState.handle.queryPermission({ mode: mode || "readwrite" })
+      .then(function(p){ return p === "granted"; })
+      .catch(function(){ return false; });
+  }
+
+  // Lee el archivo y devuelve su envoltura ya validada, o el motivo por el que
+  // no sirve. Nunca lanza: quien llama decide qué hacer con cada caso.
+  function readFileState(){
+    if(!fileState.handle) return Promise.resolve({ ok:false, reason:"sin-archivo" });
+    return fileState.handle.getFile().then(function(f){
+      return f.text().then(function(text){
+        var read = readStateSnapshot(text);
+        // Un archivo vacío no es un archivo corrupto: es uno recién creado por
+        // el propio selector, y su sitio es recibir el primer volcado.
+        if(!read.ok && !text.trim()) return { ok:false, reason:"vacio", lastModified: f.lastModified };
+        read.lastModified = f.lastModified;
+        read.linkCount = read.ok && Array.isArray(read.data.links) ? read.data.links.length : 0;
+        return read;
+      });
+    }).catch(function(e){
+      if(e && (e.name === "NotFoundError")) return { ok:false, reason:"no-existe" };
+      if(e && (e.name === "NotAllowedError" || e.name === "SecurityError")) return { ok:false, reason:"sin-permiso" };
+      return { ok:false, reason:"error", error: e ? (e.name + ": " + e.message) : "" };
+    });
+  }
+
+  // Escribe el estado completo en el archivo. Antes comprueba las dos cosas que
+  // pueden destruir datos ajenos: que el archivo no lo haya cambiado otro por
+  // fuera (R25) y que no estemos escribiendo una colección vacía sobre una que
+  // tenía enlaces (R26).
+  function writeFileState(opciones){
+    var opts = opciones || {};
+    if(!fileState.handle) return Promise.resolve({ ok:false, reason:"sin-archivo" });
+    return fileHasPermission("readwrite").then(function(ok){
+      if(!ok){
+        fileState.needsReconnect = true;
+        return { ok:false, reason:"sin-permiso" };
+      }
+      return readFileState().then(function(actual){
+        if(actual.reason === "no-existe"){
+          fileState.missing = true;
+          return { ok:false, reason:"no-existe" };
+        }
+        // Conflicto: el archivo cambió desde nuestra última escritura.
+        if(!opts.forzar && fileState.lastModified > 0 && actual.lastModified &&
+           actual.lastModified !== fileState.lastModified){
+          return { ok:false, reason:"conflicto", archivo: actual };
+        }
+        // Regla de seguridad: una escritura que encoge la colección de golpe se
+        // confirma con los dos recuentos delante. No en cada borrado —eso haría
+        // la app inusable— sino cuando la pérdida es del tipo que no se hace sin
+        // querer: vaciarla del todo, o dejarla por debajo de la mitad.
+        if(!opts.forzar && actual.ok && perdidaGrande(state.links.length, actual.linkCount)){
+          var msg = "El archivo " + fileState.name + " tiene " + linkCountText(actual.linkCount) +
+            " y estás a punto de dejarlo con " + linkCountText(state.links.length) + ".\n\n" +
+            (state.links.length === 0
+              ? "El archivo se quedará vacío y esos enlaces se perderán."
+              : "Los que no estén aquí se perderán.") +
+            "\n\n¿Guardar de todos modos?";
+          if(!confirm(msg)){
+            // Cancelar no puede dejar el aviso saltando en cada tecla, así que
+            // se deja de intentar. Pero tampoco puede quedar como "guardado":
+            // el archivo y la pantalla ya no dicen lo mismo, y eso hay que
+            // enseñarlo hasta que el usuario decida.
+            fileState.dirty = false;
+            fileState.heldBack = true;
+            return { ok:false, reason:"cancelado" };
+          }
+        }
+        var texto = JSON.stringify(getStateSnapshot(), null, 2);
+        return fileState.handle.createWritable().then(function(w){
+          return w.write(texto).then(function(){ return w.close(); });
+        }).then(function(){
+          return fileState.handle.getFile();
+        }).then(function(f){
+          fileState.lastModified = f.lastModified;
+          fileState.lastSavedAt = new Date().toISOString();
+          fileState.dirty = false;
+          fileState.heldBack = false;
+          fileState.missing = false;
+          fileState.error = "";
+          saveFileMeta();
+          return { ok:true };
+        });
+      });
+    }).catch(function(e){
+      fileState.error = e ? (e.name + ": " + e.message) : "error";
+      if(e && e.name === "NotAllowedError") fileState.needsReconnect = true;
+      return { ok:false, reason:"error", error: fileState.error };
+    });
+  }
+
+  // Volcado con debounce: escribir en disco en cada tecla del campo de notas
+  // sería absurdo. El volcado forzado de visibilitychange/beforeunload es lo que
+  // cierra la ventana de riesgo que abre esta espera.
+  function scheduleFileSave(){
+    if(StorageAdapter.getMode() !== "file") return;
+    fileState.dirty = true;
+    syncStorageStatus();
+    if(fileState.timer) clearTimeout(fileState.timer);
+    fileState.timer = setTimeout(function(){
+      fileState.timer = null;
+      flushFileSave();
+    }, FILE_SAVE_DEBOUNCE);
+  }
+
+  function flushFileSave(){
+    if(!fileState.dirty || fileState.saving) return Promise.resolve({ ok:false, reason:"nada-que-hacer" });
+    if(StorageAdapter.getMode() !== "file") return Promise.resolve({ ok:false, reason:"sin-archivo" });
+    fileState.saving = true;
+    if(fileState.timer){ clearTimeout(fileState.timer); fileState.timer = null; }
+    return writeFileState().then(function(r){
+      fileState.saving = false;
+      if(!r.ok && r.reason === "conflicto"){
+        // El modal decide; hasta entonces no se reintenta, o cada intento
+        // abriría otro modal encima del anterior.
+        fileState.dirty = false;
+        openConflictModal(r.archivo);
+      }else if(!r.ok && (r.reason === "error" || r.reason === "no-existe")){
+        fileState.dirty = false;
+        fileState.heldBack = true;
+      }
+      syncStorageStatus();
+      return r;
+    });
+  }
+
+  // R18: toda la persistencia pasa por aquí. Los once load*/save* se conservan
+  // como fachada (R19) y siguen escribiendo en localStorage, que en modo archivo
+  // pasa a ser la caché y la red de seguridad (R23) — nunca se vacía al migrar.
+  var StorageAdapter = {
+    init: function(){
+      if(!supportsFileMode()) return Promise.resolve({ ready:true, mode:"localstorage", label:StorageAdapter.getStatusLabel() });
+      var meta = loadFileMeta();
+      fileState.name = meta.name;
+      fileState.lastModified = meta.lastModified;
+      fileState.lastSavedAt = meta.savedAt || null;
+      return idbGet(FILE_HANDLE_KEY).then(function(h){
+        if(!h || typeof h.queryPermission !== "function"){
+          return { ready:true, mode:"localstorage", label:StorageAdapter.getStatusLabel() };
+        }
+        fileState.handle = h;
+        if(!fileState.name) fileState.name = h.name || "";
+        return fileHasPermission("readwrite").then(function(ok){
+          // Sin permiso no se bloquea nada (R24): se arranca con los datos del
+          // navegador y se ofrece reconectar cuando al usuario le venga bien.
+          fileState.needsReconnect = !ok;
+          return { ready:true, mode:StorageAdapter.getMode(), label:StorageAdapter.getStatusLabel() };
+        });
+      }).catch(function(){
+        return { ready:true, mode:"localstorage", label:StorageAdapter.getStatusLabel() };
+      });
+    },
+
+    loadAll: function(){
+      if(StorageAdapter.getMode() !== "file") return Promise.resolve(null);
+      return readFileState().then(function(r){
+        return r.ok ? r.data : null;
+      });
+    },
+
+    saveAll: function(){
+      return flushFileSave();
+    },
+
+    getMode: function(){
+      return (fileState.handle && !fileState.needsReconnect && !fileState.missing) ? "file" : "localstorage";
+    },
+
+    getStatusLabel: function(){
+      if(StorageAdapter.getMode() === "file"){
+        return "Guardando en " + fileState.name;
+      }
+      if(fileState.missing) return "No se encuentra " + fileState.name;
+      if(fileState.needsReconnect) return "Sin conectar con " + fileState.name;
+      return "Guardando en este navegador";
+    },
+
+    disconnect: function(){
+      // Suelta el archivo; jamás borra su contenido ni el de localStorage.
+      if(fileState.timer){ clearTimeout(fileState.timer); fileState.timer = null; }
+      fileState.handle = null;
+      fileState.name = "";
+      fileState.lastModified = 0;
+      fileState.lastSavedAt = null;
+      fileState.dirty = false;
+      fileState.needsReconnect = false;
+      fileState.missing = false;
+      fileState.error = "";
+      clearFileMeta();
+      return idbDelete(FILE_HANDLE_KEY).catch(function(){}).then(function(){
+        syncStorageStatus();
+      });
+    }
+  };
 
   function genId(){
     return Date.now().toString(36) + Math.random().toString(36).slice(2,9);
@@ -2811,6 +3189,7 @@
     syncSelectionUi();
     syncFocusBanner();
     syncFooterNotices();
+    syncStorageStatus();
   }
 
   function syncExportButtonLabel(){
@@ -3572,8 +3951,9 @@
       '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>' +
       '<span>·</span>' +
       '<button type="button" id="btnHelp">Ayuda (?)</button>' +
-      // Contenedor de los avisos de 4.26: lo pinta esta función una sola vez,
-      // y a partir de ahí solo lo rellena syncFooterNotices() desde render().
+      // Los dos contenedores que rellenan syncStorageStatus() y
+      // syncFooterNotices() desde render(): esta función los pinta una vez.
+      '<div class="storage-status" id="storageStatus"></div>' +
       '<div class="footer-notices" id="footerNotices" hidden></div>';
   }
 
@@ -5150,6 +5530,269 @@
   document.getElementById("btnRestoreBackupClose").addEventListener("click", closeRestoreBackup);
   registerOverlay(restoreBackupOverlay, closeRestoreBackup);
 
+  // ---------- Conectar, reconectar y conflictos (4.27) ----------
+  function connectToFile(){
+    if(!supportsFileMode()){
+      alert("Este navegador no permite que una página guarde en un archivo tuyo. Funciona en Chrome y en Edge; en Firefox, de momento, no.");
+      return;
+    }
+    var opciones = {
+      suggestedName: "lingatu-datos.json",
+      types: [{ description: "Datos de Lingatu", accept: { "application/json": [".json"] } }]
+    };
+    window.showSaveFilePicker(opciones).then(function(h){
+      fileState.handle = h;
+      fileState.name = h.name || "el archivo";
+      fileState.needsReconnect = false;
+      fileState.missing = false;
+      fileState.lastModified = 0;
+      fileState.error = "";
+      return idbSet(FILE_HANDLE_KEY, h).catch(function(){}).then(function(){
+        return readFileState();
+      }).then(function(actual){
+        // Si el archivo ya traía una colección, mandar la de aquí encima sin
+        // preguntar sería destruirla. Se decide con los dos recuentos delante.
+        if(actual.ok && actual.linkCount > 0){
+          var msg = "Ese archivo ya contiene una colección de Lingatu: " + linkCountText(actual.linkCount) +
+            ", guardada el " + formatStamp(actual.savedAt) + ".\n\n" +
+            "Aceptar → cargar la del archivo y sustituir lo que tienes ahora (" + linkCountText(state.links.length) + ").\n" +
+            "Cancelar → conservar lo tuyo y escribirlo en el archivo, reemplazando su contenido.\n\n" +
+            "En los dos casos, tus datos actuales siguen guardados en este navegador.";
+          if(confirm(msg)){
+            applyStateSnapshot(actual.data);
+            resetFiltersAfterImport();
+            fileState.lastModified = actual.lastModified;
+            fileState.lastSavedAt = new Date().toISOString();
+            fileState.dirty = false;
+            saveFileMeta();
+            render();
+            alert("Conectado a " + fileState.name + " y cargados sus " + linkCountText(state.links.length) + ".");
+            return;
+          }
+        }
+        return writeFileState({ forzar:true }).then(function(r){
+          if(r.ok){
+            alert("Conectado a " + fileState.name + ".\n\nA partir de ahora, cada cambio se guarda también ahí. " +
+              "Tus datos siguen guardados además en este navegador, como red de seguridad.");
+          }else{
+            alert("No se ha podido escribir en ese archivo" + (r.error ? " (" + r.error + ")" : "") + ". No se ha perdido nada: tus datos siguen en este navegador.");
+          }
+          render();
+        });
+      });
+    }).catch(function(e){
+      // Cerrar el selector sin elegir no es un error que merezca aviso.
+      if(e && e.name === "AbortError") return;
+      alert("No se ha podido conectar el archivo" + (e ? " (" + e.name + ")" : "") + ". No se ha tocado nada.");
+    }).then(function(){ syncStorageStatus(); });
+  }
+
+  // El permiso no sobrevive al cierre del navegador con origen file:// (Fase 0),
+  // así que esto se pulsa una vez por cada carga de la app. A cambio, el archivo
+  // no hay que volver a elegirlo nunca.
+  function reconnectFile(){
+    if(!fileState.handle){ connectToFile(); return; }
+    fileState.handle.requestPermission({ mode:"readwrite" }).then(function(p){
+      if(p !== "granted"){
+        alert("Sin ese permiso, Lingatu sigue funcionando y guardando en este navegador, pero no puede escribir en " + fileState.name + ".");
+        return;
+      }
+      fileState.needsReconnect = false;
+      fileState.error = "";
+      return readFileState().then(function(actual){
+        if(actual.reason === "no-existe"){
+          fileState.missing = true;
+          alert("El archivo " + fileState.name + " ya no está donde estaba: puede que lo hayas movido, renombrado o borrado.\n\n" +
+            "No se ha perdido nada — tus datos siguen en este navegador. Puedes elegir otro archivo desde el pie de la página.");
+          return;
+        }
+        if(actual.reason === "vacio"){
+          // Un archivo vacío no compite con nada: recibe el volcado y ya está.
+          return flushDirtyOnReconnect();
+        }
+        if(!actual.ok){
+          alert("El archivo " + fileState.name + " no se ha podido leer" +
+            (actual.reason === "newer" ? ": lo guardó una versión más reciente de Lingatu." : ".") +
+            "\n\nNo se ha escrito nada encima. Tus datos siguen en este navegador.");
+          fileState.needsReconnect = true;
+          return;
+        }
+        // Si el archivo es el mismo que dejamos, seguimos donde lo dejamos.
+        if(fileState.lastModified && actual.lastModified === fileState.lastModified){
+          return flushDirtyOnReconnect();
+        }
+        // Cambió por fuera, o es la primera vez que lo vemos en esta instalación.
+        openConflictModal(actual);
+      });
+    }).catch(function(e){
+      alert("No se ha podido reconectar" + (e ? " (" + e.name + ")" : "") + ". No se ha tocado nada.");
+    }).then(function(){ syncStorageStatus(); render(); });
+  }
+
+  function flushDirtyOnReconnect(){
+    if(!fileState.dirty) { syncStorageStatus(); return; }
+    return flushFileSave();
+  }
+
+  function disconnectFile(){
+    if(!fileState.handle && !fileState.name) return;
+    var nombre = fileState.name;
+    if(!confirm("Dejar de guardar en " + nombre + ".\n\nEl archivo se queda como está, con todo lo que tiene dentro, y tus " +
+        linkCountText(state.links.length) + " siguen guardados en este navegador. ¿Continuar?")) return;
+    StorageAdapter.disconnect().then(function(){
+      render();
+      alert("Desconectado. Lingatu vuelve a guardar solo en este navegador.");
+    });
+  }
+
+  var fileConflictOverlay = document.getElementById("fileConflictOverlay");
+  var conflictData = null;
+
+  function openConflictModal(archivo){
+    conflictData = archivo;
+    var cont = document.getElementById("fileConflictVersions");
+    cont.innerHTML =
+      '<div class="conflict-version">' +
+        '<h3>La del archivo — ' + escapeHtml(fileState.name) + '</h3>' +
+        '<p>' + escapeHtml(linkCountText(archivo.linkCount || 0)) + ' · guardada el ' + escapeHtml(formatStamp(archivo.savedAt)) +
+        (archivo.appVersion ? ' · versión ' + escapeHtml(archivo.appVersion) : "") + '</p>' +
+      '</div>' +
+      '<div class="conflict-version">' +
+        '<h3>La de esta sesión</h3>' +
+        '<p>' + escapeHtml(linkCountText(state.links.length)) + ' · lo que estás viendo ahora en pantalla</p>' +
+      '</div>';
+    fileConflictOverlay.hidden = false;
+  }
+
+  // Cerrar el modal con Escape o clicando fuera es una respuesta válida —
+  // "ahora no" — pero no deja las cosas como estaban: el archivo y la pantalla
+  // siguen discrepando, y el pie tiene que decirlo en vez de fingir que todo
+  // está guardado.
+  function closeConflictModal(){
+    fileConflictOverlay.hidden = true;
+    if(conflictData){
+      conflictData = null;
+      fileState.heldBack = true;
+      syncStorageStatus();
+    }
+  }
+
+  document.getElementById("btnConflictDisk").addEventListener("click", function(){
+    if(!conflictData || !conflictData.ok) return;
+    if(!confirm("Vas a sustituir lo que tienes ahora (" + linkCountText(state.links.length) + ") por lo que hay en el archivo (" +
+        linkCountText(conflictData.linkCount || 0) + ").\n\n¿Continuar?")) return;
+    applyStateSnapshot(conflictData.data);
+    resetFiltersAfterImport();
+    fileState.lastModified = conflictData.lastModified;
+    fileState.dirty = false;
+    fileState.heldBack = false;
+    saveFileMeta();
+    conflictData = null; // resuelto: cerrar ya no cuenta como "ahora no"
+    closeConflictModal();
+    render();
+    alert("Cargada la versión del archivo: " + linkCountText(state.links.length) + ".");
+  });
+
+  document.getElementById("btnConflictSession").addEventListener("click", function(){
+    if(!conflictData) return;
+    if(!confirm("Vas a escribir lo de esta sesión (" + linkCountText(state.links.length) + ") encima del archivo, que ahora tiene " +
+        linkCountText(conflictData.linkCount || 0) + ".\n\nLo que hubiera en el archivo y no esté aquí se perderá. ¿Continuar?")) return;
+    fileState.dirty = true;
+    conflictData = null;
+    writeFileState({ forzar:true }).then(function(r){
+      if(!r.ok) fileState.heldBack = true;
+      closeConflictModal();
+      syncStorageStatus();
+      alert(r.ok ? "Guardado en " + fileState.name + "." : "No se ha podido escribir. El archivo se queda como estaba.");
+    });
+  });
+
+  // La tercera salida: nadie pierde nada porque pasan a ser dos archivos.
+  document.getElementById("btnConflictNew").addEventListener("click", function(){
+    if(!supportsFileMode()) return;
+    var d = new Date();
+    var stamp = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    window.showSaveFilePicker({
+      suggestedName: "lingatu-datos-" + stamp + ".json",
+      types: [{ description: "Datos de Lingatu", accept: { "application/json": [".json"] } }]
+    }).then(function(h){
+      fileState.handle = h;
+      fileState.name = h.name || "el archivo";
+      fileState.lastModified = 0;
+      fileState.needsReconnect = false;
+      fileState.missing = false;
+      fileState.dirty = true;
+      conflictData = null;
+      return idbSet(FILE_HANDLE_KEY, h).catch(function(){}).then(function(){
+        return writeFileState({ forzar:true });
+      }).then(function(r){
+        if(!r.ok) fileState.heldBack = true;
+        closeConflictModal();
+        render();
+        alert(r.ok
+          ? "Guardado como " + fileState.name + ". El archivo anterior se queda intacto, con su contenido."
+          : "No se ha podido escribir en el archivo nuevo. No se ha tocado nada.");
+      });
+    }).catch(function(e){
+      if(e && e.name === "AbortError") return;
+      alert("No se ha podido crear el archivo" + (e ? " (" + e.name + ")" : "") + ".");
+    });
+  });
+
+  registerOverlay(fileConflictOverlay, closeConflictModal);
+
+  // ---------- Indicador de estado del almacenamiento (4.27) ----------
+  function syncStorageStatus(){
+    var el = document.getElementById("storageStatus");
+    if(!el) return;
+    var modo = StorageAdapter.getMode();
+    var clase = "storage-status", texto = "", botones = "";
+
+    if(modo === "file"){
+      if(fileState.heldBack){
+        clase += " is-warn";
+        texto = "⚠️ Lo que ves no está en " + escapeHtml(fileState.name);
+        botones = '<button type="button" data-action="file-flush" title="Escribir en el archivo lo que tienes ahora">Guardar ahora</button>' +
+                  '<button type="button" data-action="file-disconnect">Desconectar</button>';
+        el.className = clase;
+        el.innerHTML = '<span class="storage-status-text">' + texto + '</span>' + botones;
+        return;
+      }
+      if(fileState.dirty || fileState.saving){
+        clase += " is-pending";
+        texto = "Guardando en " + escapeHtml(fileState.name) + "…";
+      }else{
+        clase += " is-file";
+        texto = "📄 " + escapeHtml(fileState.name) +
+          (fileState.lastSavedAt ? " · guardado a las " + escapeHtml(horaCorta(fileState.lastSavedAt)) : "");
+      }
+      botones = '<button type="button" data-action="file-disconnect" title="Dejar de guardar en el archivo; ni el archivo ni tus datos se borran">Desconectar</button>';
+    }else if(fileState.missing){
+      clase += " is-warn";
+      texto = "⚠️ No se encuentra " + escapeHtml(fileState.name);
+      botones = '<button type="button" data-action="file-connect">Elegir otro archivo</button>' +
+                '<button type="button" data-action="file-disconnect">Olvidarlo</button>';
+    }else if(fileState.needsReconnect){
+      clase += " is-warn";
+      texto = "Sin conectar con " + escapeHtml(fileState.name);
+      botones = '<button type="button" data-action="file-reconnect" title="Devolver a Lingatu el permiso para escribir en el archivo">Reconectar</button>';
+    }else{
+      texto = "Guardando en este navegador";
+      if(supportsFileMode()){
+        botones = '<button type="button" data-action="file-connect" title="Elegir un archivo del disco donde guardar también la colección">Conectar a un archivo</button>';
+      }
+    }
+
+    el.className = clase;
+    el.innerHTML = '<span class="storage-status-text">' + texto + '</span>' + botones;
+  }
+
+  function horaCorta(iso){
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return "";
+    return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
+
   // ---------- Paleta de comandos (Ctrl+K) ----------
   // COMMANDS es el único origen de verdad de las acciones globales de la app:
   // cada entrada llama a la misma función con nombre que llama el botón
@@ -5180,7 +5823,18 @@
     { id: "view-compact", label: "Vista compacta", run: function(){ setViewMode("compact"); } },
     { id: "export-links", label: "Exportar enlaces", run: function(){ exportLinks(); } },
     { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } },
-    { id: "restore-backup", label: "Restaurar una copia de seguridad", run: function(){ openRestoreBackup(); } }
+    { id: "restore-backup", label: "Restaurar una copia de seguridad", run: function(){ openRestoreBackup(); } },
+    // Mismas funciones con nombre que los botones del pie (decisión 25): la
+    // paleta no puede desincronizarse de lo que hace la interfaz.
+    { id: "connect-file", label: "Conectar a un archivo",
+      available: function(){ return supportsFileMode() && StorageAdapter.getMode() !== "file"; },
+      run: function(){ connectToFile(); } },
+    { id: "reconnect-file", label: "Reconectar con el archivo",
+      available: function(){ return !!fileState.handle && fileState.needsReconnect; },
+      run: function(){ reconnectFile(); } },
+    { id: "disconnect-file", label: "Dejar de guardar en el archivo",
+      available: function(){ return !!fileState.handle || !!fileState.name; },
+      run: function(){ disconnectFile(); } }
   ];
 
   var paletteOverlay = document.getElementById("commandPaletteOverlay");
@@ -5461,7 +6115,10 @@
       "⚠️ <strong style=\"color:var(--danger)\">Se pierden para siempre</strong> si borras \"cookies y datos de sitios\" del navegador, si lo reinstalas, o si navegas en incógnito. Exportar (JSON) es tu única copia de seguridad — hazla con regularidad.",
       "Cada vez que abres Lingatu se guarda una copia automática de todo, y se conservan las tres últimas: \"Revisar\" → \"Copias de seguridad y espacio\" → \"Restaurar una copia\", o <kbd>Ctrl</kbd>+<kbd>K</kbd> y escribe \"restaurar\".",
       "Esas copias automáticas te salvan de un borrado accidental o de una importación que salió mal, pero <strong>no</strong> de perder los datos del navegador: viven en el mismo sitio que el resto y desaparecen con él. Para eso está exportar a un archivo.",
-      "El pie del lateral avisa cuando hace más de una semana que no guardas una copia, y también cuando el espacio disponible se está acabando."
+      "El pie del lateral avisa cuando hace más de una semana que no guardas una copia, y también cuando el espacio disponible se está acabando.",
+      "Puedes <strong>conectar Lingatu a un archivo</strong> de tu disco desde el pie del lateral: a partir de ahí cada cambio se guarda también ahí, y tus datos dejan de vivir solo dentro del navegador. Funciona en Chrome y Edge; en Firefox todavía no.",
+      "Con el archivo conectado, el navegador pide permiso <strong>una vez por sesión</strong>: al abrir Lingatu después de haber cerrado el navegador, pulsa \"Reconectar\" y el resto de la sesión se guarda solo. Recargar la página no lo pide otra vez, y el archivo no hay que volver a elegirlo nunca.",
+      "Si guardas ese archivo en una carpeta sincronizada (OneDrive, Drive, Dropbox…), lo tendrás en todos tus equipos. <strong>Pero esto no es sincronización</strong>: es un archivo compartido. Trabaja en un equipo cada vez — si lo cambias en dos a la vez, Lingatu lo detecta y te deja elegir con cuál te quedas, sin machacar nada."
     ]}
   ];
 
@@ -5495,6 +6152,15 @@
     if(e.target.closest("#btnHelp")){ openHelpPanel(); return; }
     if(e.target.closest('[data-action="footer-export"]')){ exportLinks(); return; }
     if(e.target.closest('[data-action="footer-restore"]')){ openRestoreBackup(); return; }
+    if(e.target.closest('[data-action="file-connect"]')){ connectToFile(); return; }
+    if(e.target.closest('[data-action="file-reconnect"]')){ reconnectFile(); return; }
+    if(e.target.closest('[data-action="file-disconnect"]')){ disconnectFile(); return; }
+    if(e.target.closest('[data-action="file-flush"]')){
+      fileState.heldBack = false;
+      fileState.dirty = true;
+      flushFileSave();
+      return;
+    }
     if(e.target.closest('[data-action="footer-dismiss-backup"]')){
       // Solo para esta sesión: el aviso vuelve la próxima vez que se abra la
       // app, porque el motivo que lo trajo sigue ahí.
@@ -5516,9 +6182,41 @@
   refreshStorageUsage();
   probeQuotaEstimate();
 
-  applySiteTitle();
+  // El título ya lo ha aplicado reloadStateFromStorage().
   renderFooter();
   render();
+
+  // El archivo (4.27) se resuelve después del primer pintado, no antes: es
+  // asíncrono y la app no puede quedarse en blanco esperando a IndexedDB ni,
+  // menos aún, a un permiso que solo un gesto del usuario puede devolver (R24).
+  StorageAdapter.init().then(function(){
+    if(StorageAdapter.getMode() !== "file"){
+      syncStorageStatus();
+      return;
+    }
+    // Con permiso ya concedido, el archivo manda: es la fuente de verdad.
+    return StorageAdapter.loadAll().then(function(data){
+      if(data){
+        applyStateSnapshot(data);
+        render();
+      }
+      syncStorageStatus();
+    });
+  }).catch(function(){ syncStorageStatus(); });
+
+  // R20: el debounce de medio segundo deja una ventana en la que un cambio
+  // podría no haber llegado al archivo. Estos dos la cierran.
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden") flushFileSave();
+  });
+
+  window.addEventListener("beforeunload", function(e){
+    if(StorageAdapter.getMode() !== "file" || !fileState.dirty) return;
+    flushFileSave();
+    // Solo cuando de verdad queda algo sin volcar: en uso normal no aparece.
+    e.preventDefault();
+    e.returnValue = "";
+  });
 })();
 </script>
 </body>

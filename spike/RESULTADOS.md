@@ -164,13 +164,21 @@ Estado del permiso al terminar: granted
 exactamente ese JSON, sustituyendo al contenido que tenía antes. No es un ciclo
 que se cierre sobre una caché de la propia página.
 
-**Detalle sobre el ciclo de vida del permiso**, observado al repetir la prueba: en
-una ejecución posterior el estado de partida volvía a ser `prompt`, mientras que
-al repetir sin recargar seguía en `granted`. Es decir, **el permiso vive mientras
-viva el documento**, no mientras viva el proceso del navegador. Para la RUTA A′
-eso encaja con lo previsto —cada apertura de Lingatu es un documento nuevo y pide
-su clic—, pero conviene tenerlo escrito: el clic de «Reconectar» toca **una vez
-por carga de la página**, recarga incluida, no una vez por sesión de navegador.
+**Ciclo de vida del permiso.** Comprobado después, al implementar la Parte B, y
+conviene precisarlo porque una primera lectura apresurada de estos resultados
+llevó a la conclusión equivocada:
+
+- **Una recarga de la página NO lo pierde.** Con la pestaña abierta y el permiso
+  ya concedido, `F5` mantiene `granted` y la app sigue escribiendo sin pedir nada.
+- **Cerrar el navegador sí lo pierde**, que es lo que mide P6.
+- Entre medias hay un caso observado y no acotado: en una prueba separada por
+  varios minutos el estado había vuelto a `prompt` sin cerrar el navegador,
+  compatible con la revocación de Chrome cuando el origen se queda sin pestañas
+  activas o pasa tiempo en segundo plano. **No se ha medido el umbral**, y la app
+  no depende de ello: si el permiso no está, aparece «Reconectar».
+
+Para la RUTA A′ el resumen honesto es: **un clic por sesión de navegador**, no por
+carga de página.
 
 ## Decisión (R17): **RUTA A′ — archivo con reconexión manual**
 

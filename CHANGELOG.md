@@ -39,6 +39,34 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
     archivo que exportas tú. La aplicación lo dice donde hace falta, para que
     nadie confíe en ellas más de lo que aguantan.
 
+- **Tus enlaces pueden vivir ahora en un archivo tuyo, no solo dentro del
+  navegador.** En el pie del lateral hay un botón nuevo, **"Conectar a un
+  archivo"**: eliges dónde guardarlo y, a partir de ahí, cada cambio se escribe
+  también ahí. Si ese archivo está en una carpeta que ya sincronizas (OneDrive,
+  Drive, Dropbox, una unidad de red…), tendrás tu colección en todos tus
+  equipos sin que Lingatu se conecte a ningún servicio ni tengas que crear
+  ninguna cuenta: el trabajo lo hace la carpeta.
+  - **Tus datos siguen guardándose también en el navegador**, exactamente como
+    antes. El archivo se suma, no sustituye: si un día pierdes el archivo,
+    cambias de equipo o abres Lingatu en otro navegador, todo sigue ahí.
+  - **Una vez por sesión hay que pulsar "Reconectar"** y darle permiso al
+    navegador. No es un fallo: es la única forma en que los navegadores
+    permiten que una página escriba en tus archivos, y el permiso caduca al
+    cerrarlos. El archivo, en cambio, no hay que volver a elegirlo nunca.
+  - **Si el archivo cambia por fuera** —lo has editado en otro equipo, o la
+    carpeta sincronizada ha traído una versión nueva—, Lingatu **no escribe
+    encima**: te enseña las dos versiones con su fecha y su número de enlaces,
+    y te deja elegir. Una de las tres opciones es guardar la tuya aparte, para
+    que no tengas que perder ninguna de las dos.
+  - **Esto no es sincronización**, y la aplicación lo dice donde hace falta: es
+    un archivo compartido. Sirve para trabajar en un equipo cada vez, no para
+    tener Lingatu abierto en dos sitios a la vez.
+  - El pie del lateral indica en todo momento dónde se está guardando, y avisa
+    con claridad cuando algo que ves **no** ha llegado al archivo.
+  - Funciona en **Chrome y Edge**. Firefox todavía no permite que una página
+    escriba en un archivo tuyo, así que ahí la opción no aparece y todo sigue
+    funcionando como siempre.
+
 ### Corregido
 
 - **Unos datos ilegibles ya no se borran solos al abrir la aplicación.** Era el

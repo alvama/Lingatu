@@ -41,6 +41,7 @@ Además, las **salvaguardas de datos** (4.26) usan seis claves más, que no form
 | `enlaces_backup_since_v1` | Fecha ISO desde la que se cuentan los días sin copia cuando **nunca** se ha exportado. Se registra la primera vez que la colección llega a 20 enlaces, y se borra en cuanto hay una exportación de verdad |
 | `enlaces_backup_1_v1` … `enlaces_backup_3_v1` | Las tres últimas instantáneas rotativas del estado completo, con la envoltura de 4.26 |
 | `enlaces_backup_session_v1` | En `sessionStorage`, no en `localStorage`: marca que esta sesión ya tomó su instantánea |
+| `enlaces_file_meta_v1` | Archivo conectado (4.27): `{name, lastModified, savedAt}`. Permite nombrar el archivo antes de tener permiso y detectar que cambió por fuera. El **handle** no cabe aquí — no es serializable — y vive en IndexedDB (`lingatu_file_v1`, almacén `handles`) |
 
 > Las once claves de estado se enumeran **una sola vez en el código**, en `STATE_SLOTS`. El snapshot, el cálculo de ocupación y la restauración leen esa tabla en vez de repetir la lista, para que añadir una clave nueva no obligue a acordarse de tres sitios (y para que 11.6, que necesita el mismo inventario, no escriba un cuarto).
 
@@ -456,6 +457,43 @@ Un modal (`#helpModalOverlay`) con cuatro bloques — **Atajos, Gestos, Filtros,
 
 **Fila en el panel de limpieza** (4.24): "Copias de seguridad y espacio", con los días sin copia, la ocupación desglosada y el número de instantáneas. Se pinta **siempre**, a diferencia de las ocho comprobaciones —que se ocultan a cero porque diagnostican defectos, mientras que esta informa de un estado que siempre existe—, y respeta la regla de la sección: cuenta y lleva a las herramientas que ya existen (exportar, restaurar), sin reparar nada por su cuenta.
 
+### 4.27 El archivo como fuente de verdad
+
+**Qué resuelve**: hasta aquí la colección vivía solo dentro del navegador, con las salvaguardas de 4.26 alrededor. Ahora puede vivir además en **un archivo del disco del usuario**, que se reescribe con cada cambio. Si ese archivo está en una carpeta sincronizada (OneDrive, Drive, Dropbox, una unidad de red, un repositorio git), la sincronización la da la carpeta: **Lingatu no integra ningún servicio, no abre ninguna conexión y no sabe qué hay debajo**.
+
+**Es opcional y depende del navegador.** La File System Access API existe en Chrome y Edge, y **no existe en Firefox** (Fase 0, `spike/RESULTADOS.md`). `supportsFileMode()` decide si la acción se ofrece siquiera; donde no existe, la app funciona exactamente como antes.
+
+**`localStorage` no se abandona: pasa a ser caché y red de seguridad.** Al conectar un archivo **no se borra nada**, y cada cambio se sigue escribiendo en las once claves de siempre, igual que antes. El archivo se escribe *además*. Eso hace que perder el archivo (o el permiso, o el navegador donde estaba) nunca deje al usuario sin datos, y es lo que permite arrancar y trabajar con normalidad mientras el permiso no esté concedido.
+
+#### El adaptador
+
+`StorageAdapter` es el punto por el que pasa la persistencia: `init()`, `loadAll()`, `saveAll()`, `getMode()`, `getStatusLabel()`, `disconnect()`. Los once `loadX()`/`saveX()` **se conservan tal cual** — los llaman `COMMANDS`, los listeners y el puente de la sección 8 — y siguen escribiendo en `localStorage`; lo que cambia es que `storageWrite()` (el punto único de escritura de 4.26) programa además el volcado al archivo cuando la clave es una de las once (`isStateKey`).
+
+`loadAll()` solo se usa al arrancar con permiso ya concedido: lee el archivo, y `applyStateSnapshot()` vuelca su contenido a las once claves. A partir de ahí **todo el resto de la app funciona igual que siempre**, leyendo de `localStorage`. Es lo que mantiene el cambio pequeño: no hay dos caminos de lectura, hay uno solo con una fuente que a veces lo precede.
+
+**Volcado con debounce de 500 ms**, más volcado forzado en `visibilitychange` (al ocultarse la pestaña) y en `beforeunload`. Este último solo interrumpe —con el aviso nativo del navegador— cuando de verdad queda algo sin escribir; en uso normal no aparece nunca.
+
+#### Conexión y reconexión
+
+- **«Conectar a un archivo»** (pie del sidebar y `Ctrl+K`, misma función con nombre en los dos sitios): `showSaveFilePicker()` con nombre sugerido `lingatu-datos.json`. Si el archivo elegido **ya contenía** una colección de Lingatu, se pregunta con los dos recuentos delante cuál se conserva; nunca se sobrescribe en silencio.
+- **«Reconectar»**: el permiso no sobrevive al cierre del navegador con origen `file://` (Fase 0), así que al abrir Lingatu hay que devolverlo con un gesto. **La app no se bloquea esperándolo** (R24): arranca con los datos del navegador, funciona con normalidad y ofrece el botón. Recargar la página no lo vuelve a pedir.
+- **«Desconectar»**: suelta el archivo y olvida el handle. **No borra nada** — ni el archivo ni `localStorage` — y lo dice en la confirmación.
+- Si el archivo ya no está donde estaba, se dice explícitamente y se ofrece elegir otro u olvidarlo. Tampoco ahí se borra nada.
+
+El handle vive en **IndexedDB** (`lingatu_file_v1`), porque no es serializable a JSON; sobrevive al cierre del navegador aunque el permiso no. En `localStorage` se guarda solo su metadato (`enlaces_file_meta_v1`: nombre, `lastModified` y fecha del último guardado), para poder decir *"sin conectar con lingatu-datos.json"* antes de tener permiso.
+
+#### Conflictos, y por qué esto no es sincronización
+
+Tras cada escritura se guarda el `lastModified` del archivo. Antes de escribir se vuelve a leer: si no coincide, **no se sobrescribe nada** y se abre `#fileConflictOverlay` con las dos versiones (fecha, número de enlaces y versión de la app) y **tres salidas**: quedarse con la del archivo, quedarse con la de la sesión, o **guardar la de la sesión como archivo nuevo** — la tercera es la que garantiza que ninguna salida pierde datos, porque convierte el conflicto en dos archivos.
+
+El propio modal lo dice sin rodeos: *no es sincronización, es un archivo compartido con detección de conflictos*. Sirve para "trabajo en un equipo cada vez", no para edición simultánea.
+
+**Regla de reducción brusca**: una escritura que deje el archivo **vacío, o por debajo de la mitad** de lo que tenía, pide confirmación con los dos recuentos. No se pide en cada borrado —eso haría la app inusable— sino en el tipo de pérdida que no se hace sin querer (decisión 54).
+
+#### Indicador de estado
+
+Permanente en `#appFooter`, con las situaciones distinguibles de un vistazo: **archivo conectado** (nombre y hora del último guardado), **guardando** (durante el debounce), **guardando en este navegador** (con el botón de conectar), **sin conectar / no se encuentra el archivo**, y **lo que ves no está en el archivo** — este último cuando el usuario canceló una escritura, cerró el conflicto sin elegir o hubo un error, con un botón «Guardar ahora». Que un cambio no esté en el archivo nunca se muestra como "guardado".
+
 ## 5. Estructura del HTML
 
 ```
@@ -486,6 +524,7 @@ Un modal (`#helpModalOverlay`) con cuatro bloques — **Atajos, Gestos, Filtros,
 #helpModalOverlay               Panel de ayuda (4.25)
 #storageFullOverlay             Aviso de que un guardado no ha cabido (4.26)
 #restoreBackupOverlay           Lista de copias de seguridad para restaurar (4.26)
+#fileConflictOverlay            El archivo cambió por fuera: tres salidas (4.27)
 #commandPaletteOverlay          Paleta de comandos (4.22)
 ```
 
@@ -600,6 +639,16 @@ Todos los overlays se dan de alta con `registerOverlay()`, que es lo que los hac
 | `openRestoreBackup()` / `renderRestoreBackupList()` / `performRestoreBackup(key)` | Modal de restauración: apertura, listado (sin botón para las copias ilegibles o de versión superior) y aplicación con confirmación de los dos recuentos |
 | `syncFooterNotices()` / `backupCheckHtml()` | Pintan los avisos permanentes de `#footerNotices` (llamada desde `render()`) y la fila "Copias de seguridad y espacio" del panel de limpieza |
 | `exportCategories()` | Exportación de categorías (4.19), extraída del listener a una función con nombre para que también registre la fecha de la última copia |
+| `StorageAdapter` | Punto por el que pasa la persistencia (4.27): `init` / `loadAll` / `saveAll` / `getMode` / `getStatusLabel` / `disconnect`. Los once `loadX`/`saveX` se conservan como fachada y no se renombran |
+| `supportsFileMode()` / `isStateKey(key)` | Si el navegador tiene la File System Access API (en Firefox no existe) / si una clave es una de las once de estado, para decidir si un guardado programa además el volcado al archivo |
+| `idbOpen()` / `idbSet(k,v)` / `idbGet(k)` / `idbDelete(k)` | Almacén del `FileSystemFileHandle` en IndexedDB (4.27), que es el único sitio donde cabe: no es serializable a JSON |
+| `loadFileMeta()` / `saveFileMeta()` / `clearFileMeta()` | Metadatos del archivo conectado en `localStorage` (nombre, `lastModified`, fecha): permiten nombrar el archivo antes de tener permiso y detectar que cambió por fuera |
+| `readFileState()` / `writeFileState(opciones)` | Leen y escriben la envoltura completa en el archivo. La escritura comprueba antes el conflicto (R25) y la reducción brusca (R26); con `{forzar:true}` se salta ambas, y solo lo usan los caminos donde el usuario ya ha confirmado |
+| `perdidaGrande(nuevos, enArchivo)` | Si una escritura encoge la colección lo bastante como para parar y preguntar: vaciarla, o dejarla por debajo de la mitad |
+| `scheduleFileSave()` / `flushFileSave()` | Volcado con debounce de 500 ms / volcado inmediato, usado por el temporizador, `visibilitychange` y `beforeunload` |
+| `connectToFile()` / `reconnectFile()` / `disconnectFile()` | Las tres acciones del pie y de la paleta. Ninguna borra datos: desconectar deja intactos el archivo y `localStorage` |
+| `openConflictModal(archivo)` / `closeConflictModal()` | Modal de conflicto con las dos versiones y sus tres salidas. Cerrarlo sin elegir cuenta como "ahora no" y deja el estado marcado como no guardado |
+| `syncStorageStatus()` / `horaCorta(iso)` | Pintan el indicador permanente del pie (4.27), llamado desde `render()` / hora `HH:MM` del último guardado |
 
 ## 7. Decisiones de diseño relevantes (historial)
 
@@ -706,6 +755,18 @@ Las siguientes son las decisiones de las **salvaguardas de datos** (4.26):
 
 51. **Las copias automáticas se anuncian como lo que son, no como una copia de seguridad.** Viven en el mismo almacén que protegen, así que desaparecen exactamente con el mismo suceso del que hay que protegerse: borrar los datos del navegador. Sirven para lo otro —una importación equivocada, un "Sustituir todo" a destiempo, un borrado accidental—, que es frecuente y hasta ahora no tenía ninguna red. Tanto el panel de ayuda como el modal de restauración lo dicen explícitamente, porque una salvaguarda que el usuario cree más fuerte de lo que es acaba sustituyendo a la que sí funciona: exportar a un archivo.
 
+Las siguientes son las decisiones del **archivo como fuente de verdad** (4.27):
+
+52. **`localStorage` no se abandona al conectar un archivo: se queda como caché y como red de seguridad.** Era tentador migrar y limpiar —"ahora la verdad está en el disco"—, y habría sido un error en las tres situaciones que de verdad ocurren: el permiso caduca en cada sesión, el archivo puede estar en una carpeta sincronizada que ese día no ha bajado, y el usuario puede abrir la app en otro navegador donde ese archivo ni existe. Manteniendo las once claves escritas siempre, **la app arranca y funciona con normalidad sin permiso, sin archivo y sin la API**, y el modo archivo se convierte en algo que se suma en vez de algo de lo que se depende. También es lo que hace que el cambio sea pequeño: no hay dos caminos de lectura en la app, solo uno con una fuente que a veces lo precede.
+
+53. **El adaptador se enganchó al punto único de escritura que ya existía, en vez de reescribir los once pares.** `storageWrite()` nació en 4.26 para capturar el fallo de cuota; añadirle "y si la clave es de estado, programa el volcado" es una línea, y deja `save()`, `saveCategories()` y los demás exactamente como estaban — que es lo que exigía no tocar ninguna superficie observable (el puente de la sección 8 llama a varios de ellos). La alternativa, convertir los once en llamadas asíncronas al adaptador, habría cambiado el orden de ejecución de media aplicación a cambio de nada visible.
+
+54. **La regla "nunca escribir menos de lo que hay" se aplicó por umbral, no al pie de la letra.** Literalmente exigiría confirmar cada borrado de un enlace, porque cada uno deja el archivo con menos elementos que antes: una app que pregunta dos veces por cada borrado es una app que nadie usa, y el usuario acabaría respondiendo que sí sin leer — que es exactamente el fallo que la regla quería evitar. El umbral elegido (vaciarla del todo, o dejarla por debajo de la mitad) cubre la pérdida que **no se hace sin querer** y deja en paz el trabajo normal. Y cancelar no vuelve a preguntar en bucle: marca el estado como *retenido* y lo enseña en el pie, porque la alternativa —quedarse callado— haría creer que está guardado.
+
+55. **Cerrar el diálogo de conflicto sin elegir es una respuesta válida, y tiene consecuencia visible.** Escape y el clic fuera cierran todos los overlays de la app (4.22) y este no iba a ser la excepción, pero aquí "cerrar" deja el archivo y la pantalla diciendo cosas distintas. En vez de reintentar la escritura —que reabriría el modal en bucle— o de darlo por guardado, el estado queda marcado y el pie lo dice con un botón para resolverlo cuando el usuario quiera. **El principio general del indicador: lo que no está en el archivo no se muestra nunca como guardado.**
+
+56. **La tercera salida del conflicto ("guardar la mía aparte") es la que hace que la regla se cumpla de verdad.** Con solo dos opciones, elegir siempre significa perder una de las dos versiones, y un usuario con prisa acaba destruyendo la buena. Con la tercera, el conflicto se resuelve **sin que nadie pierda nada**: pasan a ser dos archivos y ya se mirarán con calma. Es la única salida que no exige decidir bien en ese momento.
+
 ## 8. Contrato con la extensión de Chrome
 
 `extension/background.js` nunca accede al DOM de `lingatu.html` directamente: pasa siempre por una superficie mínima y estable, `window.LingatuBridge`, expuesta al final de la IIFE. Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, en `background.js`), sin ningún error visible dentro de `lingatu.html`.
@@ -760,7 +821,8 @@ Las siguientes son las decisiones de las **salvaguardas de datos** (4.26):
 ## 10. Compatibilidad y limitaciones conocidas
 
 - Requiere un navegador moderno con soporte de `localStorage`, `<dialog>`-like overlays manuales, `Set`, `Array.prototype.find`/`findIndex`, plantillas de cadena no usadas (se usa concatenación `+` deliberadamente por compatibilidad ES5-friendly).
-- No hay sincronización entre dispositivos/navegadores: cada `localStorage` es local a un perfil de navegador en una máquina. Exportar/Importar es el mecanismo manual de respaldo/traslado. **Las salvaguardas de 4.26 mitigan el riesgo, no lo eliminan**: avisan de que hace días que no exportas y guardan tres instantáneas de rescate, pero esas instantáneas viven en el mismo almacén y se pierden con él. La única copia que sobrevive a un borrado de datos del navegador sigue siendo el archivo exportado.
+- **El modo archivo (4.27) solo existe en Chrome y Edge.** Firefox no implementa la File System Access API, así que ahí la acción ni se ofrece y la app funciona como siempre. Y aun donde existe, el permiso hay que devolverlo con un clic en cada sesión del navegador: el origen `file://` es opaco y no puede conservarlo.
+- No hay sincronización entre dispositivos/navegadores: cada `localStorage` es local a un perfil de navegador en una máquina. Conectar un archivo en una carpeta sincronizada (4.27) acerca el resultado, pero **no es sincronización**: es un archivo compartido con detección de conflictos, para trabajar en un equipo cada vez. Exportar/Importar sigue siendo el mecanismo manual de respaldo/traslado. **Las salvaguardas de 4.26 mitigan el riesgo, no lo eliminan**: avisan de que hace días que no exportas y guardan tres instantáneas de rescate, pero esas instantáneas viven en el mismo almacén y se pierden con él. La única copia que sobrevive a un borrado de datos del navegador sigue siendo el archivo exportado.
 - No hay límite de enlaces impuesto por la app; el límite real es la cuota de `localStorage` del navegador. Medido en Chrome 151: **5 MiB exactos** (~5.236.000 caracteres, contando clave y valor), compartidos por todas las páginas `file://`. La app avisa a partir del 60% de ocupación y explica el fallo cuando un guardado no cabe (4.26), en vez de perderlo en silencio como hacía antes.
 - El borrado en el modal de gestión, y el título de la página, siguen usando `confirm()`/`prompt()` nativos del navegador (el renombrado de categorías/etiquetas ya es inline — ver decisión 10 de la sección 7).
 - El arrastrar y soltar usa la API nativa HTML5 Drag and Drop, pensada para ratón — en pantallas táctiles el reordenamiento solo es posible con los botones ▲/▼ (que si funcionan por toque).
@@ -796,14 +858,12 @@ Ordenado por prioridad, con una excepción deliberada: las ideas relacionadas en
 
 Se registran aquí para no volver a proponerlas en rondas futuras. **Aparcada** significa que la idea es buena pero se decidió no abordarla ahora; el análisis se conserva para cuando se retome.
 
-- **(Aparcada) El archivo como fuente de verdad, con sincronización por carpeta sincronizada**: usar la File System Access API (`showSaveFilePicker` + handle persistido en IndexedDB) para que `save()` reescriba un JSON del disco, convirtiendo `localStorage` en caché. Si ese archivo vive en una carpeta sincronizada (OneDrive, Dropbox, Drive, Syncthing, unidad de red, un repo git), la sincronización la da la carpeta y Lingatu no integra ningún servicio: sin servidor, sin cuentas, sin API de terceros. Sería la única vía para eliminar la limitación nº 1 de la sección 10. Si se retoma, **hay dos incógnitas que se comprueban en cinco minutos**: (1) si el permiso sobre el handle sobrevive al cierre del navegador con origen `file://` (los permisos se guardan por origen y `file://` es un origen opaco, justo el caso en que no se pueden persistir), y (2) si IndexedDB funciona en `file://` en Chrome, porque sin ella no hay dónde guardar el handle —no es serializable a JSON, así que `localStorage` no sirve—. Si la respuesta es no, el modo degradado sigue siendo útil: un clic de "Reconectar" por sesión y el resto de la sesión escribe sola. Límite conceptual que habría que documentar sin ambigüedad: **no es sincronización, es un archivo compartido con detección de conflictos** (contador de revisión dentro del archivo, relectura al volver a la pestaña vía `visibilitychange`, y fusión reutilizando el dedupe por URL que ya existe); sirve para "trabajo en un equipo a la vez y quiero encontrarlo todo en el otro", no para edición simultánea. Regla de seguridad no negociable: **nunca escribir un array vacío sobre un archivo que tenía datos** sin confirmación explícita, para que un fallo de lectura no pueda vaciar el archivo bueno.
+- **(Implementado — 4.27) El archivo como fuente de verdad, con sincronización por carpeta sincronizada.** Se acometió tras responder empíricamente las dos incógnitas que esta entrada dejó planteadas (Fase 0, [`spike/RESULTADOS.md`](../spike/RESULTADOS.md)):
+  - **IndexedDB funciona en `file://`**, así que hay dónde guardar el handle — que no es serializable a JSON y por tanto no cabía en `localStorage`. Segunda incógnita: resuelta que sí.
+  - **El permiso NO sobrevive al cierre del navegador.** Primera incógnita: resuelta que no, exactamente por el motivo que esta entrada sospechaba — los permisos se guardan por origen y `file://` es un origen opaco. Se adoptó por tanto el **modo degradado que esta misma entrada declaraba aceptable**: un clic de «Reconectar» por sesión y el resto de la sesión escribe sola.
+  - Se cumplieron los dos límites que la entrada fijaba: **no es sincronización, es un archivo compartido con detección de conflictos** (dicho así en el propio diálogo), y **nunca se escribe un estado vacío sobre un archivo que tenía datos** sin confirmación con recuentos — regla que se aplicó por umbral y no al pie de la letra, ver decisión 54.
+  - Lo que no se pudo prever al escribir esta entrada: **Firefox no implementa la API en ninguna forma**, así que el modo archivo es opcional y depende del navegador, no el sustituto universal de `localStorage` que aquí se imaginaba.
 
-  **Estado (agosto de 2026): la Fase 0 está completa y la ruta es la A′.** Las salvaguardas que no dependían de esto ya se implementaron (4.26), incluida la regla anterior aplicada al almacén actual (decisión 50). Resultados completos en [`spike/RESULTADOS.md`](../spike/RESULTADOS.md):
-  - **Las dos incógnitas, respondidas.** IndexedDB funciona bajo `file://` y el handle **sobrevive al cierre completo del navegador** (segunda incógnita: sí). Pero **el permiso no**: al reabrir, `queryPermission` devuelve `prompt` y leer el archivo lanza `NotAllowedError` (primera incógnita: no). Es justo lo que este párrafo temía al escribirse — `file://` es un origen opaco y ahí los permisos no se persisten.
-  - **Ruta adoptada: A′, reconexión manual**, comprobada de punta a punta: un clic devuelve `granted`, y a partir de ahí el ciclo de escribir → cerrar → releer funciona (verificado también sobre el archivo del disco, fuera del navegador). Este documento ya había declarado ese modo degradado como aceptable.
-  - **El clic toca una vez por carga de la página**, no una por sesión de navegador: el permiso vive mientras vive el documento. Al recargar vuelve a `prompt`.
-  - **Solo en Chromium.** Firefox no implementa la File System Access API en ninguna forma —ni selectores ni `getAsFileSystemHandle`—, así que el modo archivo sería una funcionalidad opcional según navegador, no el sustituto universal de `localStorage`. Razón de más para que las salvaguardas de 4.26, que funcionan en todos, fueran primero.
-  - **También queda descartada la RUTA B** (modo dual servido por HTTPS): la API se comporta igual en `file://` que servida, así que el origen no era el impedimento.
 - **Tour interactivo guiado de bienvenida**: uno o dos días de trabajo, los usuarios lo saltan, y en un archivo único envejece mal. Es la opción de ayuda que parece más profesional y la que menos rinde; el retorno está en los estados vacíos y en la chuleta (11.5).
 - **Variante de solo lectura de la exportación autocontenida** (el mismo archivo sin botones de edición, para consultar): descartada por no aportar sobre la exportación completa, que ya se puede consultar igual.
 
