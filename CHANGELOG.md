@@ -40,9 +40,15 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
     nadie confíe en ellas más de lo que aguantan.
 
 - **Tus enlaces pueden vivir ahora en un archivo tuyo, no solo dentro del
-  navegador.** En el pie del lateral hay un botón nuevo, **"Conectar a un
-  archivo"**: eliges dónde guardarlo y, a partir de ahí, cada cambio se escribe
-  también ahí. Si ese archivo está en una carpeta que ya sincronizas (OneDrive,
+  navegador.** En el pie del lateral hay dos botones nuevos. **"Guardar en un
+  archivo…"** es el de la primera vez: **no tienes que crear ningún archivo ni
+  preparar nada**, se abre la ventana de guardar de tu sistema con un nombre ya
+  propuesto, eliges la carpeta y el navegador lo crea en ese momento con todo
+  lo que tienes dentro. **"Ya tengo uno"** es para cuando el archivo ya existe
+  —otro equipo, una carpeta sincronizada, una reinstalación—: lo seleccionas,
+  Lingatu lo lee **antes de tocar nada** y te pregunta si prefieres quedarte
+  con lo que hay dentro o con lo que tengas en ese equipo. A partir de ahí,
+  cada cambio se escribe también en el archivo. Si ese archivo está en una carpeta que ya sincronizas (OneDrive,
   Drive, Dropbox, una unidad de red…), tendrás tu colección en todos tus
   equipos sin que Lingatu se conecte a ningún servicio ni tengas que crear
   ninguna cuenta: el trabajo lo hace la carpeta.

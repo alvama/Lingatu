@@ -5531,6 +5531,12 @@
   registerOverlay(restoreBackupOverlay, closeRestoreBackup);
 
   // ---------- Conectar, reconectar y conflictos (4.27) ----------
+  // Conectar tiene dos caminos distintos y conviene no mezclarlos: crear el
+  // archivo la primera vez (showSaveFilePicker, "guardar como") y abrir uno que
+  // ya existe (showOpenFilePicker, "abrir"). Usar el primero para lo segundo
+  // funciona, pero hace que el sistema pregunte "¿desea reemplazarlo?" delante
+  // de un archivo que contiene la única copia de la colección — la pregunta
+  // exacta que un usuario prudente responde mal, y con razón.
   function connectToFile(){
     if(!supportsFileMode()){
       alert("Este navegador no permite que una página guarde en un archivo tuyo. Funciona en Chrome y en Edge; en Firefox, de momento, no.");
@@ -5584,6 +5590,79 @@
       // Cerrar el selector sin elegir no es un error que merezca aviso.
       if(e && e.name === "AbortError") return;
       alert("No se ha podido conectar el archivo" + (e ? " (" + e.name + ")" : "") + ". No se ha tocado nada.");
+    }).then(function(){ syncStorageStatus(); });
+  }
+
+  // El otro camino: el archivo ya existe (segundo equipo, carpeta sincronizada,
+  // reinstalación). Aquí manda el archivo, que es lo que espera quien abre uno.
+  function openExistingFile(){
+    if(!supportsFileMode()){
+      alert("Este navegador no permite que una página abra un archivo tuyo para escribir en él. Funciona en Chrome y en Edge; en Firefox, de momento, no.");
+      return;
+    }
+    window.showOpenFilePicker({
+      multiple: false,
+      types: [{ description: "Datos de Lingatu", accept: { "application/json": [".json"] } }]
+    }).then(function(handles){
+      var h = handles && handles[0];
+      if(!h) return;
+      // "Abrir" solo concede lectura: para escribir hace falta pedirlo, y este
+      // clic todavía cuenta como gesto.
+      return h.requestPermission({ mode:"readwrite" }).then(function(p){
+        if(p !== "granted"){
+          alert("Sin permiso de escritura, Lingatu no puede guardar en ese archivo. No se ha tocado nada.");
+          return;
+        }
+        fileState.handle = h;
+        fileState.name = h.name || "el archivo";
+        fileState.needsReconnect = false;
+        fileState.missing = false;
+        fileState.heldBack = false;
+        fileState.lastModified = 0;
+        return idbSet(FILE_HANDLE_KEY, h).catch(function(){}).then(function(){
+          return readFileState();
+        }).then(function(actual){
+          if(actual.ok){
+            var msg = "El archivo contiene " + linkCountText(actual.linkCount) + ", guardados el " +
+              formatStamp(actual.savedAt) + ".\n\n" +
+              "Aceptar → usar los del archivo y sustituir lo que tienes ahora (" + linkCountText(state.links.length) + ").\n" +
+              "Cancelar → conservar lo tuyo y escribirlo encima del archivo.\n\n" +
+              "En los dos casos, tus datos actuales siguen guardados en este navegador.";
+            if(confirm(msg)){
+              applyStateSnapshot(actual.data);
+              resetFiltersAfterImport();
+              fileState.lastModified = actual.lastModified;
+              fileState.lastSavedAt = new Date().toISOString();
+              fileState.dirty = false;
+              saveFileMeta();
+              render();
+              alert("Conectado a " + fileState.name + ": " + linkCountText(state.links.length) + ".");
+              return;
+            }
+            return writeFileState({ forzar:true }).then(function(){ render(); });
+          }
+          // No es un archivo de Lingatu, o está vacío o ilegible: no se escribe
+          // encima de algo que no sabemos qué es sin decirlo.
+          if(actual.reason === "vacio"){
+            return writeFileState({ forzar:true }).then(function(r){
+              render();
+              alert(r.ok ? "Conectado a " + fileState.name + ", que estaba vacío. Ahí van tus datos a partir de ahora." : "No se ha podido escribir en ese archivo.");
+            });
+          }
+          var aviso = actual.reason === "newer"
+            ? "Ese archivo lo guardó una versión más reciente de Lingatu, así que esta no puede leerlo sin riesgo."
+            : "Ese archivo no parece un archivo de datos de Lingatu.";
+          if(!confirm(aviso + "\n\n¿Quieres usarlo de todas formas y escribir encima tus " +
+              linkCountText(state.links.length) + "? Su contenido actual se perderá.")){
+            StorageAdapter.disconnect();
+            return;
+          }
+          return writeFileState({ forzar:true }).then(function(){ render(); });
+        });
+      });
+    }).catch(function(e){
+      if(e && e.name === "AbortError") return;
+      alert("No se ha podido abrir el archivo" + (e ? " (" + e.name + ")" : "") + ". No se ha tocado nada.");
     }).then(function(){ syncStorageStatus(); });
   }
 
@@ -5770,7 +5849,8 @@
     }else if(fileState.missing){
       clase += " is-warn";
       texto = "⚠️ No se encuentra " + escapeHtml(fileState.name);
-      botones = '<button type="button" data-action="file-connect">Elegir otro archivo</button>' +
+      botones = '<button type="button" data-action="file-open" title="Buscarlo donde esté ahora, si lo has movido o renombrado">Buscarlo</button>' +
+                '<button type="button" data-action="file-connect" title="Empezar de nuevo con un archivo nuevo">Crear otro</button>' +
                 '<button type="button" data-action="file-disconnect">Olvidarlo</button>';
     }else if(fileState.needsReconnect){
       clase += " is-warn";
@@ -5779,7 +5859,12 @@
     }else{
       texto = "Guardando en este navegador";
       if(supportsFileMode()){
-        botones = '<button type="button" data-action="file-connect" title="Elegir un archivo del disco donde guardar también la colección">Conectar a un archivo</button>';
+        // Dos acciones, no una: crear el archivo la primera vez y abrir el que
+        // ya existe son caminos distintos, y confundirlos es justo lo que pone
+        // en peligro la colección de quien conecta desde un segundo equipo.
+        botones =
+          '<button type="button" data-action="file-connect" title="Crear el archivo: se abre la ventana de guardar de tu sistema y el navegador lo crea donde le digas. No tienes que prepararlo antes">Guardar en un archivo…</button>' +
+          '<button type="button" data-action="file-open" title="Conectar con un archivo de datos de Lingatu que ya tengas: otro equipo, una carpeta sincronizada o una reinstalación">Ya tengo uno</button>';
       }
     }
 
@@ -5826,9 +5911,12 @@
     { id: "restore-backup", label: "Restaurar una copia de seguridad", run: function(){ openRestoreBackup(); } },
     // Mismas funciones con nombre que los botones del pie (decisión 25): la
     // paleta no puede desincronizarse de lo que hace la interfaz.
-    { id: "connect-file", label: "Conectar a un archivo",
+    { id: "connect-file", label: "Guardar en un archivo (crear uno nuevo)",
       available: function(){ return supportsFileMode() && StorageAdapter.getMode() !== "file"; },
       run: function(){ connectToFile(); } },
+    { id: "open-file", label: "Conectar con un archivo de Lingatu que ya tengo",
+      available: function(){ return supportsFileMode() && StorageAdapter.getMode() !== "file"; },
+      run: function(){ openExistingFile(); } },
     { id: "reconnect-file", label: "Reconectar con el archivo",
       available: function(){ return !!fileState.handle && fileState.needsReconnect; },
       run: function(){ reconnectFile(); } },
@@ -6111,14 +6199,22 @@
       "Si tienes un filtro puesto, \"Exportar\" descarga solo lo filtrado — y te avisa antes.",
       "Al importar: \"Fusionar\" añade lo que no tengas (compara por URL); \"Sustituir todo\" reemplaza y no se puede deshacer.",
       "Las categorías se exportan e importan aparte, desde su propio modal de gestión.",
-      "Tus datos viven solo en este navegador y en este equipo, en su almacenamiento local: no hay ningún servidor ni sincronización de por medio.",
-      "⚠️ <strong style=\"color:var(--danger)\">Se pierden para siempre</strong> si borras \"cookies y datos de sitios\" del navegador, si lo reinstalas, o si navegas en incógnito. Exportar (JSON) es tu única copia de seguridad — hazla con regularidad.",
+      "Mientras no conectes un archivo (bloque siguiente), tus datos viven solo en este navegador y en este equipo, en su almacenamiento local: no hay ningún servidor ni sincronización de por medio.",
+      "⚠️ Ahí <strong style=\"color:var(--danger)\">se pierden para siempre</strong> si borras \"cookies y datos de sitios\" del navegador, si lo reinstalas, o si navegas en incógnito. Exportar (JSON) es tu red de seguridad — hazla con regularidad.",
       "Cada vez que abres Lingatu se guarda una copia automática de todo, y se conservan las tres últimas: \"Revisar\" → \"Copias de seguridad y espacio\" → \"Restaurar una copia\", o <kbd>Ctrl</kbd>+<kbd>K</kbd> y escribe \"restaurar\".",
       "Esas copias automáticas te salvan de un borrado accidental o de una importación que salió mal, pero <strong>no</strong> de perder los datos del navegador: viven en el mismo sitio que el resto y desaparecen con él. Para eso está exportar a un archivo.",
-      "El pie del lateral avisa cuando hace más de una semana que no guardas una copia, y también cuando el espacio disponible se está acabando.",
-      "Puedes <strong>conectar Lingatu a un archivo</strong> de tu disco desde el pie del lateral: a partir de ahí cada cambio se guarda también ahí, y tus datos dejan de vivir solo dentro del navegador. Funciona en Chrome y Edge; en Firefox todavía no.",
-      "Con el archivo conectado, el navegador pide permiso <strong>una vez por sesión</strong>: al abrir Lingatu después de haber cerrado el navegador, pulsa \"Reconectar\" y el resto de la sesión se guarda solo. Recargar la página no lo pide otra vez, y el archivo no hay que volver a elegirlo nunca.",
-      "Si guardas ese archivo en una carpeta sincronizada (OneDrive, Drive, Dropbox…), lo tendrás en todos tus equipos. <strong>Pero esto no es sincronización</strong>: es un archivo compartido. Trabaja en un equipo cada vez — si lo cambias en dos a la vez, Lingatu lo detecta y te deja elegir con cuál te quedas, sin machacar nada."
+      "El pie del lateral avisa cuando hace más de una semana que no guardas una copia, y también cuando el espacio disponible se está acabando."
+    ]},
+    { title: "Tu archivo de datos", icon: "📄", items: [
+      "Puedes <strong>guardar tus enlaces en un archivo tuyo</strong>, además de en el navegador, con los botones del pie de este lateral. Funciona en Chrome y Edge; en Firefox todavía no.",
+      "<strong>La primera vez el archivo no existe, y no tienes que crearlo tú</strong>: pulsa <kbd>Guardar en un archivo…</kbd> y se abrirá la ventana de guardar de tu sistema, con el nombre <code>lingatu-datos.json</code> ya propuesto. Elige la carpeta, acepta, y <strong>el navegador lo crea en ese momento</strong>, con todo lo que tienes ahora dentro.",
+      "Piensa <strong>dónde</strong> lo guardas: si eliges una carpeta que ya sincronizas (OneDrive, Drive, Dropbox, una unidad de red…), tendrás tu colección en todos tus equipos sin hacer nada más.",
+      "<strong>En un segundo equipo no crees otro archivo</strong>: pulsa <kbd>Ya tengo uno</kbd> y selecciona el que ya existe. Lingatu lo lee <strong>antes</strong> de tocar nada y te pregunta si prefieres quedarte con lo que hay dentro o con lo que tengas en ese equipo.",
+      "Después, el navegador pide permiso <strong>una vez por sesión</strong>: al abrir Lingatu tras haber cerrado el navegador, pulsa <kbd>Reconectar</kbd> y el resto de la sesión se guarda solo. Recargar la página no lo vuelve a pedir, y el archivo no hay que elegirlo nunca más.",
+      "El pie te dice en todo momento dónde se está guardando, y avisa cuando algo que ves <strong>no</strong> ha llegado al archivo.",
+      "El archivo es texto y se puede abrir con cualquier editor. Aun así, <strong>no sustituye a exportar</strong>: conviene seguir guardando una copia aparte de vez en cuando.",
+      "<strong>Esto no es sincronización</strong>, aunque el archivo esté en una carpeta que se sincroniza: es un archivo compartido. Trabaja en un equipo cada vez — si lo cambias en dos a la vez, Lingatu lo detecta al guardar y te deja elegir con cuál te quedas, sin machacar nada.",
+      "Para dejar de usarlo, <kbd>Desconectar</kbd>. Ni el archivo ni tus enlaces se borran: el archivo se queda donde está y Lingatu vuelve a guardar solo en el navegador."
     ]}
   ];
 
@@ -6153,6 +6249,7 @@
     if(e.target.closest('[data-action="footer-export"]')){ exportLinks(); return; }
     if(e.target.closest('[data-action="footer-restore"]')){ openRestoreBackup(); return; }
     if(e.target.closest('[data-action="file-connect"]')){ connectToFile(); return; }
+    if(e.target.closest('[data-action="file-open"]')){ openExistingFile(); return; }
     if(e.target.closest('[data-action="file-reconnect"]')){ reconnectFile(); return; }
     if(e.target.closest('[data-action="file-disconnect"]')){ disconnectFile(); return; }
     if(e.target.closest('[data-action="file-flush"]')){

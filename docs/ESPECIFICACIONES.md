@@ -418,7 +418,7 @@ Algunas comprobaciones no tienen elementos que enfocar (una etiqueta sin uso, po
 
 **Diagnóstico** (11.5): Lingatu no tiene un problema de documentación, tiene un problema de **descubribilidad** — acumula funciones potentes que nada en pantalla insinúa (el triple estado de una etiqueta, Ctrl+clic, arrastrar para cambiar de categoría...). La ayuda alojada en GitHub no se puede leer desde una app que corre en `file://`; la embebida sí viaja con el archivo.
 
-Un modal (`#helpModalOverlay`) con cuatro bloques — **Atajos, Gestos, Filtros, Datos** — que se abre con la tecla **`?`** (libre: el manejador de atajos comparaba solo `e.key === "/"`) o con el botón **"Ayuda (?)"** del pie del sidebar (`#appFooter`, pintado una sola vez en `renderFooter()`; el clic se delega sobre el contenedor porque `render()` no lo repinta, mismo criterio que `#btnEmptyStateAdd` sobre `#emptyState`). `?` se ignora bajo las mismas dos condiciones que `/` y `n` (decisión 15): mientras se escribe en un campo/elemento editable, y con cualquier overlay abierto. Es un overlay más, dado de alta con `registerOverlay()` (4.22): `Escape` y el clic fuera lo cierran sin código adicional.
+Un modal (`#helpModalOverlay`) con cinco bloques — **Atajos, Gestos, Filtros, Datos y Tu archivo de datos** — que se abre con la tecla **`?`** (libre: el manejador de atajos comparaba solo `e.key === "/"`) o con el botón **"Ayuda (?)"** del pie del sidebar (`#appFooter`, pintado una sola vez en `renderFooter()`; el clic se delega sobre el contenedor porque `render()` no lo repinta, mismo criterio que `#btnEmptyStateAdd` sobre `#emptyState`). `?` se ignora bajo las mismas dos condiciones que `/` y `n` (decisión 15): mientras se escribe en un campo/elemento editable, y con cualquier overlay abierto. Es un overlay más, dado de alta con `registerOverlay()` (4.22): `Escape` y el clic fuera lo cierran sin código adicional.
 
 **No repite las acciones de la paleta de comandos (4.22)**: esta cubre solo lo que una paleta no puede — gestos, filtros y comportamiento de los datos —, y el bloque "Atajos" remite a `Ctrl+K` para todo lo demás. La paleta, a su vez, incluye **"Ayuda: atajos y gestos"** (`hint: "?"`) como una entrada más de `COMMANDS`: cierra el círculo entre las dos superficies.
 
@@ -475,7 +475,10 @@ Un modal (`#helpModalOverlay`) con cuatro bloques — **Atajos, Gestos, Filtros,
 
 #### Conexión y reconexión
 
-- **«Conectar a un archivo»** (pie del sidebar y `Ctrl+K`, misma función con nombre en los dos sitios): `showSaveFilePicker()` con nombre sugerido `lingatu-datos.json`. Si el archivo elegido **ya contenía** una colección de Lingatu, se pregunta con los dos recuentos delante cuál se conserva; nunca se sobrescribe en silencio.
+Son **dos acciones distintas**, no una (decisión 57), disponibles en el pie del sidebar y en `Ctrl+K` con la misma función con nombre en los dos sitios:
+
+- **«Guardar en un archivo…»** (`connectToFile`, `showSaveFilePicker`) — la primera vez. El archivo **no existe todavía y no lo crea el usuario**: se abre la ventana de guardar del sistema con el nombre sugerido `lingatu-datos.json`, y el navegador lo crea donde se le diga, ya con la colección dentro. Si el archivo elegido ya contenía una colección de Lingatu, se pregunta con los dos recuentos delante cuál se conserva.
+- **«Ya tengo uno»** (`openExistingFile`, `showOpenFilePicker`) — segundo equipo, carpeta sincronizada, reinstalación. Aquí manda el archivo: se lee **antes de tocar nada** y se pregunta si se carga su contenido o se conserva el del equipo. Como "abrir" solo concede lectura, se pide `requestPermission({mode:"readwrite"})` aprovechando el mismo clic. Si el archivo no es de Lingatu, o lo guardó una versión más reciente, se avisa y no se escribe encima sin confirmación explícita.
 - **«Reconectar»**: el permiso no sobrevive al cierre del navegador con origen `file://` (Fase 0), así que al abrir Lingatu hay que devolverlo con un gesto. **La app no se bloquea esperándolo** (R24): arranca con los datos del navegador, funciona con normalidad y ofrece el botón. Recargar la página no lo vuelve a pedir.
 - **«Desconectar»**: suelta el archivo y olvida el handle. **No borra nada** — ni el archivo ni `localStorage` — y lo dice en la confirmación.
 - Si el archivo ya no está donde estaba, se dice explícitamente y se ofrece elegir otro u olvidarlo. Tampoco ahí se borra nada.
@@ -767,6 +770,10 @@ Las siguientes son las decisiones del **archivo como fuente de verdad** (4.27):
 
 56. **La tercera salida del conflicto ("guardar la mía aparte") es la que hace que la regla se cumpla de verdad.** Con solo dos opciones, elegir siempre significa perder una de las dos versiones, y un usuario con prisa acaba destruyendo la buena. Con la tercera, el conflicto se resuelve **sin que nadie pierda nada**: pasan a ser dos archivos y ya se mirarán con calma. Es la única salida que no exige decidir bien en ese momento.
 
+57. **Crear el archivo y abrir uno que ya existe son dos acciones separadas, y separarlas evita el peor diálogo posible.** La primera versión tenía un solo botón, «Conectar a un archivo», que usaba `showSaveFilePicker` para las dos cosas. Funciona —el selector permite elegir un archivo existente— pero al hacerlo el sistema pregunta ***"ya existe un archivo con ese nombre, ¿desea reemplazarlo?"*** justo delante del archivo que contiene la única copia de la colección. Es la peor pregunta posible en el peor momento: quien responda "no" (lo prudente) no puede conectar, y quien responda "sí" lo hace convencido de que está destruyendo sus datos. Con `showOpenFilePicker` para el caso "ya tengo uno", esa pregunta no aparece: se abre, se lee y se pregunta en los términos de la app, con los recuentos delante. El coste es un permiso más que pedir —"abrir" solo concede lectura— y se cubre con el mismo clic.
+
+    Salió de una pregunta que da la medida del hueco: *"el usuario puede conectar a un archivo, pero ¿cuándo, quién y cómo se crea ese archivo?"*. No estaba explicado en ningún sitio, y al ir a explicarlo apareció que además faltaba una acción. **La ayuda no solo documenta la funcionalidad: comprobar que se puede explicar es lo que revela si está terminada.**
+
 ## 8. Contrato con la extensión de Chrome
 
 `extension/background.js` nunca accede al DOM de `lingatu.html` directamente: pasa siempre por una superficie mínima y estable, `window.LingatuBridge`, expuesta al final de la IIFE. Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, en `background.js`), sin ningún error visible dentro de `lingatu.html`.
@@ -915,7 +922,7 @@ Y Lingatu acumula mucha potencia invisible. Hoy nada en pantalla insinúa que ex
 
 Decisión adoptada, por orden de retorno: **estados vacíos que enseñan y `title` en todo lo interactivo** (prioridad muy alta, media hora cada uno, ninguna decisión que tomar — pendiente, [`docs/tareas/01-ayuda-inmediata.md`](tareas/01-ayuda-inmediata.md)); **panel "?" con la chuleta** (prioridad alta; la paleta de comandos —4.22— cubre las acciones y deja solo los gestos, filtros y datos por documentar); **tour interactivo guiado, descartado** (11.2).
 
-**Implementado**: el panel "?" (4.25), con sus cuatro bloques —Atajos, Gestos, Filtros, Datos— y el inventario completo de este diagnóstico como contenido. Sigue pendiente la otra mitad de la decisión: estados vacíos que enseñan (más allá del caso ya cubierto por la búsqueda con operadores, 4.3) y `title` en el resto de controles interactivos.
+**Implementado**: el panel "?" (4.25), con sus cinco bloques —Atajos, Gestos, Filtros, Datos y Tu archivo de datos— y el inventario completo de este diagnóstico como contenido. Sigue pendiente la otra mitad de la decisión: estados vacíos que enseñan (más allá del caso ya cubierto por la búsqueda con operadores, 4.3) y `title` en el resto de controles interactivos.
 
 ### 11.6 Exportación autocontenida — reglas de siembra
 
