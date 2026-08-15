@@ -7,6 +7,25 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Seguridad: importar un archivo de enlaces ajeno ya no puede alterar la
+  página.** Cada enlace lleva un identificador interno que normalmente genera
+  la propia aplicación, pero al importar con "Sustituir todo" se conservaba el
+  que viniera dentro del archivo, y ese valor se escribía en la ficha sin
+  comprobarlo. Un archivo preparado a mala idea podía aprovecharlo para colar
+  contenido en la página. Ahora un identificador que no tenga la forma
+  esperada se sustituye por uno nuevo al importar (también si viene repetido),
+  y todos se limpian antes de pintarlos.
+  - **No afecta a tus enlaces**: los identificadores de lo que ya tienes
+    guardado no cambian, y un archivo exportado por la aplicación se importa
+    exactamente igual que antes. No hay nada que revisar ni que rehacer.
+  - Por el mismo motivo, los **colores** de un archivo de categorías
+    importado solo se aceptan si son colores de verdad; cualquier otra cosa
+    se descarta y la categoría se queda sin color, como cualquier otra.
+  - Revisado además el resto de la aplicación buscando el mismo patrón. Los
+    demás sitios ya estaban correctos.
+
 ### Cambiado
 
 - **La aplicación pasa a llamarse Lingatu.** Antes se llamaba PinBoard, un
