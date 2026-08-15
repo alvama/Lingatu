@@ -7,7 +7,84 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Lingatu ya avisa antes de que pierdas tus enlaces, y guarda copias de
+  rescate por su cuenta.** Hasta ahora tus datos vivían dentro del navegador
+  sin ninguna red debajo: nada te recordaba hacer una copia, y si el
+  almacenamiento se llenaba, el cambio que acabaras de hacer se perdía sin
+  decir ni una palabra. Cuatro cosas nuevas, todas en segundo plano:
+  - **Aviso de copia de seguridad.** Si hace más de una semana que no exportas,
+    el pie del lateral te lo recuerda discretamente; pasado un mes, con más
+    énfasis (y lo puedes apartar hasta la próxima vez que abras la aplicación).
+    Cuenta desde tu última exportación, sea de enlaces o de categorías.
+  - **Aviso de espacio.** A partir del 60% de ocupación aparece cuánto llevas
+    usado, y por encima del 85% el aviso se destaca con un botón para exportar
+    en el acto. Las notas se acumulan sin borrar nunca nada, así que este
+    número solo sube.
+  - **Si un cambio no cabe, ahora te lo dice.** Antes fallaba en silencio y
+    creías haber guardado. Ahora se abre un aviso que explica que lo que ves en
+    pantalla **no está guardado**, y te deja exportarlo desde ahí mismo antes
+    de tocar nada más.
+  - **Tres copias automáticas.** Cada vez que abres Lingatu se guarda una
+    instantánea de todo —enlaces, categorías, etiquetas, colores, iconos,
+    vistas y notas— y se conservan las tres últimas. Para volver a una:
+    "Revisar" → "Copias de seguridad y espacio" → "Restaurar una copia", o
+    <kbd>Ctrl</kbd>+<kbd>K</kbd> y escribe "restaurar". Siempre pide
+    confirmación diciéndote cuántos enlaces tienes ahora y cuántos tendrás
+    después, y **restaurar nunca borra las demás copias**.
+  - Estas copias te salvan de un borrado accidental o de una importación que
+    salió mal, pero **no** de perder los datos del navegador: viven en el mismo
+    sitio que el resto. La única copia que sobrevive a eso sigue siendo el
+    archivo que exportas tú. La aplicación lo dice donde hace falta, para que
+    nadie confíe en ellas más de lo que aguantan.
+
+- **Tus enlaces pueden vivir ahora en un archivo tuyo, no solo dentro del
+  navegador.** En el pie del lateral hay dos botones nuevos. **"Guardar en un
+  archivo…"** es el de la primera vez: **no tienes que crear ningún archivo ni
+  preparar nada**, se abre la ventana de guardar de tu sistema con un nombre ya
+  propuesto, eliges la carpeta y el navegador lo crea en ese momento con todo
+  lo que tienes dentro. **"Ya tengo uno"** es para cuando el archivo ya existe
+  —otro equipo, una carpeta sincronizada, una reinstalación—: lo seleccionas,
+  Lingatu lo lee **antes de tocar nada** y te pregunta si prefieres quedarte
+  con lo que hay dentro o con lo que tengas en ese equipo. A partir de ahí,
+  cada cambio se escribe también en el archivo. Si ese archivo está en una carpeta que ya sincronizas (OneDrive,
+  Drive, Dropbox, una unidad de red…), tendrás tu colección en todos tus
+  equipos sin que Lingatu se conecte a ningún servicio ni tengas que crear
+  ninguna cuenta: el trabajo lo hace la carpeta.
+  - **Tus datos siguen guardándose también en el navegador**, exactamente como
+    antes. El archivo se suma, no sustituye: si un día pierdes el archivo,
+    cambias de equipo o abres Lingatu en otro navegador, todo sigue ahí.
+  - **Una vez por sesión hay que pulsar "Reconectar"** y darle permiso al
+    navegador. No es un fallo: es la única forma en que los navegadores
+    permiten que una página escriba en tus archivos, y el permiso caduca al
+    cerrarlos. El archivo, en cambio, no hay que volver a elegirlo nunca.
+  - **Si el archivo cambia por fuera** —lo has editado en otro equipo, o la
+    carpeta sincronizada ha traído una versión nueva—, Lingatu **no escribe
+    encima**: te enseña las dos versiones con su fecha y su número de enlaces,
+    y te deja elegir. Una de las tres opciones es guardar la tuya aparte, para
+    que no tengas que perder ninguna de las dos.
+  - **Esto no es sincronización**, y la aplicación lo dice donde hace falta: es
+    un archivo compartido. Sirve para trabajar en un equipo cada vez, no para
+    tener Lingatu abierto en dos sitios a la vez.
+  - El pie del lateral indica en todo momento dónde se está guardando, y avisa
+    con claridad cuando algo que ves **no** ha llegado al archivo.
+  - Funciona en **Chrome y Edge**. Firefox todavía no permite que una página
+    escriba en un archivo tuyo, así que ahí la opción no aparece y todo sigue
+    funcionando como siempre.
+
 ### Corregido
+
+- **Unos datos ilegibles ya no se borran solos al abrir la aplicación.** Era el
+  fallo más grave que quedaba, y era invisible: si el contenido guardado se
+  estropeaba —un corte de luz a media escritura, un fallo del navegador—,
+  Lingatu arrancaba con la lista vacía y **escribía esa lista vacía encima**,
+  destruyendo la colección entera antes de que te diera tiempo a ver nada.
+  Ahora, cuando algo no se puede leer, la aplicación **deja de escribir por su
+  cuenta**, te avisa en el pie de que parte de tus datos no se está mostrando y
+  te ofrece las dos salidas: restaurar una copia, o exportar lo que sí se ve.
+  Lo que hubiera guardado sigue intacto y todavía se puede rescatar a mano.
+
 
 - **Seguridad: importar un archivo de enlaces ajeno ya no puede alterar la
   página.** Cada enlace lleva un identificador interno que normalmente genera

@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sonda de almacenamiento — Fase 0 (encargo 13)</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1f2430;line-height:1.5;}
+  h1{font-size:22px;margin-bottom:4px;}
+  .ctx{background:#eef1f6;border-radius:8px;padding:12px 16px;margin:16px 0;font-size:14px;}
+  .ctx code{background:#fff;padding:1px 5px;border-radius:4px;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin-top:12px;}
+  th,td{border:1px solid #dfe3ea;padding:7px 9px;text-align:left;vertical-align:top;}
+  th{background:#f5f6f8;}
+  td.id{font-weight:600;white-space:nowrap;}
+  .st{font-weight:600;white-space:nowrap;}
+  .si{color:#1f7a3d;} .no{color:#b3261e;} .pend{color:#8a6d00;} .na{color:#6b7280;}
+  .detalle{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#41485a;overflow-wrap:anywhere;}
+  button{padding:7px 13px;font-size:14px;cursor:pointer;border:1px solid #c8cdd8;border-radius:6px;background:#fff;}
+  button.primario{background:#3b57d8;color:#fff;border-color:#3b57d8;}
+  button.peligro{background:#fff;color:#b3261e;border-color:#e0a6a1;}
+  .acciones{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;}
+  .aviso{border-left:4px solid #e0a800;background:#fff8e6;padding:10px 14px;margin:16px 0;font-size:14px;}
+  .peligroso{border-left-color:#b3261e;background:#fdeceb;}
+  pre{background:#f5f6f8;padding:12px;border-radius:8px;overflow:auto;font-size:12px;}
+</style>
+</head>
+<body>
+
+<h1>Sonda de almacenamiento — Fase 0</h1>
+<p>Comprobaciones P1–P10 del encargo 13 (<em>Persistencia: salvaguardas y archivo como fuente de verdad</em>).
+Archivo desechable: no forma parte del producto y se borra al cerrar la tarea.</p>
+
+<div class="ctx" id="contexto"></div>
+
+<div class="aviso peligroso">
+  <strong>Antes de pulsar nada en un navegador donde uses Lingatu de verdad:</strong> abre Lingatu y
+  <strong>exporta tus enlaces</strong>. En Chrome y Edge todas las páginas <code>file://</code> comparten el mismo
+  almacén, así que esta sonda escribe en el <em>mismo sitio</em> donde viven tus datos. Las comprobaciones marcadas
+  como destructivas (P8) llenan ese almacén a propósito: hacerlo sin copia puede impedir que Lingatu guarde.
+  Lo prudente es ejecutar la sonda en un perfil de navegador limpio.
+</div>
+
+<div class="acciones">
+  <button class="primario" onclick="ejecutarAutomaticas()">Ejecutar comprobaciones automáticas</button>
+  <button onclick="probarPicker()">P2 · P3 — Elegir archivo y escribir (requiere clic)</button>
+  <button onclick="guardarHandle()">P5 — Guardar el handle en IndexedDB</button>
+  <button onclick="recuperarHandle()">P5 · P6 — Recuperar handle y consultar permiso</button>
+  <button onclick="pedirPermiso()">P7 — Pedir permiso con gesto</button>
+  <button class="peligro" onclick="medirCuota()">P8 — Medir cuota (destructivo)</button>
+  <button onclick="limpiarRestos()">Limpiar restos de la sonda</button>
+  <button onclick="marcarOrigen()">P9 — Escribir marca de este archivo</button>
+  <button onclick="copiar()">Copiar resultados</button>
+</div>
+
+<table>
+  <thead><tr><th style="width:44px">#</th><th style="width:34%">Comprobación</th><th style="width:110px">Resultado</th><th>Detalle</th></tr></thead>
+  <tbody id="tabla"></tbody>
+</table>
+
+<h2 style="font-size:17px;margin-top:28px;">Cómo se completan las que no son automáticas</h2>
+<ol>
+  <li><strong>P2 y P3</strong>: pulsa el botón, elige un archivo nuevo (por ejemplo <code>sonda.json</code>) y acepta. Escribe, cierra y relee.</li>
+  <li><strong>P5</strong>: con el handle ya obtenido, «Guardar el handle en IndexedDB» y luego <strong>recarga la página</strong> y pulsa «Recuperar handle».</li>
+  <li><strong>P6</strong>: cierra el navegador <em>por completo</em> (todas las ventanas), vuelve a abrir este archivo y pulsa «Recuperar handle» sin tocar nada más. Esa es la incógnita 1 de 11.2.</li>
+  <li><strong>P7</strong>: si P6 dice que el permiso se perdió, pulsa «Pedir permiso con gesto» y anota si basta un clic.</li>
+  <li><strong>P9</strong>: pulsa «Escribir marca» aquí, copia este archivo a <em>otra carpeta</em>, ábrelo desde allí y mira si la fila P9 ve la marca de la primera.</li>
+  <li><strong>P10</strong>: repite todo sirviendo esta misma carpeta por HTTP(S) — por ejemplo <code>python -m http.server</code> y abrirlo por <code>http://localhost:8000/spike/storage-probe.html</code>, que cuenta como contexto seguro.</li>
+</ol>
+
+<script>
+"use strict";
+
+var PRUEBAS = [
+  ["P1", "¿Existe window.showSaveFilePicker?"],
+  ["P2", "¿Se puede invocar el selector de archivo en este contexto?"],
+  ["P3", "Ciclo completo escribir → cerrar → releer"],
+  ["P4", "¿IndexedDB disponible en este contexto?"],
+  ["P5", "¿El FileSystemFileHandle sobrevive en IndexedDB a una recarga?"],
+  ["P6", "¿queryPermission conserva el permiso al reabrir el navegador?"],
+  ["P7", "¿requestPermission lo recupera con un gesto?"],
+  ["P8", "Cuota real de localStorage"],
+  ["P9", "¿localStorage se comparte entre dos archivos en carpetas distintas?"],
+  ["P10", "Contexto de ejecución (para comparar file:// con HTTPS)"]
+];
+
+var resultados = {};
+
+function pinta(){
+  var filas = "";
+  for(var i = 0; i < PRUEBAS.length; i++){
+    var id = PRUEBAS[i][0];
+    var r = resultados[id] || {estado: "pendiente", detalle: ""};
+    var clase = r.estado === "sí" ? "si" : (r.estado === "no" ? "no" : (r.estado === "n/a" ? "na" : "pend"));
+    filas += '<tr><td class="id">' + id + '</td><td>' + PRUEBAS[i][1] +
+             '</td><td class="st ' + clase + '">' + r.estado +
+             '</td><td class="detalle">' + escapa(r.detalle) + '</td></tr>';
+  }
+  document.getElementById("tabla").innerHTML = filas;
+}
+
+function escapa(s){
+  return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+  });
+}
+
+function anota(id, estado, detalle){
+  resultados[id] = {estado: estado, detalle: detalle};
+  pinta();
+}
+
+function contexto(){
+  return {
+    navegador: navigator.userAgent,
+    protocolo: location.protocol,
+    origen: String(location.origin),
+    contextoSeguro: !!window.isSecureContext
+  };
+}
+
+// ---------- Automáticas ----------
+function ejecutarAutomaticas(){
+  var c = contexto();
+  anota("P10", "sí",
+    "protocolo=" + c.protocolo + " · origin=" + c.origen +
+    " · isSecureContext=" + c.contextoSeguro);
+
+  anota("P1", typeof window.showSaveFilePicker === "function" ? "sí" : "no",
+    "showSaveFilePicker=" + (typeof window.showSaveFilePicker) +
+    " · showOpenFilePicker=" + (typeof window.showOpenFilePicker) +
+    " · FileSystemFileHandle=" + (typeof window.FileSystemFileHandle));
+
+  probarIndexedDB();
+  leerMarcas();
+}
+
+function probarIndexedDB(){
+  var peticion;
+  try{
+    peticion = indexedDB.open("sonda-lingatu", 1);
+  }catch(e){
+    anota("P4", "no", "excepción al abrir: " + e.name + ": " + e.message);
+    return;
+  }
+  peticion.onupgradeneeded = function(){
+    peticion.result.createObjectStore("handles");
+  };
+  peticion.onsuccess = function(){
+    var db = peticion.result;
+    try{
+      var tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put({prueba: true, fecha: new Date().toISOString()}, "__ping");
+      tx.oncomplete = function(){ anota("P4", "sí", "open + transacción de escritura correctas"); db.close(); };
+      tx.onerror = function(){ anota("P4", "no", "transacción rechazada: " + (tx.error && tx.error.message)); db.close(); };
+    }catch(e){
+      anota("P4", "no", "excepción en la transacción: " + e.name + ": " + e.message);
+    }
+  };
+  peticion.onerror = function(){
+    anota("P4", "no", "onerror: " + (peticion.error && peticion.error.name + ": " + peticion.error.message));
+  };
+  peticion.onblocked = function(){ anota("P4", "no", "onblocked"); };
+}
+
+// ---------- P2 / P3 ----------
+var handleActual = null;
+
+async function probarPicker(){
+  if(typeof window.showSaveFilePicker !== "function"){
+    anota("P2", "n/a", "showSaveFilePicker no existe en este contexto (ver P1)");
+    anota("P3", "n/a", "sin selector no hay ciclo que probar");
+    return;
+  }
+  try{
+    handleActual = await window.showSaveFilePicker({
+      suggestedName: "sonda.json",
+      types: [{description: "JSON", accept: {"application/json": [".json"]}}]
+    });
+    anota("P2", "sí", "selector abierto y archivo elegido: " + handleActual.name);
+  }catch(e){
+    anota("P2", e.name === "AbortError" ? "pendiente" : "no",
+      e.name + ": " + e.message + (e.name === "AbortError" ? " (cancelado por el usuario, repite sin cancelar)" : ""));
+    return;
+  }
+  try{
+    var contenido = JSON.stringify({format: "lingatu-state", schemaVersion: 1, savedAt: new Date().toISOString(), data: {links: [{id: "probe1", title: "Prueba"}]}});
+    var w = await handleActual.createWritable();
+    await w.write(contenido);
+    await w.close();
+    var f = await handleActual.getFile();
+    var leido = await f.text();
+    anota("P3", leido === contenido ? "sí" : "no",
+      "escritos " + contenido.length + " bytes, leídos " + leido.length + " · lastModified=" + f.lastModified);
+  }catch(e){
+    anota("P3", "no", e.name + ": " + e.message);
+  }
+}
+
+// ---------- P5 / P6 / P7 ----------
+function conDB(fn){
+  var p = indexedDB.open("sonda-lingatu", 1);
+  p.onupgradeneeded = function(){ p.result.createObjectStore("handles"); };
+  p.onsuccess = function(){ fn(p.result); };
+  p.onerror = function(){ anota("P5", "no", "IndexedDB no disponible (ver P4)"); };
+}
+
+function guardarHandle(){
+  if(!handleActual){ anota("P5", "pendiente", "primero hay que elegir un archivo (P2)"); return; }
+  conDB(function(db){
+    try{
+      var tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(handleActual, "archivo");
+      tx.oncomplete = function(){
+        anota("P5", "pendiente", "handle guardado; RECARGA la página y pulsa «Recuperar handle»");
+        db.close();
+      };
+      tx.onerror = function(){ anota("P5", "no", "no se pudo guardar: " + (tx.error && tx.error.message)); db.close(); };
+    }catch(e){
+      anota("P5", "no", "excepción al guardar el handle: " + e.name + ": " + e.message);
+    }
+  });
+}
+
+function recuperarHandle(){
+  conDB(function(db){
+    var tx = db.transaction("handles", "readonly");
+    var pet = tx.objectStore("handles").get("archivo");
+    pet.onsuccess = async function(){
+      var h = pet.result;
+      if(!h){ anota("P5", "no", "no había ningún handle guardado"); db.close(); return; }
+      handleActual = h;
+      anota("P5", "sí", "handle recuperado tras recargar: " + h.name);
+      try{
+        var estado = await h.queryPermission({mode: "readwrite"});
+        anota("P6", estado === "granted" ? "sí" : "no",
+          "queryPermission = " + estado + " · anota si venías de cerrar el navegador entero");
+      }catch(e){
+        anota("P6", "no", e.name + ": " + e.message);
+      }
+      db.close();
+    };
+    pet.onerror = function(){ anota("P5", "no", "error al leer el handle"); db.close(); };
+  });
+}
+
+async function pedirPermiso(){
+  if(!handleActual){ anota("P7", "pendiente", "primero hay que recuperar o elegir un handle"); return; }
+  try{
+    var estado = await handleActual.requestPermission({mode: "readwrite"});
+    anota("P7", estado === "granted" ? "sí" : "no", "requestPermission = " + estado);
+  }catch(e){
+    anota("P7", "no", e.name + ": " + e.message);
+  }
+}
+
+// ---------- P8 ----------
+function medirCuota(){
+  var texto = prompt('P8 llena el almacenamiento hasta que falle, y en file:// ese almacén es el MISMO que usa Lingatu.\n\nEscribe "MEDIR" si ya has exportado tus enlaces o estás en un perfil limpio.');
+  if(texto !== "MEDIR"){ anota("P8", "pendiente", "cancelado por el usuario"); return; }
+  var bloque = new Array(64 * 1024 + 1).join("x"); // 64 KB por escritura
+  var escritos = 0, i = 0, error = "";
+  try{
+    for(i = 0; i < 4096; i++){
+      localStorage.setItem("__sonda_fill_" + i, bloque);
+      escritos += bloque.length;
+    }
+  }catch(e){
+    error = e.name + ": " + e.message;
+  }finally{
+    for(var j = 0; j <= i; j++){ localStorage.removeItem("__sonda_fill_" + j); }
+  }
+  var usadoAntes = 0;
+  for(var k = 0; k < localStorage.length; k++){
+    var clave = localStorage.key(k);
+    usadoAntes += clave.length + String(localStorage.getItem(clave)).length;
+  }
+  anota("P8", "sí",
+    "tope alcanzado con ~" + (escritos / 1048576).toFixed(2) + " MB de sonda · " +
+    "ocupado por otras claves al medir: ~" + (usadoAntes / 1024).toFixed(0) + " KB · " +
+    (error || "sin excepción (se agotó el bucle antes que la cuota)"));
+}
+
+// Red de seguridad de P8: si la pestaña se cierra a mitad del llenado, el bloque
+// que limpia al terminar no llega a ejecutarse y el relleno se queda ocupando
+// sitio — el mismo sitio donde Lingatu guarda. Esto lo vacía.
+function limpiarRestos(){
+  var sobras = [];
+  for(var i = 0; i < localStorage.length; i++){
+    var clave = localStorage.key(i);
+    if(clave.indexOf("__sonda_") === 0) sobras.push(clave);
+  }
+  for(var j = 0; j < sobras.length; j++){ localStorage.removeItem(sobras[j]); }
+  alert(sobras.length === 0
+    ? "No había restos de la sonda."
+    : "Borradas " + sobras.length + " claves de la sonda. Ninguna clave de Lingatu se toca.");
+  leerMarcas();
+}
+
+// ---------- P9 ----------
+function marcarOrigen(){
+  var marca = {ruta: location.href, fecha: new Date().toISOString()};
+  localStorage.setItem("__sonda_marca_" + Math.random().toString(36).slice(2, 8), JSON.stringify(marca));
+  leerMarcas();
+}
+
+function leerMarcas(){
+  var marcas = [];
+  for(var i = 0; i < localStorage.length; i++){
+    var clave = localStorage.key(i);
+    if(clave.indexOf("__sonda_marca_") === 0){
+      try{ marcas.push(JSON.parse(localStorage.getItem(clave)).ruta); }catch(e){}
+    }
+  }
+  var propias = 0, ajenas = 0;
+  for(var j = 0; j < marcas.length; j++){
+    if(marcas[j] === location.href) propias++; else ajenas++;
+  }
+  anota("P9", ajenas > 0 ? "sí" : (propias > 0 ? "pendiente" : "pendiente"),
+    "marcas visibles: " + marcas.length + " (de esta ruta: " + propias + ", de otras: " + ajenas + ")" +
+    (ajenas > 0 ? " → el almacén ES compartido: " + marcas.filter(function(m){ return m !== location.href; }).join(" | ")
+                : " → copia este archivo a otra carpeta, ábrelo allí y vuelve"));
+}
+
+// ---------- Salida ----------
+function copiar(){
+  var c = contexto();
+  var txt = "## Sonda de almacenamiento\n\n" +
+    "- Navegador: " + c.navegador + "\n" +
+    "- Protocolo: " + c.protocolo + " · origin: " + c.origen + " · isSecureContext: " + c.contextoSeguro + "\n" +
+    "- Fecha: " + new Date().toISOString() + "\n\n" +
+    "| # | Comprobación | Resultado | Detalle |\n|---|---|---|---|\n";
+  for(var i = 0; i < PRUEBAS.length; i++){
+    var id = PRUEBAS[i][0];
+    var r = resultados[id] || {estado: "pendiente", detalle: ""};
+    txt += "| " + id + " | " + PRUEBAS[i][1] + " | " + r.estado + " | " + String(r.detalle).replace(/\|/g, "\\|") + " |\n";
+  }
+  navigator.clipboard.writeText(txt).then(function(){
+    alert("Resultados copiados al portapapeles.");
+  }, function(){
+    var pre = document.createElement("pre");
+    pre.textContent = txt;
+    document.body.appendChild(pre);
+  });
+}
+
+document.getElementById("contexto").innerHTML =
+  "<strong>Contexto actual:</strong> <code>" + escapa(location.protocol) + "</code> · origin <code>" +
+  escapa(String(location.origin)) + "</code> · isSecureContext <code>" + (!!window.isSecureContext) + "</code>";
+
+pinta();
+ejecutarAutomaticas();
+</script>
+
+</body>
+</html>
