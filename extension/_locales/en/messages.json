@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "Lingatu Connector — bookmarks",
+    "description": "Nombre de la extensión, visible en la tienda y en chrome://extensions."
+  },
+  "extDescription": {
+    "message": "Save bookmarks: add the active tab to your local Lingatu and, with a right click, the selection as a note on the link.",
+    "description": "Descripción de la extensión en la tienda."
+  },
+  "actionTitle": {
+    "message": "Add to Lingatu",
+    "description": "Tooltip del icono de la extensión en la barra."
+  },
+
+  "menuSavePage": {
+    "message": "Save to Lingatu",
+    "description": "Menú contextual sobre la página."
+  },
+  "menuAddSelectionNote": {
+    "message": "Add selection as a note in Lingatu",
+    "description": "Menú contextual sobre una selección de texto."
+  },
+
+  "optionsTitle": {
+    "message": "Settings — Lingatu Connector"
+  },
+  "optionsIntro": {
+    "message": "First open your <code>lingatu.html</code> in the browser as usual and copy the full URL from the address bar (it starts with <code>file:///</code>). Paste it here so the extension knows which tab to use.",
+    "description": "Lleva etiquetas <code>: se inserta como HTML (texto propio, no dato de nadie)."
+  },
+  "optionsLegacy": {
+    "message": "If you still use the old <code>pinboard.html</code> file, paste its URL: the extension works the same with both.",
+    "description": "Lleva etiquetas <code>: se inserta como HTML (texto propio, no dato de nadie)."
+  },
+  "optionsUrlLabel": {
+    "message": "lingatu.html URL"
+  },
+  "optionsUrlPlaceholder": {
+    "message": "file:///C:/Users/.../Lingatu/lingatu.html"
+  },
+  "optionsSave": {
+    "message": "Save"
+  },
+  "optionsErrorFileUrl": {
+    "message": "It must be a file:// URL (open it in the browser and copy the address bar)."
+  },
+  "optionsSaved": {
+    "message": "Saved."
+  },
+
+  "toastNoteAdded": {
+    "message": "Note added to Lingatu"
+  },
+  "toastNoteFailed": {
+    "message": "The note could not be saved"
+  },
+  "toastNoteFailedDetail": {
+    "message": "Lingatu did not respond. Check that the Lingatu tab is up to date."
+  },
+  "toastNoteCountOne": {
+    "message": " · $COUNT$ note on this link",
+    "description": "Forma singular del recuento que acompaña al título del enlace.",
+    "placeholders": {
+      "count": { "content": "$1", "example": "1" }
+    }
+  },
+  "toastNoteCountOther": {
+    "message": " · $COUNT$ notes on this link",
+    "description": "Forma plural del recuento que acompaña al título del enlace.",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
+    }
+  }
+}
