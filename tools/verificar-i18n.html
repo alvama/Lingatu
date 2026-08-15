@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificar la paridad de idiomas — Lingatu</title>
+<!--
+  Comprueba el diccionario I18N de lingatu.html (tarea 14, R11).
+
+  Misma familia que tools/configurar_marcadores.html: un único archivo, sin
+  dependencias, sin build y sin red. Se abre con doble clic desde el disco.
+
+  Qué mira:
+    - claves que están en un idioma y faltan en el otro;
+    - claves repetidas dentro del mismo idioma (un objeto JavaScript se queda
+      con la última en silencio, así que esto no lo detecta nadie más);
+    - claves definidas que no usa nadie;
+    - claves usadas que no están definidas.
+
+  Cómo lee el archivo: NO con JSON.parse —el bloque es JavaScript, con
+  comentarios y con plurales {one, other}—, sino recorriéndolo carácter a
+  carácter. Por eso puede ver los duplicados, que JSON.parse perdería.
+-->
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --border:#dfe3e8; --text:#1c2029; --muted:#6b7280;
+    --ok:#2f9e44; --bad:#e03131; --warn:#f59f00;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;padding:24px;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;
+  }
+  main{max-width:900px;margin:0 auto;}
+  h1{font-size:22px;margin:0 0 4px 0;}
+  .lead{color:var(--muted);margin:0 0 20px 0;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
+  .panel h2{font-size:15px;margin:0 0 10px 0;}
+  input[type=file]{display:block;margin-bottom:10px;}
+  textarea{
+    width:100%;min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:12px;
+    border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;
+  }
+  button{
+    background:#1971c2;color:#fff;border:none;border-radius:6px;
+    padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer;
+  }
+  button:hover{background:#1864ab;}
+  .resumen{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+  .tarjeta{
+    flex:1 1 150px;background:var(--panel);border:1px solid var(--border);
+    border-left-width:4px;border-radius:8px;padding:10px 14px;
+  }
+  .tarjeta.ok{border-left-color:var(--ok);}
+  .tarjeta.bad{border-left-color:var(--bad);}
+  .tarjeta.warn{border-left-color:var(--warn);}
+  .tarjeta .n{font-size:22px;font-weight:700;}
+  .tarjeta .q{font-size:12px;color:var(--muted);}
+  ul.claves{margin:0;padding-left:20px;font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+  ul.claves li{margin:1px 0;}
+  .vacio{color:var(--ok);font-weight:600;margin:0;}
+  .nota{color:var(--muted);font-size:12px;margin-top:8px;}
+  code{background:#eef0f3;padding:1px 4px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<main>
+  <h1>Verificar la paridad de idiomas</h1>
+  <p class="lead">
+    Carga <code>lingatu.html</code> (o pega su contenido) y dile a esta página que lo revise.
+    Un idioma incompleto tiene que verse aquí en diez segundos, no descubrirse en producción.
+  </p>
+
+  <div class="panel">
+    <h2>1. El archivo</h2>
+    <input type="file" id="archivo" accept=".html,text/html">
+    <textarea id="pegado" placeholder="…o pega aquí el contenido de lingatu.html (o solo el bloque I18N)."></textarea>
+    <p class="nota">
+      Nada sale de tu equipo: esta página no hace ninguna petición de red.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>2. La revisión</h2>
+    <button id="analizar" type="button">Analizar</button>
+    <div id="salida" style="margin-top:16px;"></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  // Claves que se componen en tiempo de ejecución y por tanto nunca aparecen
+  // literales en el código. Si añades otra construcción dinámica, añádela aquí
+  // o la herramienta la dará por no usada.
+  var PREFIJOS_DINAMICOS = ["lang."];
+
+  var archivoEl = document.getElementById("archivo");
+  var pegadoEl = document.getElementById("pegado");
+  var salidaEl = document.getElementById("salida");
+
+  archivoEl.addEventListener("change", function(e){
+    var f = e.target.files[0];
+    if(!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      pegadoEl.value = String(r.result);
+      analizar();
+    };
+    r.readAsText(f);
+  });
+
+  document.getElementById("analizar").addEventListener("click", analizar);
+
+  // ---------- Lectura del bloque ----------
+  // Recorre el texto respetando cadenas y comentarios, y anota cada clave con
+  // su idioma y su línea. La profundidad de llaves distingue las claves de
+  // primer nivel ("sidebar.all") de las formas de un plural (one/other).
+  function extraerClaves(texto){
+    var ini = texto.indexOf("i18n:inicio");
+    var fin = texto.indexOf("i18n:fin");
+    if(ini === -1 || fin === -1 || fin < ini){
+      return { error: "No encuentro las marcas i18n:inicio / i18n:fin. ¿Es el lingatu.html correcto?" };
+    }
+    var bloque = texto.slice(ini, fin);
+    var linea0 = texto.slice(0, ini).split("\n").length;
+
+    var claves = [];      // {lang, key, line}
+    var idiomas = [];     // idiomas encontrados, en orden
+    var profundidad = 0;  // 0 fuera, 1 dentro de I18N, 2 dentro de un idioma
+    var idiomaActual = null;
+    var linea = linea0;
+    var i = 0;
+    var pendiente = null; // última cadena leída, a la espera de ver si le sigue ":"
+    var identPendiente = null;
+
+    while(i < bloque.length){
+      var c = bloque.charAt(i);
+
+      if(c === "\n"){ linea++; i++; continue; }
+
+      // Comentarios
+      if(c === "/" && bloque.charAt(i+1) === "/"){
+        while(i < bloque.length && bloque.charAt(i) !== "\n") i++;
+        continue;
+      }
+      if(c === "/" && bloque.charAt(i+1) === "*"){
+        i += 2;
+        while(i < bloque.length && !(bloque.charAt(i) === "*" && bloque.charAt(i+1) === "/")){
+          if(bloque.charAt(i) === "\n") linea++;
+          i++;
+        }
+        i += 2;
+        continue;
+      }
+
+      // Cadenas
+      if(c === '"' || c === "'"){
+        var comilla = c;
+        var valor = "";
+        var lineaCadena = linea;
+        i++;
+        while(i < bloque.length){
+          var ch = bloque.charAt(i);
+          if(ch === "\\"){ valor += ch + bloque.charAt(i+1); i += 2; continue; }
+          if(ch === comilla){ i++; break; }
+          if(ch === "\n") linea++;
+          valor += ch;
+          i++;
+        }
+        pendiente = { valor: valor, linea: lineaCadena };
+        identPendiente = null;
+        continue;
+      }
+
+      // Identificadores sin comillas (es:, en:, one:, other:)
+      if(/[A-Za-z_$]/.test(c)){
+        var ident = "";
+        while(i < bloque.length && /[A-Za-z0-9_$]/.test(bloque.charAt(i))){
+          ident += bloque.charAt(i);
+          i++;
+        }
+        identPendiente = ident;
+        pendiente = null;
+        continue;
+      }
+
+      if(c === "{"){
+        profundidad++;
+        i++;
+        continue;
+      }
+      if(c === "}"){
+        profundidad--;
+        if(profundidad <= 1) idiomaActual = null;
+        i++;
+        continue;
+      }
+
+      if(c === ":"){
+        // Un idioma es un identificador a profundidad 1 (dentro de I18N).
+        if(identPendiente && profundidad === 1){
+          idiomaActual = identPendiente;
+          if(idiomas.indexOf(idiomaActual) === -1) idiomas.push(idiomaActual);
+        } else if(pendiente && profundidad === 2 && idiomaActual){
+          // Una clave es una cadena a profundidad 2, dentro de un idioma.
+          claves.push({ lang: idiomaActual, key: pendiente.valor, line: pendiente.linea });
+        }
+        pendiente = null;
+        identPendiente = null;
+        i++;
+        continue;
+      }
+
+      pendiente = null;
+      identPendiente = null;
+      i++;
+    }
+
+    return { claves: claves, idiomas: idiomas };
+  }
+
+  // ---------- Usos ----------
+  // Cualquier literal con forma de clave que esté FUERA del bloque cuenta como
+  // uso. Así valen por igual t("x.y"), plural("x.y", n), data-i18n="x.y",
+  // label: "command.x" y t(cond ? "a.b" : "c.d"), sin una regla por cada forma.
+  function extraerUsos(texto){
+    var ini = texto.indexOf("i18n:inicio");
+    var fin = texto.indexOf("i18n:fin");
+    var fuera = (ini === -1 || fin === -1) ? texto : (texto.slice(0, ini) + texto.slice(fin));
+    var usos = {};
+    var re = /["']([a-z][a-zA-Z0-9]*\.[a-zA-Z][a-zA-Z0-9]*)["']/g;
+    var m;
+    while((m = re.exec(fuera)) !== null) usos[m[1]] = true;
+    return usos;
+  }
+
+  // ---------- Presentación ----------
+  function lista(titulo, items, clase, vacioTexto){
+    var html = '<div class="panel"><h2>' + titulo + " (" + items.length + ")</h2>";
+    if(items.length === 0){
+      html += '<p class="vacio">' + vacioTexto + "</p>";
+    } else {
+      html += '<ul class="claves">' + items.map(function(x){
+        return "<li>" + escapar(x) + "</li>";
+      }).join("") + "</ul>";
+    }
+    return html + "</div>";
+  }
+
+  function escapar(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function tarjeta(n, texto, clase){
+    return '<div class="tarjeta ' + clase + '"><div class="n">' + n + '</div><div class="q">' + texto + "</div></div>";
+  }
+
+  function esDinamica(clave){
+    for(var i = 0; i < PREFIJOS_DINAMICOS.length; i++){
+      if(clave.indexOf(PREFIJOS_DINAMICOS[i]) === 0) return true;
+    }
+    return false;
+  }
+
+  function analizar(){
+    var texto = pegadoEl.value;
+    if(!texto.trim()){
+      salidaEl.innerHTML = '<p class="vacio" style="color:var(--bad)">Carga o pega antes el archivo.</p>';
+      return;
+    }
+
+    var r = extraerClaves(texto);
+    if(r.error){
+      salidaEl.innerHTML = '<p class="vacio" style="color:var(--bad)">' + escapar(r.error) + "</p>";
+      return;
+    }
+
+    var idiomas = r.idiomas;
+    var porIdioma = {};
+    var duplicadas = [];
+    idiomas.forEach(function(l){ porIdioma[l] = {}; });
+
+    r.claves.forEach(function(c){
+      if(porIdioma[c.lang][c.key]){
+        duplicadas.push(c.lang + " · " + c.key + "  (línea " + c.line + ", ya estaba en la " + porIdioma[c.lang][c.key] + ")");
+      } else {
+        porIdioma[c.lang][c.key] = c.line;
+      }
+    });
+
+    // Faltantes: para cada par de idiomas, lo que está en uno y no en el otro.
+    var faltantes = [];
+    idiomas.forEach(function(a){
+      idiomas.forEach(function(b){
+        if(a === b) return;
+        Object.keys(porIdioma[a]).forEach(function(k){
+          if(!porIdioma[b][k]) faltantes.push("falta en «" + b + "»: " + k + "  (está en «" + a + "», línea " + porIdioma[a][k] + ")");
+        });
+      });
+    });
+    faltantes.sort();
+
+    // Definidas y no usadas / usadas y no definidas.
+    var usos = extraerUsos(texto);
+    var todas = {};
+    idiomas.forEach(function(l){
+      Object.keys(porIdioma[l]).forEach(function(k){ todas[k] = true; });
+    });
+
+    var noUsadas = Object.keys(todas).filter(function(k){
+      return !usos[k] && !esDinamica(k);
+    }).sort();
+
+    var noDefinidas = Object.keys(usos).filter(function(k){
+      return !todas[k];
+    }).sort();
+
+    var totales = idiomas.map(function(l){
+      return tarjeta(Object.keys(porIdioma[l]).length, "claves en «" + l + "»", "ok");
+    }).join("");
+
+    salidaEl.innerHTML =
+      '<div class="resumen">' + totales +
+        tarjeta(faltantes.length, "sin pareja", faltantes.length ? "bad" : "ok") +
+        tarjeta(duplicadas.length, "duplicadas", duplicadas.length ? "bad" : "ok") +
+        tarjeta(noUsadas.length, "sin usar", noUsadas.length ? "warn" : "ok") +
+      "</div>" +
+      lista("Claves que faltan en un idioma", faltantes, "bad", "Ninguna: los idiomas están a la par.") +
+      lista("Claves duplicadas dentro del mismo idioma", duplicadas, "bad", "Ninguna.") +
+      lista("Claves usadas pero no definidas", noDefinidas, "bad", "Ninguna: todo lo que se usa existe.") +
+      lista("Claves definidas que no usa nadie", noUsadas, "warn", "Ninguna: no sobra nada.") +
+      '<p class="nota">Las claves que se componen en tiempo de ejecución (' +
+        PREFIJOS_DINAMICOS.map(function(p){ return "<code>" + escapar(p) + "…</code>"; }).join(", ") +
+        ') no cuentan como no usadas: no aparecen literales en el código.</p>';
+  }
+})();
+</script>
+</body>
+</html>
