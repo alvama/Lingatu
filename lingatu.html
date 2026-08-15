@@ -1447,6 +1447,27 @@
     });
   }
 
+  // Un color solo se pinta dentro de un atributo style si tiene forma de color
+  // hexadecimal. Escapar no basta aquí: con las comillas escapadas todavía se
+  // podría colar CSS dentro del propio atributo (por ejemplo un
+  // "background-image:url(...)" que haría una petición a un tercero desde un
+  // archivo de categorías ajeno). Los dos orígenes legítimos —el <input
+  // type="color"> y la paleta fija de 12 tonos— producen siempre este formato,
+  // así que la validación no descarta nada real. Devuelve "" si no vale, para
+  // que quien llama use su color por defecto.
+  function safeColor(color){
+    var c = String(color == null ? "" : color).trim();
+    return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c) ? c : "";
+  }
+
+  // Los id nacen de genId() y son alfanuméricos, pero performImportReplace
+  // conserva el id que traiga el archivo importado, que es dato ajeno. Un id no
+  // es información con valor para el usuario: si no tiene la forma esperada, se
+  // regenera en silencio en vez de intentar arreglarlo.
+  function isValidId(id){
+    return typeof id === "string" && /^[a-z0-9]{1,64}$/i.test(id);
+  }
+
   // Favicon vía el servicio público de Google (a partir del dominio de la URL).
   // Si la URL es inválida, no se muestra ningún icono.
   function faviconUrl(url){
@@ -2018,7 +2039,7 @@
   function categoryIconSvg(key, color, className){
     var inner = CATEGORY_ICONS[key];
     if(!inner) return "";
-    var style = ' style="color:' + (color || "var(--text-muted)") + ';"';
+    var style = ' style="color:' + (safeColor(color) || "var(--text-muted)") + ';"';
     return '<svg class="' + (className || "cat-icon") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + style + '>' + inner + '</svg>';
   }
 
@@ -2027,11 +2048,11 @@
     var iconKey = state.categoryIcons[name];
     var color = state.categoryColors[name];
     if(iconKey) return categoryIconSvg(iconKey, color);
-    return '<span class="cat-color-dot" style="background:' + (color || "var(--text-muted)") + ';"></span>';
+    return '<span class="cat-color-dot" style="background:' + (safeColor(color) || "var(--text-muted)") + ';"></span>';
   }
 
   function tagChipStyle(tag){
-    var color = state.tagColors[tag];
+    var color = safeColor(state.tagColors[tag]);
     if(!color) return "";
     return ' style="background:' + color + ';color:' + contrastTextColor(color) + ';"';
   }
@@ -2039,7 +2060,7 @@
   // Barra de color superior de la ficha (vista cómoda), según el color de la
   // categoría del enlace. Sin color personalizado, usa el borde neutro por defecto.
   function categoryTopBarStyle(name){
-    var color = state.categoryColors[name];
+    var color = safeColor(state.categoryColors[name]);
     return color ? ' style="border-top-color:' + color + ';"' : '';
   }
 
@@ -2181,10 +2202,10 @@
   function moveButtonsHtml(l, prevId, nextId){
     return (
       (prevId
-        ? '<button class="icon-action-plain" data-action="move-up" data-id="' + l.id + '" data-target="' + prevId + '" title="Subir" aria-label="Subir">▲</button>'
+        ? '<button class="icon-action-plain" data-action="move-up" data-id="' + escapeHtml(l.id) + '" data-target="' + escapeHtml(prevId) + '" title="Subir" aria-label="Subir">▲</button>'
         : '<span class="icon-disabled" aria-hidden="true">▲</span>') +
       (nextId
-        ? '<button class="icon-action-plain" data-action="move-down" data-id="' + l.id + '" data-target="' + nextId + '" title="Bajar" aria-label="Bajar">▼</button>'
+        ? '<button class="icon-action-plain" data-action="move-down" data-id="' + escapeHtml(l.id) + '" data-target="' + escapeHtml(nextId) + '" title="Bajar" aria-label="Bajar">▼</button>'
         : '<span class="icon-disabled" aria-hidden="true">▼</span>')
     );
   }
@@ -2232,15 +2253,15 @@
     }).join("");
     var hostname = hostnameForDisplay(l.url);
     return (
-      '<div class="link-card' + (l.active ? '' : ' inactive') + (state.selectedLinks.has(l.id) ? ' selected' : '') + '" data-id="' + l.id + '"' +
+      '<div class="link-card' + (l.active ? '' : ' inactive') + (state.selectedLinks.has(l.id) ? ' selected' : '') + '" data-id="' + escapeHtml(l.id) + '"' +
         cardDragAttrs("") + categoryTopBarStyle(l.category) + '>' +
         '<div class="card-header">' +
           selectCheckHtml(l) +
           '<div class="card-icon-actions">' +
             notesIndicatorHtml(l) +
             moveButtonsHtml(l, prevId, nextId) +
-            '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
-            '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
+            '<button class="icon-action-plain" data-action="edit" data-id="' + escapeHtml(l.id) + '" title="Editar" aria-label="Editar">✏️</button>' +
+            '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + escapeHtml(l.id) + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
           '</div>' +
         '</div>' +
         '<h3>' + faviconImgHtml(l.url) + '<a href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer" draggable="false">' + escapeHtml(l.title) + '</a></h3>' +
@@ -2257,7 +2278,7 @@
     }).join("");
     var tooltip = l.title + (l.description ? " — " + l.description : "");
     return (
-      '<div class="link-card-compact' + (l.active ? '' : ' inactive') + (state.selectedLinks.has(l.id) ? ' selected' : '') + '" data-id="' + l.id + '"' +
+      '<div class="link-card-compact' + (l.active ? '' : ' inactive') + (state.selectedLinks.has(l.id) ? ' selected' : '') + '" data-id="' + escapeHtml(l.id) + '"' +
         cardDragAttrs(tooltip) + '>' +
         selectCheckHtml(l) +
         faviconImgHtml(l.url) +
@@ -2266,8 +2287,8 @@
         '<div class="card-icon-actions">' +
           notesIndicatorHtml(l) +
           moveButtonsHtml(l, prevId, nextId) +
-          '<button class="icon-action-plain" data-action="edit" data-id="' + l.id + '" title="Editar" aria-label="Editar">✏️</button>' +
-          '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + l.id + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
+          '<button class="icon-action-plain" data-action="edit" data-id="' + escapeHtml(l.id) + '" title="Editar" aria-label="Editar">✏️</button>' +
+          '<button class="icon-action-plain icon-danger" data-action="delete" data-id="' + escapeHtml(l.id) + '" title="Eliminar" aria-label="Eliminar">🗑️</button>' +
         '</div>' +
       '</div>'
     );
@@ -2967,7 +2988,18 @@
   }
 
   function highlightLink(id){
-    var el = document.querySelector('.link-card[data-id="' + id + '"], .link-card-compact[data-id="' + id + '"]');
+    // El id entra en un selector CSS, así que puede llegar algo que no lo sea
+    // (un enlace importado antes de que se sanearan los id al importar). Se
+    // escapa con CSS.escape y, si aun así el selector no es válido, no se hace
+    // nada y sin error — el mismo comportamiento que ya tenía cuando la ficha
+    // está filtrada y no aparece (contrato de la sección 8).
+    var esc = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id).replace(/["\\]/g, "\\$&");
+    var el = null;
+    try{
+      el = document.querySelector('.link-card[data-id="' + esc + '"], .link-card-compact[data-id="' + esc + '"]');
+    }catch(e){
+      return;
+    }
     if(!el) return;
     el.scrollIntoView({behavior:"smooth", block:"center"});
     el.classList.add("bridge-highlight");
@@ -3141,7 +3173,7 @@
       var customColor = colorMap[it.name];
 
       var colorBtnHtml = '<button type="button" class="manage-row-icon-btn" data-action="pick-color" title="Elegir color">' +
-        '<span class="color-swatch-dot" style="background:' + (customColor || "var(--text-muted)") + ';"></span>' +
+        '<span class="color-swatch-dot" style="background:' + (safeColor(customColor) || "var(--text-muted)") + ';"></span>' +
       '</button>';
       var colorPickerHtml = "";
       if(manageColorPickerFor === it.name){
@@ -3150,7 +3182,7 @@
             var active = customColor && customColor.toLowerCase() === hex.toLowerCase();
             return '<button type="button" class="color-swatch-btn' + (active ? ' active' : '') + '" data-action="set-color" data-color="' + hex + '" style="background:' + hex + ';" title="' + hex + '"></button>';
           }).join("") +
-          '<input type="color" class="manage-row-color" title="Color personalizado" value="' + (customColor || "#9aa0ac") + '">' +
+          '<input type="color" class="manage-row-color" title="Color personalizado" value="' + (safeColor(customColor) || "#9aa0ac") + '">' +
           (customColor ? '<button type="button" class="icon-action-plain" data-action="reset-color" title="Quitar color">✕ Quitar color</button>' : '') +
         '</div>';
       }
@@ -3839,9 +3871,17 @@
   }
 
   function performImportReplace(data){
+    // Es el único camino por el que entra un id que no ha generado esta app:
+    // se conserva el del archivo para no romper referencias, pero solo si tiene
+    // la forma de genId(). Cualquier otra cosa —o un id repetido dentro del
+    // propio archivo— se regenera sin avisar (ver isValidId).
+    var usados = Object.create(null);
     state.links = data.map(function(l){
+      var id = isValidId(l.id) && !usados[l.id] ? l.id : genId();
+      while(usados[id]) id = genId();
+      usados[id] = true;
       var link = {
-        id: l.id || genId(),
+        id: id,
         category: String(l.category),
         title: String(l.title),
         url: String(l.url),
@@ -4121,7 +4161,10 @@
       if(existed){ skipped++; return; }
       added++;
       if(entry.icon && CATEGORY_ICONS.hasOwnProperty(entry.icon)) state.categoryIcons[canonical] = entry.icon;
-      if(entry.color) state.categoryColors[canonical] = String(entry.color);
+      // Mismo criterio que el icono, que ya solo se acepta si está en la
+      // librería fija: un color de un archivo ajeno solo entra si tiene forma
+      // de color. Si no, la categoría se queda sin color, como cualquier otra.
+      if(safeColor(entry.color)) state.categoryColors[canonical] = safeColor(entry.color);
     });
     saveCategories();
     saveCategoryColors();
@@ -4138,7 +4181,7 @@
       if(!name || names.indexOf(name) !== -1) return;
       names.push(name);
       if(entry.icon && CATEGORY_ICONS.hasOwnProperty(entry.icon)) icons[name] = entry.icon;
-      if(entry.color) colors[name] = String(entry.color);
+      if(safeColor(entry.color)) colors[name] = safeColor(entry.color);
     });
     state.categories = names;
     state.categoryColors = colors;
