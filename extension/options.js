@@ -8,6 +8,24 @@ const input = document.getElementById("url");
 const status = document.getElementById("status");
 const version = document.getElementById("version");
 
+// Los textos salen de _locales, igual que en background.js. El idioma lo elige
+// el navegador; esta página no tiene selector propio a propósito, para no
+// insinuar que cambia también el de la app (son dos ajustes distintos).
+function applyI18n() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = chrome.i18n.getMessage(el.dataset.i18n);
+  });
+  // Solo los párrafos de ayuda, que llevan <code>: texto propio de la extensión.
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => {
+    el.innerHTML = chrome.i18n.getMessage(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.setAttribute("placeholder", chrome.i18n.getMessage(el.dataset.i18nPlaceholder));
+  });
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+}
+
+applyI18n();
 version.textContent = "v" + chrome.runtime.getManifest().version;
 
 chrome.storage.local.get(STORAGE_KEY, (data) => {
@@ -17,12 +35,12 @@ chrome.storage.local.get(STORAGE_KEY, (data) => {
 document.getElementById("save").addEventListener("click", () => {
   const url = input.value.trim();
   if (!url.startsWith("file://")) {
-    status.textContent = "Debe ser una URL file:// (ábrela en el navegador y copia la barra de direcciones).";
+    status.textContent = chrome.i18n.getMessage("optionsErrorFileUrl");
     status.style.color = "#c0392b";
     return;
   }
   chrome.storage.local.set({ [STORAGE_KEY]: url }, () => {
-    status.textContent = "Guardado.";
+    status.textContent = chrome.i18n.getMessage("optionsSaved");
     status.style.color = "#2e7d32";
   });
 });

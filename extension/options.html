@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Configuración — Lingatu Connector</title>
+<title data-i18n="optionsTitle">Lingatu Connector</title>
 <style>
   body{font-family:system-ui,sans-serif;max-width:480px;margin:32px auto;padding:0 16px;color:#222;}
   h2{margin-bottom:4px;}
@@ -16,20 +16,16 @@
 </style>
 </head>
 <body>
+  <!-- Los textos los pone options.js desde _locales; aquí solo van los huecos.
+       data-i18n-html es para los dos párrafos que llevan <code> dentro: es
+       texto propio de la extensión, no dato de nadie. -->
   <h2>Lingatu Connector</h2>
   <p id="version"></p>
-  <p>
-    Abre primero tu <code>lingatu.html</code> normalmente en el navegador y copia la URL
-    completa desde la barra de direcciones (empieza por <code>file:///</code>). Pégala aquí
-    para que la extensión sepa qué pestaña usar.
-  </p>
-  <p>
-    Si sigues usando el archivo antiguo <code>pinboard.html</code>, pega su URL: la
-    extensión funciona igual con los dos.
-  </p>
-  <label for="url">URL de lingatu.html</label>
-  <input id="url" type="text" placeholder="file:///C:/Users/.../Lingatu/lingatu.html" autocomplete="off">
-  <button id="save">Guardar</button>
+  <p data-i18n-html="optionsIntro"></p>
+  <p data-i18n-html="optionsLegacy"></p>
+  <label for="url" data-i18n="optionsUrlLabel"></label>
+  <input id="url" type="text" data-i18n-placeholder="optionsUrlPlaceholder" autocomplete="off">
+  <button id="save" data-i18n="optionsSave"></button>
   <div id="status"></div>
   <script src="options.js"></script>
 </body>

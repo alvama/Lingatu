@@ -1,0 +1,7 @@
+[
+  { "category": "Development", "title": "MDN Web Docs", "url": "https://developer.mozilla.org", "description": "HTML, CSS and JavaScript reference.", "active": true, "tags": ["#reference", "#web"] },
+  { "category": "Development", "title": "Can I use", "url": "https://caniuse.com", "description": "Browser support tables for web features.", "active": true, "tags": ["#reference", "#compatibility"] },
+  { "category": "Design", "title": "Coolors", "url": "https://coolors.co", "description": "Color palette generator.", "active": true, "tags": ["#color", "#design"] },
+  { "category": "Productivity", "title": "Notion", "url": "https://notion.so", "description": "", "active": true, "tags": ["#notes", "#organization"] },
+  { "category": "Productivity", "title": "Old tool", "url": "https://example.com/old-tool", "description": "No longer in use, kept for historical reference.", "active": false, "tags": ["#legacy"] }
+]

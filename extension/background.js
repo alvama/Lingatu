@@ -9,6 +9,20 @@ const STORAGE_KEY = "pinboardFileUrl";
 const MENU_SAVE_PAGE = "lingatu-guardar-pagina";
 const MENU_ADD_SELECTION_NOTE = "lingatu-anadir-seleccion-nota";
 
+// Los textos visibles salen de _locales/{es,en}/messages.json, el mecanismo
+// nativo de Chrome: aquí el idioma lo decide el navegador, no el selector de la
+// app. Los dos pueden divergir, y es una limitación aceptada — sincronizarlos
+// exigiría un canal nuevo entre extensión y página (ver la tarea 14, R10).
+function msg(key, sustituciones) {
+  return chrome.i18n.getMessage(key, sustituciones);
+}
+
+// chrome.i18n no resuelve plurales, así que se eligen las dos formas a mano,
+// igual que hace plural() en la app: español e inglés tienen las mismas dos.
+function msgPlural(baseKey, n) {
+  return msg(baseKey + (n === 1 ? "One" : "Other"), [String(n)]);
+}
+
 async function getLingatuUrl() {
   const data = await chrome.storage.local.get(STORAGE_KEY);
   return data[STORAGE_KEY] || null;
@@ -243,7 +257,7 @@ async function addSelectionNote(tab, selectionText) {
 
   if (!result || !result.ok) {
     warnBridgeMissing();
-    await showPageToast(tab.id, "No se pudo guardar la nota", "Lingatu no respondió. Comprueba que la pestaña de Lingatu está actualizada.", true);
+    await showPageToast(tab.id, msg("toastNoteFailed"), msg("toastNoteFailedDetail"), true);
     return;
   }
   if (result.created) {
@@ -251,8 +265,8 @@ async function addSelectionNote(tab, selectionText) {
   } else {
     flashBadge("✓", "#1f9d55");
     const notas = result.noteCount || 0;
-    const detalle = (result.title || "") + (notas > 1 ? ` · ${notas} notas en este enlace` : "");
-    await showPageToast(tab.id, "Nota añadida a Lingatu", detalle);
+    const detalle = (result.title || "") + (notas > 1 ? msgPlural("toastNoteCount", notas) : "");
+    await showPageToast(tab.id, msg("toastNoteAdded"), detalle);
   }
 }
 
@@ -262,12 +276,12 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_SAVE_PAGE,
-      title: "Guardar en Lingatu",
+      title: msg("menuSavePage"),
       contexts: ["page"]
     });
     chrome.contextMenus.create({
       id: MENU_ADD_SELECTION_NOTE,
-      title: "Añadir selección como nota en Lingatu",
+      title: msg("menuAddSelectionNote"),
       contexts: ["selection"]
     });
   });

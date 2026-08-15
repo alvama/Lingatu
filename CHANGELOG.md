@@ -9,6 +9,39 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
+- **Lingatu ya está en inglés, además de en español.** La página de descarga
+  llevaba tiempo en los dos idiomas, así que quien llegaba en inglés leía la
+  promesa en su idioma, se descargaba la aplicación y se encontraba una
+  interfaz que no entendía. Ahora se cambia con un selector en el pie del
+  lateral, o desde la paleta de comandos (<kbd>Ctrl</kbd>+<kbd>K</kbd>).
+  - **Nada se recarga y ningún dato se toca.** Tus títulos, descripciones,
+    categorías, etiquetas y notas son tuyos y siguen exactamente como los
+    escribiste: lo único que cambia es el texto de la propia aplicación.
+  - **Si ya usabas Lingatu, sigue en español.** Aunque tu navegador esté en
+    inglés: nadie se encuentra la aplicación cambiada de idioma después de
+    actualizar. La primera vez verás un aviso discreto de que ahora hay dónde
+    cambiarlo, y no vuelve a aparecer. En una instalación nueva el idioma se
+    deduce del navegador.
+  - **Los atajos y los operadores de búsqueda no cambian.** <kbd>/</kbd>,
+    <kbd>n</kbd>, <kbd>?</kbd> y <kbd>Ctrl</kbd>+<kbd>K</kbd> son los mismos, y
+    `cat:`, `site:` e `is:` también — una búsqueda que tengas escrita sigue
+    funcionando en los dos idiomas, y una que te pasen también.
+  - **El panel de ayuda está entero en los dos idiomas**, con sus cinco
+    bloques.
+  - **La extensión también**, con el mecanismo propio de Chrome: su idioma lo
+    decide el navegador, así que puede no coincidir con el que elijas en la
+    aplicación.
+  - Datos de ejemplo en inglés (`examples/example-links.json`), que es el que
+    ofrece la pantalla de bienvenida cuando la aplicación está en ese idioma.
+
+### Corregido
+
+- **Al borrar una categoría en uso, sus enlaces ya no pueden acabar
+  repartidos entre dos categorías por defecto.** El nombre de "Sin categoría"
+  se guarda una sola vez y no cambia aunque cambies de idioma. Sin eso,
+  traducir esa etiqueta habría partido la colección en dos —"Sin categoría" y
+  "Uncategorized"— y habría añadido una más en cada cambio.
+
 - **Lingatu ya avisa antes de que pierdas tus enlaces, y guarda copias de
   rescate por su cuenta.** Hasta ahora tus datos vivían dentro del navegador
   sin ninguna red debajo: nada te recordaba hacer una copia, y si el
