@@ -949,6 +949,7 @@
   }
   .cleanup-item-list li{margin:2px 0;}
   .cleanup-item-more{font-style:italic;}
+  .cleanup-check-actions{display:flex;flex-wrap:wrap;gap:16px;}
 
   /* Aviso del foco de revisión (4.24): mientras esté activo, recuerda que la
      lista está recortada a los enlaces de una comprobación del panel. */
@@ -1012,6 +1013,73 @@
     font:inherit;font-size:12px;color:var(--text-muted);cursor:pointer;
   }
   .app-footer button:hover{color:var(--primary);text-decoration:underline;}
+
+  /* Avisos del pie (4.26): ocupación y días sin copia. Ocupan la línea entera
+     dentro del pie, que es flex con envoltura, en vez de colarse entre la
+     versión y los créditos. */
+  .footer-notices{
+    flex:0 0 100%;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:8px;
+    padding-bottom:4px;
+    text-align:left;
+  }
+  .footer-notices[hidden]{display:none;}
+  .footer-notice{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    gap:6px;
+    line-height:1.45;
+    color:var(--text-muted);
+  }
+  .footer-notice.is-strong{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-left:3px solid var(--danger);
+    border-radius:8px;
+    padding:8px 10px;
+    color:var(--text);
+  }
+  .footer-notice button{
+    color:var(--primary);
+    text-decoration:underline;
+    flex-shrink:0;
+  }
+  .footer-notice.is-strong button{color:var(--primary);}
+
+  /* Restaurar una copia (4.26). */
+  #restoreBackupOverlay .modal{max-width:560px;}
+  .backup-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .backup-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--surface-2);
+    padding:10px 12px;
+  }
+  .backup-item-info{flex:1;min-width:0;}
+  .backup-item-date{font-size:13px;color:var(--text);}
+  .backup-item-meta{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .backup-item-broken{color:var(--danger);}
+  .backup-item-newest{
+    font-size:11px;
+    color:var(--text-muted);
+    background:var(--surface);
+    border-radius:999px;
+    padding:1px 7px;
+    margin-left:4px;
+  }
+  .storage-full-lead{margin:0 0 14px 0;font-size:13px;line-height:1.55;color:var(--text);}
 
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
@@ -1242,6 +1310,29 @@
   </div>
 </div>
 
+<div id="storageFullOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="storageFullTitle">
+    <h2 id="storageFullTitle">No hay sitio para guardar</h2>
+    <p class="storage-full-lead">El espacio que este navegador reserva a Lingatu está lleno, así que <strong>el último cambio se ve en pantalla pero no ha llegado a guardarse</strong>: si cierras o recargas la página ahora, se pierde.</p>
+    <p class="storage-full-lead">Guarda una copia de tus enlaces en un archivo antes de seguir. Después puedes hacer sitio borrando enlaces que ya no uses, o acortando las notas más largas.</p>
+    <div class="modal-actions">
+      <button type="button" id="btnStorageFullClose">Entendido</button>
+      <button type="button" id="btnStorageFullExport" class="btn-primary" style="width:auto;">Exportar ahora</button>
+    </div>
+  </div>
+</div>
+
+<div id="restoreBackupOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="restoreBackupTitle">
+    <h2 id="restoreBackupTitle">Restaurar una copia</h2>
+    <p class="help-intro">Lingatu guarda una copia automática de todo (enlaces, categorías, etiquetas, colores, iconos, vistas y notas) cada vez que abres la aplicación, y conserva las tres últimas. Restaurar sustituye lo que tienes ahora por el contenido de la copia elegida.<br><strong>Ojo:</strong> estas copias viven dentro del propio navegador, así que te protegen de un borrado accidental, pero no de perder los datos del navegador. Para eso hay que exportar a un archivo.</p>
+    <div id="restoreBackupList" class="backup-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnRestoreBackupClose" class="btn-primary">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div id="commandPaletteOverlay" class="modal-overlay palette-overlay" hidden>
   <div class="modal palette">
     <input type="text" id="commandPaletteInput" class="palette-input" placeholder="Busca una acción, un enlace, una categoría, una vista o una etiqueta..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="commandPaletteResults" aria-label="Paleta de comandos">
@@ -1265,6 +1356,14 @@
   var CATEGORY_ICONS_KEY = "enlaces_category_icons_v1";
   var EXCLUDED_TAGS_KEY = "enlaces_excluded_tags_v1";
   var VIEW_PROFILES_KEY = "enlaces_view_profiles_v1";
+
+  // Claves de las salvaguardas (4.26). Mismo prefijo heredado que las once de
+  // estado, por la misma razón: aquí el prefijo ya no es una decisión, es el
+  // convenio del archivo.
+  var LAST_EXPORT_KEY = "enlaces_last_export_v1";
+  var BACKUP_SINCE_KEY = "enlaces_backup_since_v1";
+  var BACKUP_KEYS = ["enlaces_backup_1_v1", "enlaces_backup_2_v1", "enlaces_backup_3_v1"];
+  var BACKUP_SESSION_FLAG = "enlaces_backup_session_v1";
 
   // Identidad de la app: versión visible y créditos. Editable a mano aquí.
   var APP_CONFIG = {
@@ -1314,34 +1413,95 @@
   var editingId = null;
 
   // ---------- Persistencia ----------
-  function load(){
-    var raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      try{ return JSON.parse(raw); }catch(e){ return null; }
+  // Punto único de escritura. Los once save*() de abajo pasan por aquí en vez
+  // de llamar a setItem cada uno por su cuenta, para que dos cosas ocurran en
+  // un solo sitio: el muestreo de ocupación (4.26, sin recalcular en cada
+  // tecla) y el fallo por falta de espacio, que antes se perdía en silencio
+  // llevándose por delante el cambio que el usuario acababa de hacer.
+  // Devuelve si se pudo escribir; nadie está obligado a mirarlo, porque el
+  // aviso ya lo da esta función.
+  var storageWriteCount = 0;
+  var STORAGE_CHECK_EVERY = 20;
+
+  function storageWrite(key, value){
+    try{
+      localStorage.setItem(key, value);
+    }catch(e){
+      reportStorageFull();
+      return false;
     }
-    return null;
+    storageWriteCount++;
+    if(storageWriteCount % STORAGE_CHECK_EVERY === 0) refreshStorageUsage();
+    return true;
+  }
+
+  // Para los metadatos de las salvaguardas (fecha de la última copia, reloj de
+  // los avisos): si no caben, no pasa nada que merezca interrumpir a nadie. El
+  // aviso de "no hay sitio" está reservado a los datos del usuario, y saltarlo
+  // aquí evita además un rebote absurdo — exportar desde ese aviso registra la
+  // fecha, y esa escritura volvería a abrirlo justo después de haber hecho lo
+  // que el aviso pedía.
+  function storageWriteQuiet(key, value){
+    try{
+      localStorage.setItem(key, value);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  // Claves que tenían contenido y no se pudieron interpretar. Mientras haya
+  // alguna, el arranque no reescribe nada por su cuenta (ver
+  // reloadStateFromStorage): unos datos ilegibles todavía se pueden rescatar a
+  // mano desde el navegador, pero no si al abrir la app se han machacado ya
+  // con una lista vacía. Un fallo de lectura no puede vaciar los datos buenos.
+  var corruptKeys = [];
+
+  function markCorrupt(key){
+    if(corruptKeys.indexOf(key) === -1) corruptKeys.push(key);
+  }
+
+  function readJson(key, fallback){
+    var raw = localStorage.getItem(key);
+    if(!raw) return fallback;
+    var parsed;
+    try{
+      parsed = JSON.parse(raw);
+    }catch(e){
+      markCorrupt(key);
+      return fallback;
+    }
+    // Un JSON válido con la forma equivocada —un objeto donde iba una lista—
+    // es tan inservible como uno roto, y merece la misma protección: se
+    // devuelve el valor por defecto para que la app funcione, pero la clave
+    // queda marcada y nadie escribirá encima.
+    if(parsed === null || typeof parsed !== "object" || Array.isArray(parsed) !== Array.isArray(fallback)){
+      markCorrupt(key);
+      return fallback;
+    }
+    return parsed;
+  }
+
+  function load(){
+    return readJson(STORAGE_KEY, []);
   }
 
   function save(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.links));
+    storageWrite(STORAGE_KEY, JSON.stringify(state.links));
   }
 
   function loadCategories(){
-    var raw = localStorage.getItem(CATEGORIES_KEY);
-    if(raw){ try{ return JSON.parse(raw); }catch(e){ return []; } }
-    return [];
+    return readJson(CATEGORIES_KEY, []);
   }
   function saveCategories(){
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(state.categories));
+    storageWrite(CATEGORIES_KEY, JSON.stringify(state.categories));
   }
 
   function loadAllTags(){
-    var raw = localStorage.getItem(TAGS_KEY);
-    if(raw){ try{ return JSON.parse(raw); }catch(e){ return []; } }
-    return [];
+    return readJson(TAGS_KEY, []);
   }
   function saveAllTags(){
-    localStorage.setItem(TAGS_KEY, JSON.stringify(state.allTags));
+    storageWrite(TAGS_KEY, JSON.stringify(state.allTags));
   }
 
   function loadSiteTitle(){
@@ -1351,7 +1511,7 @@
     return localStorage.getItem(TITLE_KEY) || "Lingatu";
   }
   function saveSiteTitle(){
-    localStorage.setItem(TITLE_KEY, state.siteTitle);
+    storageWrite(TITLE_KEY, state.siteTitle);
   }
 
   function loadViewMode(){
@@ -1359,27 +1519,23 @@
     return (v === "compact" || v === "comfortable") ? v : "comfortable";
   }
   function saveViewMode(){
-    localStorage.setItem(VIEW_MODE_KEY, state.viewMode);
+    storageWrite(VIEW_MODE_KEY, state.viewMode);
   }
 
   function loadCollapsedCategories(){
-    var raw = localStorage.getItem(COLLAPSED_KEY);
-    if(raw){ try{ return new Set(JSON.parse(raw)); }catch(e){ return new Set(); } }
-    return new Set();
+    return new Set(readJson(COLLAPSED_KEY, []));
   }
   function saveCollapsedCategories(){
-    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(state.collapsedCategories)));
+    storageWrite(COLLAPSED_KEY, JSON.stringify(Array.from(state.collapsedCategories)));
   }
 
   // Etiquetas excluidas de la vista: a diferencia de state.tags (inclusión,
   // se resetea en cada carga), esto se fija hasta que el usuario lo desmarque.
   function loadExcludedTags(){
-    var raw = localStorage.getItem(EXCLUDED_TAGS_KEY);
-    if(raw){ try{ return new Set(JSON.parse(raw)); }catch(e){ return new Set(); } }
-    return new Set();
+    return new Set(readJson(EXCLUDED_TAGS_KEY, []));
   }
   function saveExcludedTags(){
-    localStorage.setItem(EXCLUDED_TAGS_KEY, JSON.stringify(Array.from(state.excludedTags)));
+    storageWrite(EXCLUDED_TAGS_KEY, JSON.stringify(Array.from(state.excludedTags)));
   }
 
   // Perfiles de vista guardados: { name, tags, excludedTags, selectedCategories, linkIds }.
@@ -1387,53 +1543,369 @@
   // afecta a nada más. Tampoco hay purga de ids de enlaces ya borrados: un id
   // que no coincide con nada simplemente no aporta enlaces a la vista.
   function loadViewProfiles(){
-    var raw = localStorage.getItem(VIEW_PROFILES_KEY);
-    if(!raw) return [];
-    try{
-      var parsed = JSON.parse(raw);
-      // Compatibilidad con perfiles guardados antes de incluir también las
-      // etiquetas incluidas, antes de incluir las categorías, y antes de
-      // existir las vistas por selección de enlaces.
-      return parsed.map(function(p){
-        return {
-          name: p.name,
-          tags: Array.isArray(p.tags) ? p.tags : [],
-          excludedTags: Array.isArray(p.excludedTags) ? p.excludedTags : [],
-          selectedCategories: Array.isArray(p.selectedCategories) ? p.selectedCategories : [],
-          linkIds: Array.isArray(p.linkIds) ? p.linkIds : []
-        };
-      });
-    }catch(e){ return []; }
+    var parsed = readJson(VIEW_PROFILES_KEY, []);
+    if(!Array.isArray(parsed)) return [];
+    // Compatibilidad con perfiles guardados antes de incluir también las
+    // etiquetas incluidas, antes de incluir las categorías, y antes de
+    // existir las vistas por selección de enlaces.
+    return parsed.map(function(p){
+      return {
+        name: p.name,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        excludedTags: Array.isArray(p.excludedTags) ? p.excludedTags : [],
+        selectedCategories: Array.isArray(p.selectedCategories) ? p.selectedCategories : [],
+        linkIds: Array.isArray(p.linkIds) ? p.linkIds : []
+      };
+    });
   }
   function saveViewProfiles(){
-    localStorage.setItem(VIEW_PROFILES_KEY, JSON.stringify(state.viewProfiles));
+    storageWrite(VIEW_PROFILES_KEY, JSON.stringify(state.viewProfiles));
   }
 
   function loadCategoryColors(){
-    var raw = localStorage.getItem(CATEGORY_COLORS_KEY);
-    if(raw){ try{ return JSON.parse(raw); }catch(e){ return {}; } }
-    return {};
+    return readJson(CATEGORY_COLORS_KEY, {});
   }
   function saveCategoryColors(){
-    localStorage.setItem(CATEGORY_COLORS_KEY, JSON.stringify(state.categoryColors));
+    storageWrite(CATEGORY_COLORS_KEY, JSON.stringify(state.categoryColors));
   }
 
   function loadCategoryIcons(){
-    var raw = localStorage.getItem(CATEGORY_ICONS_KEY);
-    if(raw){ try{ return JSON.parse(raw); }catch(e){ return {}; } }
-    return {};
+    return readJson(CATEGORY_ICONS_KEY, {});
   }
   function saveCategoryIcons(){
-    localStorage.setItem(CATEGORY_ICONS_KEY, JSON.stringify(state.categoryIcons));
+    storageWrite(CATEGORY_ICONS_KEY, JSON.stringify(state.categoryIcons));
   }
 
   function loadTagColors(){
-    var raw = localStorage.getItem(TAG_COLORS_KEY);
-    if(raw){ try{ return JSON.parse(raw); }catch(e){ return {}; } }
-    return {};
+    return readJson(TAG_COLORS_KEY, {});
   }
   function saveTagColors(){
-    localStorage.setItem(TAG_COLORS_KEY, JSON.stringify(state.tagColors));
+    storageWrite(TAG_COLORS_KEY, JSON.stringify(state.tagColors));
+  }
+
+  // ---------- Salvaguardas de datos (4.26) ----------
+  // Inventario de las once claves de estado de la sección 2, en un solo sitio.
+  // Lo comparten el snapshot de las copias, el cálculo de ocupación y la
+  // restauración; sin él, cada una tendría su propia lista y una de las tres
+  // se quedaría atrás el día que se añada una clave nueva.
+  //   prop  nombre del campo dentro de `data` (el del estado, no el de la clave)
+  //   get   valor ya serializable: los dos Set salen como array
+  //   raw   marca las dos claves que en el almacén viajan como texto plano,
+  //         no como JSON — si se les aplicara JSON.stringify al restaurar,
+  //         el título volvería con comillas dentro.
+  var STATE_SLOTS = [
+    { key: STORAGE_KEY, prop: "links", get: function(){ return state.links; } },
+    { key: CATEGORIES_KEY, prop: "categories", get: function(){ return state.categories; } },
+    { key: TAGS_KEY, prop: "allTags", get: function(){ return state.allTags; } },
+    { key: TITLE_KEY, prop: "siteTitle", raw: true, get: function(){ return state.siteTitle; } },
+    { key: VIEW_MODE_KEY, prop: "viewMode", raw: true, get: function(){ return state.viewMode; } },
+    { key: COLLAPSED_KEY, prop: "collapsedCategories", get: function(){ return Array.from(state.collapsedCategories); } },
+    { key: CATEGORY_COLORS_KEY, prop: "categoryColors", get: function(){ return state.categoryColors; } },
+    { key: TAG_COLORS_KEY, prop: "tagColors", get: function(){ return state.tagColors; } },
+    { key: CATEGORY_ICONS_KEY, prop: "categoryIcons", get: function(){ return state.categoryIcons; } },
+    { key: EXCLUDED_TAGS_KEY, prop: "excludedTags", get: function(){ return Array.from(state.excludedTags); } },
+    { key: VIEW_PROFILES_KEY, prop: "viewProfiles", get: function(){ return state.viewProfiles; } }
+  ];
+
+  var STATE_FORMAT = "pinboard-state";
+  var STATE_SCHEMA_VERSION = 1;
+
+  // Estado completo con envoltura explícita. La usan las copias de seguridad
+  // de esta sección; el JSON de exportación (4.7) no la lleva y no cambia.
+  function getStateSnapshot(){
+    var data = {};
+    STATE_SLOTS.forEach(function(slot){ data[slot.prop] = slot.get(); });
+    return {
+      format: STATE_FORMAT,
+      schemaVersion: STATE_SCHEMA_VERSION,
+      appVersion: APP_CONFIG.version,
+      savedAt: new Date().toISOString(),
+      data: data
+    };
+  }
+
+  // Lee una envoltura serializada. O devuelve datos completos, o dice por qué
+  // no se pueden usar; nunca devuelve una lectura a medias. Un esquema
+  // superior al que entiende esta versión no se carga ni se sobrescribe:
+  // aplicar a ciegas algo escrito por una versión más reciente es la forma más
+  // rápida de destruir los campos que esta todavía no sabe leer.
+  function readStateSnapshot(raw){
+    var parsed;
+    try{ parsed = JSON.parse(raw); }catch(e){ return { ok:false, reason:"invalid" }; }
+    if(!parsed || parsed.format !== STATE_FORMAT || !parsed.data || typeof parsed.data !== "object"){
+      return { ok:false, reason:"invalid" };
+    }
+    var version = Number(parsed.schemaVersion);
+    if(!version || version < 1) return { ok:false, reason:"invalid" };
+    if(version > STATE_SCHEMA_VERSION){
+      return { ok:false, reason:"newer", appVersion: String(parsed.appVersion || ""), savedAt: String(parsed.savedAt || "") };
+    }
+    return { ok:true, data: parsed.data, savedAt: String(parsed.savedAt || ""), appVersion: String(parsed.appVersion || "") };
+  }
+
+  // Vuelca un `data` de envoltura al almacén y recarga el estado desde ahí.
+  // Una clave ausente en la copia deja la actual intacta en vez de vaciarla:
+  // una instantánea incompleta no puede borrar datos buenos.
+  function applyStateSnapshot(data){
+    STATE_SLOTS.forEach(function(slot){
+      var value = data[slot.prop];
+      if(value === undefined || value === null) return;
+      storageWrite(slot.key, slot.raw ? String(value) : JSON.stringify(value));
+    });
+    reloadStateFromStorage();
+  }
+
+  // Carga las once claves en `state` y renormaliza. La comparten el arranque y
+  // la restauración de una copia, para que restaurar recorra exactamente el
+  // mismo camino que abrir la app.
+  function reloadStateFromStorage(){
+    // Se recalcula en cada carga: si esto viene de restaurar una copia, las
+    // claves que antes no se podían leer acaban de ser reemplazadas.
+    corruptKeys = [];
+    state.links = load();
+    state.categories = loadCategories();
+    state.allTags = loadAllTags();
+    state.siteTitle = loadSiteTitle();
+    state.viewMode = loadViewMode();
+    state.collapsedCategories = loadCollapsedCategories();
+    state.categoryColors = loadCategoryColors();
+    state.categoryIcons = loadCategoryIcons();
+    state.tagColors = loadTagColors();
+    state.excludedTags = loadExcludedTags();
+    state.viewProfiles = loadViewProfiles();
+
+    state.links.forEach(function(l){
+      l.category = ensureCategory(l.category);
+      l.tags = (l.tags || []).map(ensureTag);
+    });
+
+    // Estos tres guardados existen para persistir la normalización anterior.
+    // Con alguna clave ilegible se saltan a propósito: reescribirlas ahora
+    // significaría dejar caer al disco el estado degradado —listas vacías— y
+    // machacar unos datos que, aun rotos, todavía se pueden rescatar a mano.
+    if(corruptKeys.length === 0){
+      save();
+      saveCategories();
+      saveAllTags();
+    }
+  }
+
+  // ---------- Ocupación ----------
+  var QUOTA_FALLBACK = 5 * 1024 * 1024;
+  var quotaEstimate = QUOTA_FALLBACK;
+  var storageUsage = { bytes: 0, backupBytes: 0, totalBytes: 0, quotaEstimate: QUOTA_FALLBACK, ratio: 0 };
+
+  // `bytes` son las once claves de estado; las copias se cuentan aparte pero
+  // el ratio las incluye, porque lo que decide si el próximo guardado cabe es
+  // el total ocupado, no solo la parte "útil". El desglose se ve en el panel
+  // de limpieza, que es donde tiene sentido explicarlo.
+  function getStorageUsage(){
+    var bytes = 0, backupBytes = 0;
+    STATE_SLOTS.forEach(function(slot){
+      var raw = localStorage.getItem(slot.key);
+      if(raw) bytes += raw.length + slot.key.length;
+    });
+    BACKUP_KEYS.forEach(function(key){
+      var raw = localStorage.getItem(key);
+      if(raw) backupBytes += raw.length + key.length;
+    });
+    var total = bytes + backupBytes;
+    return {
+      bytes: bytes,
+      backupBytes: backupBytes,
+      totalBytes: total,
+      quotaEstimate: quotaEstimate,
+      ratio: quotaEstimate > 0 ? total / quotaEstimate : 0
+    };
+  }
+
+  function refreshStorageUsage(){
+    storageUsage = getStorageUsage();
+    return storageUsage;
+  }
+
+  // navigator.storage.estimate() informa de la cuota del *origen* (IndexedDB,
+  // Cache API...), que en Chrome son decenas de gigas. Tomarla tal cual como
+  // referencia dejaría el ratio pegado a cero y el aviso no saltaría jamás,
+  // porque el almacén que de verdad se llena tiene un techo propio de ~5 MB
+  // que esa cifra no refleja. Por eso solo se acepta cuando es MENOR que el
+  // valor por defecto (disco casi lleno, perfil restringido): ahí sí describe
+  // un límite real y más apretado. Nunca hacia arriba.
+  function probeQuotaEstimate(){
+    if(!navigator.storage || !navigator.storage.estimate) return;
+    try{
+      navigator.storage.estimate().then(function(est){
+        if(est && typeof est.quota === "number" && est.quota > 0 && est.quota < QUOTA_FALLBACK){
+          quotaEstimate = est.quota;
+          refreshStorageUsage();
+          syncFooterNotices();
+        }
+      }, function(){});
+    }catch(e){}
+  }
+
+  function formatBytes(n){
+    if(n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + " MB";
+    if(n >= 1024) return Math.round(n / 1024) + " KB";
+    return n + " bytes";
+  }
+
+  // "0%" con datos dentro es desconcertante en un panel que informa de
+  // ocupación: por debajo del uno por ciento se dice así con palabras.
+  function usagePercent(){
+    var pct = Math.round(storageUsage.ratio * 100);
+    return pct === 0 && storageUsage.totalBytes > 0 ? "menos del 1" : String(pct);
+  }
+
+  // ---------- Aviso de copia de seguridad ----------
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  var BACKUP_WARN_DAYS = 7;
+  var BACKUP_ALERT_DAYS = 30;
+  var BACKUP_MIN_LINKS = 20;
+  var backupNoticeDismissed = false;
+
+  // La escriben las dos exportaciones que producen un archivo que el usuario
+  // guarda: la de enlaces (4.7) y la de categorías (4.19).
+  function markExportDone(){
+    storageWriteQuiet(LAST_EXPORT_KEY, new Date().toISOString());
+    // Ya hay una copia de verdad: el reloj de "nunca has exportado" deja de
+    // hacer falta y se retira, para que no siga contando por su cuenta.
+    try{ localStorage.removeItem(BACKUP_SINCE_KEY); }catch(e){}
+    backupNoticeDismissed = false;
+    syncFooterNotices();
+  }
+
+  function daysSince(iso){
+    if(!iso) return -1;
+    var t = Date.parse(iso);
+    if(isNaN(t)) return -1;
+    var d = Math.floor((Date.now() - t) / DAY_MS);
+    return d < 0 ? 0 : d; // un reloj adelantado no da "hace -3 días"
+  }
+
+  // Días sin copia, o -1 si todavía no procede avisar. Con exportación
+  // registrada cuenta desde ella. Sin ninguna, el reloj no arranca el día que
+  // se instala la app sino la primera vez que la colección llegó a 20 enlaces:
+  // antes de eso no hay gran cosa que perder y el aviso solo estorbaría.
+  function daysWithoutBackup(){
+    var last = localStorage.getItem(LAST_EXPORT_KEY);
+    if(last) return daysSince(last);
+    return daysSince(localStorage.getItem(BACKUP_SINCE_KEY));
+  }
+
+  // Los días que devuelve la función anterior significan cosas distintas según
+  // de dónde salga el reloj: con exportación registrada son días *desde la
+  // copia*, y sin ella son días *desde que el contador arrancó*. Sin esta
+  // distinción, un contador recién puesto en marcha diría "última copia
+  // guardada hoy" a alguien que no ha guardado ninguna en su vida.
+  function hasEverExported(){
+    return !!localStorage.getItem(LAST_EXPORT_KEY);
+  }
+
+  function startBackupClockIfNeeded(){
+    if(localStorage.getItem(LAST_EXPORT_KEY) || localStorage.getItem(BACKUP_SINCE_KEY)) return;
+    if(state.links.length < BACKUP_MIN_LINKS) return;
+    storageWriteQuiet(BACKUP_SINCE_KEY, new Date().toISOString());
+  }
+
+  // ---------- Copias rotativas ----------
+  // Una instantánea por sesión, al arrancar. Dos guardas, y las dos hacen
+  // falta: la marca de sesión evita que recargar la pestaña tres veces
+  // seguidas tire las tres copias buenas, y la comparación con la más reciente
+  // evita guardar tres veces lo mismo — que es tener una sola copia ocupando
+  // el triple justo en el almacén cuyo problema es el tamaño.
+  function rotateBackups(){
+    // Con datos ilegibles, el estado en memoria está degradado: copiarlo
+    // desplazaría hacia atrás las copias buenas y, en tres arranques, no
+    // quedaría ninguna. Es justo el caso para el que existen.
+    if(corruptKeys.length > 0) return;
+
+    try{
+      if(sessionStorage.getItem(BACKUP_SESSION_FLAG)) return;
+    }catch(e){ /* sin sessionStorage se sigue: la comparación de abajo basta */ }
+
+    var snapshot = getStateSnapshot();
+    var dataText = JSON.stringify(snapshot.data);
+    var newest = localStorage.getItem(BACKUP_KEYS[0]);
+    if(newest){
+      var read = readStateSnapshot(newest);
+      // Solo se compara `data`: `savedAt` cambia en cada arranque y haría que
+      // dos instantáneas idénticas no lo parecieran nunca.
+      if(read.ok && JSON.stringify(read.data) === dataText) return;
+      // Una colección que se ha quedado vacía no desplaza a una copia con
+      // contenido: si el vaciado es intencionado no hay nada que guardar, y si
+      // viene de un fallo, esa copia es lo único que queda.
+      if(read.ok && state.links.length === 0 && Array.isArray(read.data.links) && read.data.links.length > 0) return;
+    }
+
+    var first = localStorage.getItem(BACKUP_KEYS[0]);
+    var second = localStorage.getItem(BACKUP_KEYS[1]);
+    try{
+      if(second !== null) localStorage.setItem(BACKUP_KEYS[2], second);
+      else localStorage.removeItem(BACKUP_KEYS[2]);
+      if(first !== null) localStorage.setItem(BACKUP_KEYS[1], first);
+      else localStorage.removeItem(BACKUP_KEYS[1]);
+    }catch(e){ /* si la rotación no cabe se sigue: lo que importa es la copia nueva */ }
+
+    if(writeNewestBackup(JSON.stringify(snapshot))){
+      try{ sessionStorage.setItem(BACKUP_SESSION_FLAG, "1"); }catch(e){}
+    }else if(first !== null){
+      // La copia nueva no cupo y la rotación ya había duplicado la anterior en
+      // el hueco 2. Se deshace ese duplicado para no listar dos entradas
+      // idénticas; la que ocupaba el hueco 3 sí se ha perdido, que es
+      // exactamente lo que autoriza la regla: las copias se sacrifican
+      // empezando por la más antigua.
+      try{ localStorage.removeItem(BACKUP_KEYS[1]); }catch(e){}
+    }
+  }
+
+  // Una copia no puede ser nunca la causa de que no quepa un guardado real: si
+  // no hay sitio, se van tirando las más antiguas para hacérselo, y si ni aun
+  // así cabe, no se escribe ninguna y no se avisa de nada. Son un lujo, no un
+  // compromiso — por eso esto no pasa por storageWrite() y su aviso.
+  function writeNewestBackup(text){
+    var sacrifice = [BACKUP_KEYS[2], BACKUP_KEYS[1]];
+    var i = 0;
+    while(true){
+      try{
+        localStorage.setItem(BACKUP_KEYS[0], text);
+        return true;
+      }catch(e){
+        // El setItem que falla no altera lo que ya había, así que la copia
+        // anterior de este hueco sigue intacta: no se borra al rendirse.
+        if(i >= sacrifice.length) return false;
+        try{ localStorage.removeItem(sacrifice[i]); }catch(e2){}
+        i++;
+      }
+    }
+  }
+
+  function listBackups(){
+    var out = [];
+    BACKUP_KEYS.forEach(function(key, i){
+      var raw = localStorage.getItem(key);
+      if(!raw) return;
+      var read = readStateSnapshot(raw);
+      out.push({
+        key: key,
+        slot: i + 1,
+        ok: read.ok,
+        reason: read.reason || "",
+        savedAt: read.savedAt || "",
+        appVersion: read.appVersion || "",
+        linkCount: read.ok && Array.isArray(read.data.links) ? read.data.links.length : 0,
+        bytes: raw.length
+      });
+    });
+    return out;
+  }
+
+  function formatStamp(iso){
+    if(!iso) return "fecha desconocida";
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return "fecha desconocida";
+    return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear() +
+      " a las " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
   }
 
   function genId(){
@@ -2338,6 +2810,7 @@
     syncExportButtonLabel();
     syncSelectionUi();
     syncFocusBanner();
+    syncFooterNotices();
   }
 
   function syncExportButtonLabel(){
@@ -3098,7 +3571,61 @@
       '<span>·</span>' +
       '<a href="' + escapeHtml(APP_CONFIG.repoUrl) + '" target="_blank" rel="noopener">GitHub</a>' +
       '<span>·</span>' +
-      '<button type="button" id="btnHelp">Ayuda (?)</button>';
+      '<button type="button" id="btnHelp">Ayuda (?)</button>' +
+      // Contenedor de los avisos de 4.26: lo pinta esta función una sola vez,
+      // y a partir de ahí solo lo rellena syncFooterNotices() desde render().
+      '<div class="footer-notices" id="footerNotices" hidden></div>';
+  }
+
+  // Los dos avisos permanentes del pie: días sin copia y ocupación. Se pintan
+  // en cada render() a partir de valores ya calculados (la ocupación se
+  // remuestrea al arrancar y cada 20 guardados, nunca aquí), así que repetirlo
+  // sale gratis. Nada de lo que se interpola es dato de usuario: son números
+  // que produce la propia app.
+  function syncFooterNotices(){
+    var el = document.getElementById("footerNotices");
+    if(!el) return;
+    var html = "";
+
+    // Va el primero porque es el único que describe algo que ya ha pasado.
+    if(corruptKeys.length > 0){
+      html += '<div class="footer-notice is-strong">' +
+        '<span>⚠️ Parte de tus datos guardados no se ha podido leer y no se está mostrando. <strong>De momento no se ha borrado nada</strong>, pero en cuanto guardes un cambio se escribirá encima. Antes de seguir: restaura una copia, o exporta lo que sí se ve.</span>' +
+        '<button type="button" data-action="footer-restore">Ver las copias</button>' +
+        '<button type="button" data-action="footer-export">Exportar lo visible</button>' +
+        '</div>';
+    }
+
+    var days = daysWithoutBackup();
+    var ever = hasEverExported();
+    if(days >= BACKUP_ALERT_DAYS && !backupNoticeDismissed){
+      html += '<div class="footer-notice is-strong">' +
+        '<span>⚠️ ' + (ever ? "Hace " + days + " días que no guardas una copia." : "Todavía no has guardado ninguna copia de tus enlaces.") +
+        ' Tus enlaces viven dentro de este navegador: si borras los datos de navegación o lo reinstalas, se pierden.</span>' +
+        '<button type="button" data-action="footer-export">Guardar una copia</button>' +
+        '<button type="button" data-action="footer-dismiss-backup">Ahora no</button>' +
+        '</div>';
+    }else if(days >= BACKUP_WARN_DAYS){
+      html += '<div class="footer-notice">' +
+        '<span>' + (ever ? "Sin copia de seguridad desde hace " + days + " días." : "Todavía no has guardado ninguna copia de tus enlaces.") + '</span>' +
+        '<button type="button" data-action="footer-export">Guardar una copia</button>' +
+        '</div>';
+    }
+
+    var pct = usagePercent();
+    if(storageUsage.ratio > 0.85){
+      html += '<div class="footer-notice is-strong">' +
+        '<span>⚠️ Casi sin espacio (' + pct + '% ocupado). Cuando se llene, Lingatu dejará de poder guardar los cambios.</span>' +
+        '<button type="button" data-action="footer-export">Exportar ahora</button>' +
+        '</div>';
+    }else if(storageUsage.ratio >= 0.60){
+      html += '<div class="footer-notice">' +
+        '<span>Espacio ocupado: ' + pct + '%.</span>' +
+        '</div>';
+    }
+
+    el.innerHTML = html;
+    el.hidden = html === "";
   }
   function promptSiteTitle(){
     var next = prompt("Título de la página:", state.siteTitle);
@@ -3859,6 +4386,7 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
+    markExportDone();
   }
 
   document.getElementById("btnExport").addEventListener("click", function(){ exportLinks(); });
@@ -4131,7 +4659,9 @@
   });
 
   // ---------- Exportar / Importar categorías ----------
-  document.getElementById("btnExportCategories").addEventListener("click", function(){
+  // Con nombre propio, como exportLinks(): las dos producen un archivo que el
+  // usuario guarda, así que las dos registran la fecha de la última copia.
+  function exportCategories(){
     var data = state.categories.map(function(name){
       return {
         name: name,
@@ -4149,7 +4679,10 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
-  });
+    markExportDone();
+  }
+
+  document.getElementById("btnExportCategories").addEventListener("click", function(){ exportCategories(); });
 
   function performImportCategoriesMerge(data){
     var added = 0, skipped = 0;
@@ -4387,6 +4920,7 @@
 
   function openCleanupPanel(){
     cleanupChecks = computeCleanupChecks(); // R2.6: recalcula todo al abrir, los datos cambian entre aperturas
+    refreshStorageUsage();                  // ídem para la fila de copias y espacio (4.26)
     cleanupExpanded = new Set();
     renderCleanupPanel();
     cleanupModalOverlay.hidden = false;
@@ -4396,11 +4930,51 @@
     cleanupModalOverlay.hidden = true;
   }
 
+  // La fila de datos y espacio (4.26). Va aparte de computeCleanupChecks() a
+  // propósito: las ocho comprobaciones diagnostican defectos y por eso se
+  // ocultan cuando salen a cero, mientras que esta informa de un estado que
+  // siempre existe, así que se pinta siempre — incluso cuando el resto del
+  // panel dice que no hay nada que revisar. Sigue la regla de la sección 4.24:
+  // cuenta y lleva a las herramientas que ya existen, no repara nada por su
+  // cuenta.
+  function backupCheckHtml(){
+    var expanded = cleanupExpanded.has("backup");
+    var days = daysWithoutBackup();
+    var ever = hasEverExported();
+    var backups = listBackups();
+    var countLabel = !ever ? "sin copia" : (days === 0 ? "copia de hoy" : days + (days === 1 ? " día" : " días"));
+    var html = '<div class="cleanup-check">' +
+      '<button type="button" class="cleanup-check-header" data-action="toggle-check" data-check-id="backup">' +
+        '<span class="cleanup-check-label">Copias de seguridad y espacio</span>' +
+        '<span class="cleanup-check-count">' + countLabel + '</span>' +
+        '<span class="cleanup-check-arrow">' + (expanded ? "▾" : "▸") + '</span>' +
+      '</button>';
+    if(expanded){
+      var items = [];
+      items.push(!ever
+        ? "Todavía no has guardado ninguna copia en un archivo."
+        : (days === 0 ? "Última copia guardada hoy." : "Última copia guardada hace " + days + (days === 1 ? " día." : " días.")));
+      items.push("Espacio ocupado: " + usagePercent() + "% (" + escapeHtml(formatBytes(storageUsage.bytes)) + " de datos" +
+        (storageUsage.backupBytes > 0 ? " y " + escapeHtml(formatBytes(storageUsage.backupBytes)) + " de copias automáticas" : "") + ").");
+      items.push(backups.length === 0
+        ? "No hay ninguna copia automática guardada todavía."
+        : "Hay " + backups.length + (backups.length === 1 ? " copia automática guardada." : " copias automáticas guardadas."));
+      html += '<div class="cleanup-check-body">' +
+        '<ul class="cleanup-item-list">' + items.map(function(t){ return "<li>" + t + "</li>"; }).join("") + '</ul>' +
+        '<div class="cleanup-check-actions">' +
+          '<button type="button" class="link-btn" data-action="cleanup-export">Guardar una copia en un archivo</button>' +
+          (backups.length > 0 ? '<button type="button" class="link-btn" data-action="cleanup-restore">Restaurar una copia</button>' : "") +
+        '</div>' +
+      '</div>';
+    }
+    return html + '</div>';
+  }
+
   function renderCleanupPanel(){
     var list = document.getElementById("cleanupList");
     var visible = cleanupChecks.filter(function(c){ return c.items.length > 0; });
     if(visible.length === 0){
-      list.innerHTML = '<p class="tag-empty">Nada que revisar: la colección está limpia.</p>';
+      list.innerHTML = '<p class="tag-empty">Nada que revisar: la colección está limpia.</p>' + backupCheckHtml();
       return;
     }
     list.innerHTML = visible.map(function(check){
@@ -4425,10 +4999,20 @@
         '</div>';
       }
       return html + '</div>';
-    }).join("");
+    }).join("") + backupCheckHtml();
   }
 
   document.getElementById("cleanupList").addEventListener("click", function(e){
+    if(e.target.closest('[data-action="cleanup-export"]')){
+      closeCleanupPanel();
+      exportLinks();
+      return;
+    }
+    if(e.target.closest('[data-action="cleanup-restore"]')){
+      closeCleanupPanel();
+      openRestoreBackup();
+      return;
+    }
     var toggleBtn = e.target.closest('[data-action="toggle-check"]');
     if(toggleBtn){
       var id = toggleBtn.getAttribute("data-check-id");
@@ -4463,6 +5047,109 @@
   document.getElementById("btnCleanupClose").addEventListener("click", closeCleanupPanel);
   registerOverlay(cleanupModalOverlay, closeCleanupPanel);
 
+  // ---------- Almacenamiento lleno (4.26) ----------
+  var storageFullOverlay = document.getElementById("storageFullOverlay");
+  var storageFullShown = false;
+
+  // Un solo save() puede escribir varias claves seguidas; sin esta guarda, el
+  // almacén lleno abriría el aviso una vez por clave. Se rearma al cerrarlo,
+  // porque el problema no se ha ido: el siguiente cambio que no quepa tiene
+  // que volver a decirlo en vez de fallar en silencio como antes.
+  function reportStorageFull(){
+    if(storageFullShown) return;
+    storageFullShown = true;
+    refreshStorageUsage();
+    syncFooterNotices();
+    storageFullOverlay.hidden = false;
+  }
+
+  function closeStorageFull(){
+    storageFullOverlay.hidden = true;
+    storageFullShown = false;
+  }
+
+  document.getElementById("btnStorageFullClose").addEventListener("click", closeStorageFull);
+  document.getElementById("btnStorageFullExport").addEventListener("click", function(){
+    closeStorageFull();
+    exportLinks();
+  });
+  registerOverlay(storageFullOverlay, closeStorageFull);
+
+  // ---------- Restaurar una copia (4.26) ----------
+  var restoreBackupOverlay = document.getElementById("restoreBackupOverlay");
+
+  function openRestoreBackup(){
+    renderRestoreBackupList();
+    restoreBackupOverlay.hidden = false;
+  }
+
+  function closeRestoreBackup(){
+    restoreBackupOverlay.hidden = true;
+  }
+
+  function renderRestoreBackupList(){
+    var list = document.getElementById("restoreBackupList");
+    var backups = listBackups();
+    if(backups.length === 0){
+      list.innerHTML = '<p class="tag-empty">Todavía no hay ninguna copia automática. La primera se guarda la próxima vez que abras Lingatu.</p>';
+      return;
+    }
+    // Se listan en el orden de los huecos, que ya es de más reciente a más
+    // antigua. Se dice de todos modos: tres copias hechas el mismo minuto —abrir
+    // y cerrar la app varias veces seguidas— comparten fecha y hora, y ahí el
+    // orden es lo único que las distingue.
+    list.innerHTML = backups.map(function(b, i){
+      var meta = b.ok
+        ? escapeHtml(linkCountText(b.linkCount)) + " · " + escapeHtml(formatBytes(b.bytes)) + (b.appVersion ? " · versión " + escapeHtml(b.appVersion) : "")
+        : (b.reason === "newer"
+            ? '<span class="backup-item-broken">Guardada por una versión más reciente de Lingatu: esta no puede leerla.</span>'
+            : '<span class="backup-item-broken">Copia ilegible.</span>');
+      return '<div class="backup-item">' +
+        '<div class="backup-item-info">' +
+          '<div class="backup-item-date">' + escapeHtml(formatStamp(b.savedAt)) +
+            (i === 0 ? ' <span class="backup-item-newest">la más reciente</span>' : "") + '</div>' +
+          '<div class="backup-item-meta">' + meta + '</div>' +
+        '</div>' +
+        (b.ok ? '<button type="button" data-action="restore-backup" data-key="' + escapeHtml(b.key) + '">Restaurar</button>' : "") +
+      '</div>';
+    }).join("");
+  }
+
+  // Sustituye el estado por el de una copia. Pide confirmación con los dos
+  // recuentos —lo que hay y lo que va a quedar— porque es la única acción de
+  // la app que reemplaza todo de golpe sin venir de un archivo que el usuario
+  // acabe de elegir. No borra ninguna copia: restaurar la equivocada tiene que
+  // poder deshacerse restaurando otra.
+  function performRestoreBackup(key){
+    var raw = localStorage.getItem(key);
+    if(!raw){ alert("Esa copia ya no está disponible."); renderRestoreBackupList(); return; }
+    var read = readStateSnapshot(raw);
+    if(!read.ok){
+      alert(read.reason === "newer"
+        ? "Esa copia la guardó una versión más reciente de Lingatu, así que esta no puede leerla sin riesgo de estropear los datos. Actualiza la aplicación e inténtalo de nuevo."
+        : "Esa copia está dañada y no se puede leer. No se ha tocado nada.");
+      return;
+    }
+    var n = Array.isArray(read.data.links) ? read.data.links.length : 0;
+    var msg = "Vas a sustituir lo que tienes ahora (" + linkCountText(state.links.length) + ") por el contenido de la copia del " +
+      formatStamp(read.savedAt) + " (" + linkCountText(n) + ").\n\n" +
+      "Todo lo que hayas hecho después de esa fecha se perderá: enlaces, categorías, etiquetas, colores, iconos, vistas y notas.\n\n" +
+      "¿Continuar?";
+    if(!confirm(msg)) return;
+    applyStateSnapshot(read.data);
+    resetFiltersAfterImport();
+    closeRestoreBackup();
+    render();
+    alert("Copia restaurada: " + linkCountText(state.links.length) + ".");
+  }
+
+  document.getElementById("restoreBackupList").addEventListener("click", function(e){
+    var btn = e.target.closest('[data-action="restore-backup"]');
+    if(btn) performRestoreBackup(btn.getAttribute("data-key"));
+  });
+  document.getElementById("btnRestoreBackupClose").addEventListener("click", closeRestoreBackup);
+  registerOverlay(restoreBackupOverlay, closeRestoreBackup);
+
   // ---------- Paleta de comandos (Ctrl+K) ----------
   // COMMANDS es el único origen de verdad de las acciones globales de la app:
   // cada entrada llama a la misma función con nombre que llama el botón
@@ -4492,7 +5179,8 @@
     { id: "view-comfortable", label: "Vista cómoda", run: function(){ setViewMode("comfortable"); } },
     { id: "view-compact", label: "Vista compacta", run: function(){ setViewMode("compact"); } },
     { id: "export-links", label: "Exportar enlaces", run: function(){ exportLinks(); } },
-    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } }
+    { id: "import-links", label: "Importar enlaces", run: function(){ fileImport.click(); } },
+    { id: "restore-backup", label: "Restaurar una copia de seguridad", run: function(){ openRestoreBackup(); } }
   ];
 
   var paletteOverlay = document.getElementById("commandPaletteOverlay");
@@ -4770,7 +5458,10 @@
       "Al importar: \"Fusionar\" añade lo que no tengas (compara por URL); \"Sustituir todo\" reemplaza y no se puede deshacer.",
       "Las categorías se exportan e importan aparte, desde su propio modal de gestión.",
       "Tus datos viven solo en este navegador y en este equipo, en su almacenamiento local: no hay ningún servidor ni sincronización de por medio.",
-      "⚠️ <strong style=\"color:var(--danger)\">Se pierden para siempre</strong> si borras \"cookies y datos de sitios\" del navegador, si lo reinstalas, o si navegas en incógnito. Exportar (JSON) es tu única copia de seguridad — hazla con regularidad."
+      "⚠️ <strong style=\"color:var(--danger)\">Se pierden para siempre</strong> si borras \"cookies y datos de sitios\" del navegador, si lo reinstalas, o si navegas en incógnito. Exportar (JSON) es tu única copia de seguridad — hazla con regularidad.",
+      "Cada vez que abres Lingatu se guarda una copia automática de todo, y se conservan las tres últimas: \"Revisar\" → \"Copias de seguridad y espacio\" → \"Restaurar una copia\", o <kbd>Ctrl</kbd>+<kbd>K</kbd> y escribe \"restaurar\".",
+      "Esas copias automáticas te salvan de un borrado accidental o de una importación que salió mal, pero <strong>no</strong> de perder los datos del navegador: viven en el mismo sitio que el resto y desaparecen con él. Para eso está exportar a un archivo.",
+      "El pie del lateral avisa cuando hace más de una semana que no guardas una copia, y también cuando el espacio disponible se está acabando."
     ]}
   ];
 
@@ -4801,31 +5492,30 @@
   // #btnEmptyStateAdd sobre #emptyState, en vez de un listener directo sobre
   // un botón que aún no existe en este punto del script.
   document.getElementById("appFooter").addEventListener("click", function(e){
-    if(e.target.closest("#btnHelp")) openHelpPanel();
+    if(e.target.closest("#btnHelp")){ openHelpPanel(); return; }
+    if(e.target.closest('[data-action="footer-export"]')){ exportLinks(); return; }
+    if(e.target.closest('[data-action="footer-restore"]')){ openRestoreBackup(); return; }
+    if(e.target.closest('[data-action="footer-dismiss-backup"]')){
+      // Solo para esta sesión: el aviso vuelve la próxima vez que se abra la
+      // app, porque el motivo que lo trajo sigue ahí.
+      backupNoticeDismissed = true;
+      syncFooterNotices();
+    }
   });
 
   // ---------- Inicio ----------
-  var stored = load();
-  state.links = stored !== null ? stored : [];
-  state.categories = loadCategories();
-  state.allTags = loadAllTags();
-  state.siteTitle = loadSiteTitle();
-  state.viewMode = loadViewMode();
-  state.collapsedCategories = loadCollapsedCategories();
-  state.categoryColors = loadCategoryColors();
-  state.categoryIcons = loadCategoryIcons();
-  state.tagColors = loadTagColors();
-  state.excludedTags = loadExcludedTags();
-  state.viewProfiles = loadViewProfiles();
+  reloadStateFromStorage();
 
-  state.links.forEach(function(l){
-    l.category = ensureCategory(l.category);
-    l.tags = (l.tags || []).map(ensureTag);
-  });
+  // Salvaguardas (4.26), en este orden: la instantánea se toma con el estado
+  // recién cargado y antes de que el usuario pueda tocar nada, para que la
+  // copia refleje lo que había al abrir; el reloj de "nunca has exportado"
+  // necesita saber cuántos enlaces hay; y la ocupación se mide al final, ya
+  // contando la copia que se acaba de escribir.
+  rotateBackups();
+  startBackupClockIfNeeded();
+  refreshStorageUsage();
+  probeQuotaEstimate();
 
-  save();
-  saveCategories();
-  saveAllTags();
   applySiteTitle();
   renderFooter();
   render();

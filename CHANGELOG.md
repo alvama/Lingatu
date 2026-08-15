@@ -7,7 +7,50 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Lingatu ya avisa antes de que pierdas tus enlaces, y guarda copias de
+  rescate por su cuenta.** Hasta ahora tus datos vivían dentro del navegador
+  sin ninguna red debajo: nada te recordaba hacer una copia, y si el
+  almacenamiento se llenaba, el cambio que acabaras de hacer se perdía sin
+  decir ni una palabra. Cuatro cosas nuevas, todas en segundo plano:
+  - **Aviso de copia de seguridad.** Si hace más de una semana que no exportas,
+    el pie del lateral te lo recuerda discretamente; pasado un mes, con más
+    énfasis (y lo puedes apartar hasta la próxima vez que abras la aplicación).
+    Cuenta desde tu última exportación, sea de enlaces o de categorías.
+  - **Aviso de espacio.** A partir del 60% de ocupación aparece cuánto llevas
+    usado, y por encima del 85% el aviso se destaca con un botón para exportar
+    en el acto. Las notas se acumulan sin borrar nunca nada, así que este
+    número solo sube.
+  - **Si un cambio no cabe, ahora te lo dice.** Antes fallaba en silencio y
+    creías haber guardado. Ahora se abre un aviso que explica que lo que ves en
+    pantalla **no está guardado**, y te deja exportarlo desde ahí mismo antes
+    de tocar nada más.
+  - **Tres copias automáticas.** Cada vez que abres Lingatu se guarda una
+    instantánea de todo —enlaces, categorías, etiquetas, colores, iconos,
+    vistas y notas— y se conservan las tres últimas. Para volver a una:
+    "Revisar" → "Copias de seguridad y espacio" → "Restaurar una copia", o
+    <kbd>Ctrl</kbd>+<kbd>K</kbd> y escribe "restaurar". Siempre pide
+    confirmación diciéndote cuántos enlaces tienes ahora y cuántos tendrás
+    después, y **restaurar nunca borra las demás copias**.
+  - Estas copias te salvan de un borrado accidental o de una importación que
+    salió mal, pero **no** de perder los datos del navegador: viven en el mismo
+    sitio que el resto. La única copia que sobrevive a eso sigue siendo el
+    archivo que exportas tú. La aplicación lo dice donde hace falta, para que
+    nadie confíe en ellas más de lo que aguantan.
+
 ### Corregido
+
+- **Unos datos ilegibles ya no se borran solos al abrir la aplicación.** Era el
+  fallo más grave que quedaba, y era invisible: si el contenido guardado se
+  estropeaba —un corte de luz a media escritura, un fallo del navegador—,
+  Lingatu arrancaba con la lista vacía y **escribía esa lista vacía encima**,
+  destruyendo la colección entera antes de que te diera tiempo a ver nada.
+  Ahora, cuando algo no se puede leer, la aplicación **deja de escribir por su
+  cuenta**, te avisa en el pie de que parte de tus datos no se está mostrando y
+  te ofrece las dos salidas: restaurar una copia, o exportar lo que sí se ve.
+  Lo que hubiera guardado sigue intacto y todavía se puede rescatar a mano.
+
 
 - **Seguridad: importar un archivo de enlaces ajeno ya no puede alterar la
   página.** Cada enlace lleva un identificador interno que normalmente genera

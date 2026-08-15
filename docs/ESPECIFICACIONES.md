@@ -33,6 +33,17 @@ Página web de un solo archivo (`lingatu.html`) para gestionar una colección pe
 
 Todas estas claves son independientes; borrar una no afecta a las demás. Para reiniciar la app por completo, borrar las 11 claves (o los datos del sitio desde el navegador).
 
+Además, las **salvaguardas de datos** (4.26) usan seis claves más, que no forman parte del estado de la aplicación: son metadatos sobre él. Borrarlas no pierde ningún dato del usuario — solo la fecha de la última copia y las instantáneas de rescate.
+
+| Clave | Contenido |
+|---|---|
+| `enlaces_last_export_v1` | Fecha ISO de la última exportación correcta (la escriben `exportLinks()` y `exportCategories()`) |
+| `enlaces_backup_since_v1` | Fecha ISO desde la que se cuentan los días sin copia cuando **nunca** se ha exportado. Se registra la primera vez que la colección llega a 20 enlaces, y se borra en cuanto hay una exportación de verdad |
+| `enlaces_backup_1_v1` … `enlaces_backup_3_v1` | Las tres últimas instantáneas rotativas del estado completo, con la envoltura de 4.26 |
+| `enlaces_backup_session_v1` | En `sessionStorage`, no en `localStorage`: marca que esta sesión ya tomó su instantánea |
+
+> Las once claves de estado se enumeran **una sola vez en el código**, en `STATE_SLOTS`. El snapshot, el cálculo de ocupación y la restauración leen esa tabla en vez de repetir la lista, para que añadir una clave nueva no obligue a acordarse de tres sitios (y para que 11.6, que necesita el mismo inventario, no escriba un cuarto).
+
 > Nota: las claves conservan el prefijo `enlaces_` heredado del nombre original del proyecto, a propósito — cambiarlas invalidaría los datos ya guardados por usuarios existentes. Es un detalle interno, no afecta al nombre público "Lingatu". Ya sobrevivió intacto al cambio de nombre a *PinBoard* y al posterior a *Lingatu* (decisión 45): el nombre público y el nombre de las claves son cosas distintas y solo una de las dos puede cambiarse sin romper nada.
 
 ## 3. Modelo de datos
@@ -412,6 +423,39 @@ Un modal (`#helpModalOverlay`) con cuatro bloques — **Atajos, Gestos, Filtros,
 
 **Contenido**: un único array `HELP_SECTIONS`, junto al código, cada sección `{title, items}` con `items` como cadenas de HTML estático (pueden llevar `<kbd>` para teclas/gestos). `renderHelpPanel()` las concatena directamente — es texto de autor, no dato de usuario, así que no pasa por `escapeHtml()` y no interpola nada dinámico. **Regla permanente** (ver `CLAUDE.md`, "Al cerrar un cambio"): cualquier atajo, gesto o comportamiento de filtro nuevo añade su línea aquí, o el panel envejece con la primera función que no la tenga.
 
+### 4.26 Salvaguardas de datos
+
+**Problema de fondo**: hasta aquí, toda la colección vivía en `localStorage` y nada avisaba de los tres riesgos que eso implica — que "borrar datos de navegación" la elimina entera, que la cuota tiene un techo y las notas (4.23) crecen sin sobrescribir nunca, y que un guardado que no cabe fallaba **en silencio**, perdiendo el cambio sin decir nada. Esta sección no cambia dónde viven los datos: añade las salvaguardas que faltaban alrededor.
+
+**Punto único de escritura.** Los once `saveX()` ya no llaman a `localStorage.setItem` cada uno por su cuenta: pasan por `storageWrite(key, value)`. Eso da un solo sitio donde muestrear la ocupación y, sobre todo, donde capturar el fallo por falta de espacio.
+
+**Cuatro piezas:**
+
+1. **Aviso de ocupación.** `getStorageUsage()` devuelve `{bytes, backupBytes, totalBytes, quotaEstimate, ratio}`. `bytes` son las once claves de estado; las copias se cuentan aparte, pero **el `ratio` incluye ambas**, porque lo que decide si el próximo guardado cabe es el total ocupado. Se remuestrea al abrir la app, al abrir el panel de limpieza y cada 20 guardados — no en cada tecla. Umbrales: por debajo del 60% no se dice nada; entre el 60% y el 85%, aviso discreto en `#appFooter`; por encima del 85%, aviso destacado con botón "Exportar ahora".
+
+2. **Guardado que no cabe.** `storageWrite()` captura la excepción y abre `#storageFullOverlay`, que explica sin jerga que el cambio se ve en pantalla pero **no se ha guardado**, y ofrece exportar. `state` no se toca, así que la interfaz sigue mostrando lo que el usuario acaba de hacer y la exportación desde ese aviso lo incluye. Una guarda (`storageFullShown`) evita que un `save()` que escribe varias claves abra el aviso una vez por clave; se rearma al cerrarlo, porque el problema sigue ahí.
+
+3. **Aviso de copia de seguridad.** Con exportación registrada, los días se cuentan desde ella; sin ninguna, desde que la colección llegó a 20 enlaces (antes de eso el aviso solo estorbaría). A los **7 días**, aviso discreto; a los **30**, destacado y descartable — y el descarte dura solo la sesión, porque el motivo no se ha ido. `hasEverExported()` separa los dos relojes: sin él, un contador recién arrancado diría "última copia guardada hoy" a quien no ha guardado ninguna en su vida.
+
+4. **Copias rotativas locales.** Al arrancar, `rotateBackups()` guarda una instantánea del estado completo en `enlaces_backup_1_v1`, desplazando las anteriores y descartando la tercera. Tres guardas la protegen de hacer más mal que bien: la marca de sesión (recargar tres veces no tira las tres copias buenas), la comparación con la más reciente (no guardar tres veces lo mismo, que es una copia ocupando el triple) y la regla de que **una colección vacía o ilegible no desplaza a una copia con contenido**. `writeNewestBackup()` implementa la contrapartida: si no cabe, sacrifica las más antiguas, y si aun así no cabe no escribe nada y **no avisa** — una copia no puede ser nunca la causa de que falle un guardado real.
+
+**Restaurar** (`#restoreBackupOverlay`, desde el panel de limpieza, desde el aviso del pie o con `Ctrl+K`): lista las copias con fecha, número de enlaces, tamaño y versión, y exige `confirm()` con **los dos recuentos** —lo que hay y lo que quedará— antes de aplicar. No borra ninguna copia: restaurar la equivocada tiene que poder deshacerse restaurando otra. Aplicar una copia escribe las once claves y recarga el estado por el mismo camino que el arranque (`reloadStateFromStorage()`), así que no hay una segunda copia de la lógica de deserialización.
+
+**Datos ilegibles.** `readJson()` es el lector común de las nueve claves JSON. Si una tenía contenido y no se puede interpretar —o es un JSON válido con la forma equivocada, un objeto donde iba una lista— la clave queda anotada en `corruptKeys` y **el arranque deja de reescribir nada por su cuenta**: los tres guardados de normalización se saltan y no se toma instantánea. Unos datos rotos todavía se pueden rescatar a mano desde el navegador; no, si al abrir la app se han machacado ya con una lista vacía. Un aviso destacado en el pie lo dice y ofrece las dos salidas (restaurar una copia, o exportar lo que sí se ve).
+
+**Envoltura del estado completo** (`getStateSnapshot()`), usada por las copias y disponible para 11.6:
+
+```json
+{ "format": "pinboard-state", "schemaVersion": 1, "appVersion": "1.9.0",
+  "savedAt": "2026-08-15T10:00:00.000Z", "data": { "…las once claves…" } }
+```
+
+`readStateSnapshot()` o devuelve datos completos, o dice por qué no sirven: `invalid` (roto o de otro formato) y `newer` (`schemaVersion` superior al que entiende esta versión, que **no se carga**: aplicar a ciegas algo escrito por una versión más reciente destruye los campos que esta todavía no sabe leer). En el listado de copias, una así se muestra explicada y **sin botón de restaurar**.
+
+**El JSON de exportación de 4.7 no cambia**: sigue siendo el canal oficial entre versiones. La envoltura es interna a esta sección.
+
+**Fila en el panel de limpieza** (4.24): "Copias de seguridad y espacio", con los días sin copia, la ocupación desglosada y el número de instantáneas. Se pinta **siempre**, a diferencia de las ocho comprobaciones —que se ocultan a cero porque diagnostican defectos, mientras que esta informa de un estado que siempre existe—, y respeta la regla de la sección: cuenta y lleva a las herramientas que ya existen (exportar, restaurar), sin reparar nada por su cuenta.
+
 ## 5. Estructura del HTML
 
 ```
@@ -438,15 +482,21 @@ Un modal (`#helpModalOverlay`) con cuatro bloques — **Atajos, Gestos, Filtros,
 #manageModalOverlay             Modal de gestión de categorías/etiquetas (genérico, reutilizado)
 #importModalOverlay             Modal de decisión al importar (Fusionar / Sustituir todo / Cancelar)
 #importCategoriesModalOverlay   Modal de decisión al importar categorías (4.19)
+#cleanupModalOverlay            Panel de limpieza (4.24)
+#helpModalOverlay               Panel de ayuda (4.25)
+#storageFullOverlay             Aviso de que un guardado no ha cabido (4.26)
+#restoreBackupOverlay           Lista de copias de seguridad para restaurar (4.26)
 #commandPaletteOverlay          Paleta de comandos (4.22)
 ```
 
-Los seis overlays se dan de alta con `registerOverlay()`, que es lo que los hace cerrables con `Escape` y lo que bloquea los atajos de una tecla mientras están abiertos (4.22).
+Todos los overlays se dan de alta con `registerOverlay()`, que es lo que los hace cerrables con `Escape` y lo que bloquea los atajos de una tecla mientras están abiertos (4.22). El pie del sidebar (`#appFooter`) incluye además `#footerNotices`, donde se pintan los avisos permanentes de 4.26.
 
 ## 6. Funciones JavaScript clave
 
 | Función | Responsabilidad |
 |---|---|
+| `storageWrite(key, value)` | **Punto único de escritura** (4.26): por aquí pasan los once `saveX()`. Muestrea la ocupación y captura el fallo por falta de espacio, que antes se perdía en silencio |
+| `readJson(key, fallback)` / `markCorrupt(key)` | Lector común de las nueve claves JSON (4.26): devuelve el valor por defecto si el contenido no se puede interpretar **o tiene la forma equivocada**, y anota la clave en `corruptKeys` para que nadie escriba encima |
 | `load()` / `save()` | Leer/escribir `state.links` en `localStorage` |
 | `loadCategories()` / `saveCategories()` | Ídem para la lista maestra de categorías |
 | `loadAllTags()` / `saveAllTags()` | Ídem para la lista maestra de etiquetas |
@@ -538,6 +588,18 @@ Los seis overlays se dan de alta con `registerOverlay()`, que es lo que los hace
 | `openCommandPalette()` / `closeCommandPalette()` / `runPaletteItem(item)` / `movePaletteHighlight(delta)` | Apertura y cierre (vaciando siempre el campo), ejecución de una entrada (cierra antes de ejecutar) y navegación con ↑/↓ |
 | `HELP_SECTIONS` | Panel de ayuda (4.25): array `[{title, items}]` con todo el contenido de la chuleta ("Atajos"/"Gestos"/"Filtros"/"Datos"), junto al código. Único origen de verdad — cada atajo/gesto/filtro nuevo añade su línea aquí (regla en `CLAUDE.md`) |
 | `renderHelpPanel()` / `openHelpPanel()` / `closeHelpPanel()` | Pintan `HELP_SECTIONS` en `#helpModalBody` (sin `escapeHtml()`: es texto de autor estático) / abren y cierran `#helpModalOverlay` |
+| `STATE_SLOTS` | Inventario de las once claves de estado (4.26): `{key, prop, get, raw?}`. **Único sitio donde se enumeran**; lo comparten el snapshot, la ocupación y la restauración. `raw` marca las dos que viajan como texto plano y no como JSON |
+| `getStateSnapshot()` | Estado completo con envoltura (`format`/`schemaVersion`/`appVersion`/`savedAt`/`data`) |
+| `readStateSnapshot(raw)` | Lee una envoltura: `{ok:true, data, savedAt, appVersion}` o `{ok:false, reason:"invalid"\|"newer"}`. Un esquema superior nunca se carga |
+| `applyStateSnapshot(data)` / `reloadStateFromStorage()` | Vuelcan un `data` al almacén (una clave ausente deja la actual intacta, nunca la vacía) / cargan las once claves en `state` y renormalizan. La segunda la comparten el arranque y la restauración, para que restaurar recorra el mismo camino que abrir la app |
+| `getStorageUsage()` / `refreshStorageUsage()` / `probeQuotaEstimate()` | Ocupación `{bytes, backupBytes, totalBytes, quotaEstimate, ratio}` / la recalculan y cachean / consultan `navigator.storage.estimate()`, aceptándola **solo si es menor** que los 5 MB por defecto (ver decisión 47) |
+| `formatBytes(n)` / `usagePercent()` / `formatStamp(iso)` | Formateo para los avisos: tamaño legible / porcentaje ("menos del 1" en vez de "0") / fecha y hora |
+| `markExportDone()` / `daysSince(iso)` / `daysWithoutBackup()` / `hasEverExported()` / `startBackupClockIfNeeded()` | Registran una exportación / días transcurridos / días sin copia / si alguna vez se exportó (los días significan cosas distintas según el reloj del que salgan) / arrancan el reloj al llegar a 20 enlaces sin ninguna exportación |
+| `rotateBackups()` / `writeNewestBackup(text)` / `listBackups()` | Instantánea por sesión con sus tres guardas / escritura que sacrifica las copias antiguas antes de rendirse, siempre en silencio / listado con fecha, recuento, tamaño y estado de cada copia |
+| `reportStorageFull()` / `closeStorageFull()` | Abren y cierran `#storageFullOverlay`, con la guarda que evita un aviso por clave escrita |
+| `openRestoreBackup()` / `renderRestoreBackupList()` / `performRestoreBackup(key)` | Modal de restauración: apertura, listado (sin botón para las copias ilegibles o de versión superior) y aplicación con confirmación de los dos recuentos |
+| `syncFooterNotices()` / `backupCheckHtml()` | Pintan los avisos permanentes de `#footerNotices` (llamada desde `render()`) y la fila "Copias de seguridad y espacio" del panel de limpieza |
+| `exportCategories()` | Exportación de categorías (4.19), extraída del listener a una función con nombre para que también registre la fecha de la última copia |
 
 ## 7. Decisiones de diseño relevantes (historial)
 
@@ -632,6 +694,18 @@ La siguiente es la decisión del **escapado de atributos** (corrección de segur
 
     Los `id` ya guardados en `localStorage` no se tocan: migrarlos habría sido cambiar datos de usuario para arreglar un problema que el escapado al pintar ya resuelve.
 
+Las siguientes son las decisiones de las **salvaguardas de datos** (4.26):
+
+47. **`navigator.storage.estimate()` solo se acepta hacia abajo, nunca hacia arriba.** Parecía la fuente natural de la cuota, y es una trampa: esa API informa del espacio del **origen** (IndexedDB, Cache API...), que en Chrome son decenas de gigas, mientras que el almacén que de verdad se llena tiene un techo propio de unos 5 MB que esa cifra no refleja. Tomarla tal cual habría dejado el `ratio` pegado a cero y el aviso no habría saltado **jamás** — un aviso que no avisa es peor que ninguno, porque da falsa tranquilidad. Así que el valor por defecto son 5 MB y `estimate()` solo manda cuando devuelve **menos** (disco casi lleno, perfil restringido), que es el único caso en que describe un límite más apretado y real. Medido empíricamente en Chrome 151: el tope está en ~5.236.000 caracteres, es decir 5 MiB clavados, así que la constante no es una estimación prudente sino el número exacto.
+
+48. **El `ratio` cuenta también las copias automáticas, aunque `bytes` no.** Es la única forma de que el aviso llegue a tiempo: con tres instantáneas del estado completo, una colección de 1 MB ocupa 4 MB de los 5 disponibles, y un porcentaje calculado solo sobre "los datos de verdad" habría dicho 20% con el almacén al 80%. Lo que decide si el próximo guardado cabe es el total ocupado, no la parte que consideramos útil. El desglose ("X de datos y Y de copias automáticas") se enseña en el panel de limpieza, que es donde tiene sitio para explicarse; el aviso del pie solo necesita un número.
+
+49. **Restaurar una copia vive en el panel de limpieza sin romper su regla de "diagnostica, no repara" (decisión 41).** La fila informa —días sin copia, ocupación, cuántas instantáneas hay— y sus botones **llevan** a herramientas con su propia ventana y su propia confirmación: exportar, que ya existía, y el modal de restauración. Es el mismo patrón que "Ver estos N": el panel es el puente, nunca la herramienta. Y restaurar no es reparar un defecto diagnosticado, que es lo que la decisión 41 mantiene fuera; es recuperar una copia, una categoría distinta de acción. La fila, además, es la única que **se pinta siempre**: las ocho comprobaciones se ocultan a cero porque diagnostican defectos que pueden no existir, mientras que "cuántos días llevas sin copia" siempre tiene respuesta.
+
+50. **Un fallo de lectura ya no puede vaciar los datos buenos, y esa era la salvaguarda más importante de todas.** El arranque leía cada clave con `try/catch`, se quedaba con una lista vacía si el JSON estaba roto, y a continuación **guardaba esa lista vacía encima**: un solo carácter corrupto —o un JSON válido con la forma equivocada— destruía la colección entera de forma irreversible, en silencio, antes de que al usuario le diera tiempo a ver la pantalla. Ahora `readJson()` anota la clave en `corruptKeys` y, mientras haya alguna, el arranque **no escribe nada por su cuenta**: ni los tres guardados de normalización, ni la instantánea rotativa (que además desplazaría hacia atrás las copias buenas y, en tres arranques, no dejaría ninguna). Lo que sí se permite es que el usuario siga trabajando: si edita algo, se guarda y se escribe encima, porque bloquear la app entera sería peor. La línea está en que **la aplicación no destruye nada por iniciativa propia**; con una acción explícita del usuario detrás, sí. El aviso del pie lo dice con esas palabras y ofrece las dos salidas antes de que eso pase.
+
+51. **Las copias automáticas se anuncian como lo que son, no como una copia de seguridad.** Viven en el mismo almacén que protegen, así que desaparecen exactamente con el mismo suceso del que hay que protegerse: borrar los datos del navegador. Sirven para lo otro —una importación equivocada, un "Sustituir todo" a destiempo, un borrado accidental—, que es frecuente y hasta ahora no tenía ninguna red. Tanto el panel de ayuda como el modal de restauración lo dicen explícitamente, porque una salvaguarda que el usuario cree más fuerte de lo que es acaba sustituyendo a la que sí funciona: exportar a un archivo.
+
 ## 8. Contrato con la extensión de Chrome
 
 `extension/background.js` nunca accede al DOM de `lingatu.html` directamente: pasa siempre por una superficie mínima y estable, `window.LingatuBridge`, expuesta al final de la IIFE. Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, en `background.js`), sin ningún error visible dentro de `lingatu.html`.
@@ -686,8 +760,8 @@ La siguiente es la decisión del **escapado de atributos** (corrección de segur
 ## 10. Compatibilidad y limitaciones conocidas
 
 - Requiere un navegador moderno con soporte de `localStorage`, `<dialog>`-like overlays manuales, `Set`, `Array.prototype.find`/`findIndex`, plantillas de cadena no usadas (se usa concatenación `+` deliberadamente por compatibilidad ES5-friendly).
-- No hay sincronización entre dispositivos/navegadores: cada `localStorage` es local a un perfil de navegador en una máquina. Exportar/Importar es el mecanismo manual de respaldo/traslado.
-- No hay límite de enlaces impuesto por la app; el límite real es la cuota de `localStorage` del navegador (habitualmente 5-10 MB).
+- No hay sincronización entre dispositivos/navegadores: cada `localStorage` es local a un perfil de navegador en una máquina. Exportar/Importar es el mecanismo manual de respaldo/traslado. **Las salvaguardas de 4.26 mitigan el riesgo, no lo eliminan**: avisan de que hace días que no exportas y guardan tres instantáneas de rescate, pero esas instantáneas viven en el mismo almacén y se pierden con él. La única copia que sobrevive a un borrado de datos del navegador sigue siendo el archivo exportado.
+- No hay límite de enlaces impuesto por la app; el límite real es la cuota de `localStorage` del navegador. Medido en Chrome 151: **5 MiB exactos** (~5.236.000 caracteres, contando clave y valor), compartidos por todas las páginas `file://`. La app avisa a partir del 60% de ocupación y explica el fallo cuando un guardado no cabe (4.26), en vez de perderlo en silencio como hacía antes.
 - El borrado en el modal de gestión, y el título de la página, siguen usando `confirm()`/`prompt()` nativos del navegador (el renombrado de categorías/etiquetas ya es inline — ver decisión 10 de la sección 7).
 - El arrastrar y soltar usa la API nativa HTML5 Drag and Drop, pensada para ratón — en pantallas táctiles el reordenamiento solo es posible con los botones ▲/▼ (que si funcionan por toque).
 - Para colores personalizados fuera de la paleta fija de 12 tonos (4.10) se usa el `<input type="color">` nativo del navegador, cuyo aspecto exacto varía entre Windows/Chrome/Edge/Firefox.
@@ -715,7 +789,6 @@ Ordenado por prioridad, con una excepción deliberada: las ideas relacionadas en
 | **Baja** | **Enlaces en las notas** | Lo único del Markdown habitual que quedó fuera del renderizador (4.23, decisión 38), y a propósito: es lo que obliga a construir un `href` y, con él, a una lista blanca de esquemas para que un `javascript:` copiado de una página no acabe siendo un clic ejecutable. Hoy una URL pegada en una nota se lee y se copia, que cubre el caso normal. Si se retoma: `[texto](url)` validando `http`/`https`/`mailto`, **sin** imágenes (cargarían recursos de terceros desde tus notas), y con revisión de seguridad propia — no es "una regex más". |
 | **Baja** | **Icono generado localmente como *fallback* del favicon** | Hoy, si el favicon de Google no carga, el `<img>` se autodestruye (`onerror="this.remove()"`, 4.11) y queda un hueco. Cambio: sustituirlo por un icono generado en local — color derivado del hash del dominio + iniciales, como hacen Gmail o Notion con los avatares. Con red se ven los favicons reales de siempre; sin red, o con el servicio bloqueado, un icono legible en vez de nada. ~15 líneas, **sin ninguna opción que configurar**: es una mejora estricta sobre el estado actual. No resuelve la limitación de privacidad de la sección 10 (el dominio sigue enviándose a Google cuando hay red); eliminarla del todo exigiría hacer el icono local *siempre*, que es una decisión distinta —privacidad frente a reconocimiento visual de marca— y no se toma aquí. **Si algún día se añade un panel de Ajustes, reconsiderar la variante conmutable** (las dos fuentes de icono, a elección del usuario): hoy no se justifica un panel de configuración entero para una sola opción, pero hay al menos dos candidatas más esperando (aviso de backup, fuente de iconos). |
 | **Muy baja** | **Papelera con deshacer** | Al borrar, mover el enlace a un array temporal con marca de tiempo y mostrar un aviso "Enlace eliminado — Deshacer" durante unos segundos, en vez del borrado inmediato e irreversible actual (4.1). Sustituiría el `confirm()` del icono 🗑️. |
-| **Muy baja** | **Aviso de backup** | Guardar `lastExportDate` en `localStorage` al exportar (4.7) y mostrar un aviso discreto si han pasado, p. ej., 30 días sin exportar. Mitiga el riesgo de pérdida total por vivir solo en `localStorage` (limitación ya documentada en la sección 10). **Su sitio natural es el panel de limpieza (4.24)**, ya implementado — encajaría como una fila más o como un aviso junto al título del modal —, pero no se implementó como parte de esa tarea. |
 | **Muy baja** | **Contador de clics / último acceso** | Incrementar un contador local al abrir un enlace, para poder ordenar por "más usados". Choca de frente con la decisión de que el orden es siempre manual (sección 3 y 4.9): tendría que ser un modo de orden alternativo y explícito, nunca el de por defecto. |
 | **Muy baja** | **QR local del enlace** | Generar el QR en canvas/SVG puro para abrir un enlace en el móvil sin escribir la URL. Encaja con la filosofía de no depender de red, pero implica escribir un codificador QR desde cero (no hay librería externa posible) — de ahí la prioridad. |
 
@@ -724,6 +797,10 @@ Ordenado por prioridad, con una excepción deliberada: las ideas relacionadas en
 Se registran aquí para no volver a proponerlas en rondas futuras. **Aparcada** significa que la idea es buena pero se decidió no abordarla ahora; el análisis se conserva para cuando se retome.
 
 - **(Aparcada) El archivo como fuente de verdad, con sincronización por carpeta sincronizada**: usar la File System Access API (`showSaveFilePicker` + handle persistido en IndexedDB) para que `save()` reescriba un JSON del disco, convirtiendo `localStorage` en caché. Si ese archivo vive en una carpeta sincronizada (OneDrive, Dropbox, Drive, Syncthing, unidad de red, un repo git), la sincronización la da la carpeta y Lingatu no integra ningún servicio: sin servidor, sin cuentas, sin API de terceros. Sería la única vía para eliminar la limitación nº 1 de la sección 10. Si se retoma, **hay dos incógnitas que se comprueban en cinco minutos**: (1) si el permiso sobre el handle sobrevive al cierre del navegador con origen `file://` (los permisos se guardan por origen y `file://` es un origen opaco, justo el caso en que no se pueden persistir), y (2) si IndexedDB funciona en `file://` en Chrome, porque sin ella no hay dónde guardar el handle —no es serializable a JSON, así que `localStorage` no sirve—. Si la respuesta es no, el modo degradado sigue siendo útil: un clic de "Reconectar" por sesión y el resto de la sesión escribe sola. Límite conceptual que habría que documentar sin ambigüedad: **no es sincronización, es un archivo compartido con detección de conflictos** (contador de revisión dentro del archivo, relectura al volver a la pestaña vía `visibilitychange`, y fusión reutilizando el dedupe por URL que ya existe); sirve para "trabajo en un equipo a la vez y quiero encontrarlo todo en el otro", no para edición simultánea. Regla de seguridad no negociable: **nunca escribir un array vacío sobre un archivo que tenía datos** sin confirmación explícita, para que un fallo de lectura no pueda vaciar el archivo bueno.
+
+  **Estado (agosto de 2026): la Fase 0 está a medias y la decisión sigue abierta.** Las salvaguardas que no dependían de esto ya se implementaron (4.26), incluida la regla anterior aplicada al almacén actual (decisión 50). De las comprobaciones de [`spike/RESULTADOS.md`](../spike/RESULTADOS.md):
+  - **Resuelto que sí**: IndexedDB funciona bajo `file://` —la segunda incógnita, la de dónde guardar el handle—; `showSaveFilePicker` existe y su origen no la rechaza de entrada; `localStorage` es efectivamente compartido entre páginas `file://` distintas (lo que 11.6 daba por hecho); y la cuota real son 5 MiB exactos.
+  - **Sigue abierto, y es lo que decide la ruta**: si el permiso sobre el handle sobrevive al cierre del navegador (la primera incógnita). Requiere abrir un selector de archivos real y cerrar el navegador entero, así que no se puede automatizar.
 - **Tour interactivo guiado de bienvenida**: uno o dos días de trabajo, los usuarios lo saltan, y en un archivo único envejece mal. Es la opción de ayuda que parece más profesional y la que menos rinde; el retorno está en los estados vacíos y en la chuleta (11.5).
 - **Variante de solo lectura de la exportación autocontenida** (el mismo archivo sin botones de edición, para consultar): descartada por no aportar sobre la exportación completa, que ya se puede consultar igual.
 
