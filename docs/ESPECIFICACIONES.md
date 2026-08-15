@@ -45,6 +45,8 @@ Además, las **salvaguardas de datos** (4.26) usan seis claves más, que no form
 | `enlaces_lang_v1` | Idioma de la interfaz (4.28): `"es"` o `"en"`. Ausente = todavía no se ha elegido, y el idioma se deduce (preferencia → hay datos ⇒ español → `navigator.language`) |
 | `enlaces_lang_notice_v1` | Marca de que ya se enseñó una vez el aviso de que existe selector de idioma (4.28, R9). Solo llega a escribirse en instalaciones anteriores a esa función |
 | `enlaces_uncategorized_name_v1` | **Nombre de la categoría por defecto**, fijado una sola vez y nunca reescrito por un cambio de idioma. Es la clave que impide que traducir la interfaz parta la colección en dos categorías distintas (4.28, y decisión 59) |
+| `enlaces_storage_mode_v1` | **Modo de trabajo elegido** (4.29): `"local"` o `"file"`. Lo elige el usuario y no se deduce nunca del permiso del navegador. Ausente = instalación anterior a esta función, y se migra según si había archivo recordado |
+| `enlaces_theme_v1` | Tema de la interfaz (4.30): `"light"`, `"dark"` o `"system"`. Ausente = `"system"`, que es el comportamiento de siempre (`prefers-color-scheme`) |
 
 > Las once claves de estado se enumeran **una sola vez en el código**, en `STATE_SLOTS`. El snapshot, el cálculo de ocupación y la restauración leen esa tabla en vez de repetir la lista, para que añadir una clave nueva no obligue a acordarse de tres sitios (y para que 11.6, que necesita el mismo inventario, no escriba un cuarto).
 
@@ -482,9 +484,13 @@ Son **dos acciones distintas**, no una (decisión 57), disponibles en el pie del
 
 - **«Guardar en un archivo…»** (`connectToFile`, `showSaveFilePicker`) — la primera vez. El archivo **no existe todavía y no lo crea el usuario**: se abre la ventana de guardar del sistema con el nombre sugerido `lingatu-datos.json`, y el navegador lo crea donde se le diga, ya con la colección dentro. Si el archivo elegido ya contenía una colección de Lingatu, se pregunta con los dos recuentos delante cuál se conserva.
 - **«Ya tengo uno»** (`openExistingFile`, `showOpenFilePicker`) — segundo equipo, carpeta sincronizada, reinstalación. Aquí manda el archivo: se lee **antes de tocar nada** y se pregunta si se carga su contenido o se conserva el del equipo. Como "abrir" solo concede lectura, se pide `requestPermission({mode:"readwrite"})` aprovechando el mismo clic. Si el archivo no es de Lingatu, o lo guardó una versión más reciente, se avisa y no se escribe encima sin confirmación explícita.
-- **«Reconectar»**: el permiso no sobrevive al cierre del navegador con origen `file://` (Fase 0), así que al abrir Lingatu hay que devolverlo con un gesto. **La app no se bloquea esperándolo** (R24): arranca con los datos del navegador, funciona con normalidad y ofrece el botón. Recargar la página no lo vuelve a pedir.
+- **«Abrir mis enlaces»** (`reconnectFile`): el permiso no sobrevive (Fase 0, P6; P11 descartó que fuera cosa del origen opaco de `file://`), así que al abrir Lingatu hay que devolverlo con un gesto.
 
-  **Lo que se edita mientras falta el permiso baja al archivo al reconectar.** `scheduleFileSave()` marca el cambio como pendiente aunque no pueda escribirlo todavía, y el indicador lo dice con esas palabras — *«Sin conectar con X — lo que has cambiado todavía no está ahí»* — en vez de fingir que está guardado. Al recuperar el acceso, `syncAfterReconnect()` **compara el contenido del archivo con el estado local** y vuelca si difieren. No se fía de la bandera `dirty`: vive en memoria y se pierde al cerrar el navegador, así que unos cambios hechos ayer sin permiso no dejarían ningún rastro (decisión 58).
+  **Cuándo caduca, exactamente** (P12, medido a raíz de la pregunta *"¿tiene que pedirlo siempre?"*): el navegador retira el permiso **en cuanto el origen se queda sin ninguna pestaña abierta** — cerrar la pestaña de Lingatu basta, no hace falta cerrar el navegador. Recargar la página no lo pierde, y mientras quede otra pestaña del mismo origen abierta tampoco (con `file://`, cualquier página local cuenta, por P9). **No hay umbral de tiempo ni nada que optimizar**: es la regla de la plataforma.
+
+  > **Esta viñeta cambió por completo en 4.29, y es el cambio más importante de este documento.** Se llamaba «Reconectar» y **la app no se bloqueaba esperando el permiso**: arrancaba con los datos del navegador y funcionaba con normalidad. Eso es justo lo que hacía imposible saber qué se estaba mirando. Ahora, en modo archivo y sin archivo disponible, **no se pinta ni una ficha**: se enseña la pantalla de apertura. Lo de abajo sigue siendo cierto para el otro camino que queda —volver a modo archivo tras haber trabajado en local—, que es el único en el que puede haber dos versiones.
+
+  **Lo que se edita en modo local baja al archivo al volver a modo archivo.** `scheduleFileSave()` marca el cambio como pendiente aunque no pueda escribirlo todavía, y el indicador lo dice con esas palabras en vez de fingir que está guardado. Al recuperar el acceso, `syncAfterReconnect()` **compara el contenido del archivo con el estado local** y vuelca si difieren. No se fía de la bandera `dirty`: vive en memoria y se pierde al cerrar el navegador, así que unos cambios hechos ayer sin permiso no dejarían ningún rastro (decisión 58).
 - **«Desconectar»**: suelta el archivo y olvida el handle. **No borra nada** — ni el archivo ni `localStorage` — y lo dice en la confirmación.
 - Si el archivo ya no está donde estaba, se dice explícitamente y se ofrece elegir otro u olvidarlo. Tampoco ahí se borra nada.
 
@@ -500,7 +506,9 @@ El propio modal lo dice sin rodeos: *no es sincronización, es un archivo compar
 
 #### Indicador de estado
 
-Permanente en `#appFooter`, con las situaciones distinguibles de un vistazo: **archivo conectado** (nombre y hora del último guardado), **guardando** (durante el debounce), **guardando en este navegador** (con el botón de conectar), **sin conectar / no se encuentra el archivo**, y **lo que ves no está en el archivo** — este último cuando el usuario canceló una escritura, cerró el conflicto sin elegir o hubo un error, con un botón «Guardar ahora». Que un cambio no esté en el archivo nunca se muestra como "guardado".
+**El estado vive ahora en la barra superior** (`#storageBadge`, 4.29) y **el pie conserva solo las acciones** (`#storageStatus`: abrir, buscar el archivo, crear otro, olvidarlo, «Guardar ahora», desconectar). El motivo del traslado es simple: en el pie del lateral había que desplazarse hasta el final para leer lo único que responde a "¿de dónde salen los enlaces que estoy viendo?".
+
+Lo que no cambió es el principio: **que un cambio no esté en el archivo nunca se muestra como "guardado"**, ni cuando el usuario canceló una escritura, ni cuando cerró el conflicto sin elegir, ni cuando hubo un error. `syncStorageStatus()` refresca también el indicador de arriba, porque los guardados terminan fuera de cualquier repintado (debounce, `visibilitychange`).
 
 ### 4.28 Internacionalización (español / inglés)
 
@@ -533,6 +541,94 @@ Las fechas que sí son **presentación** (el sello de las copias, `formatStamp()
 
 **La extensión** usa el mecanismo nativo de Chrome (`_locales/{es,en}/messages.json` + `default_locale`), no este diccionario. Consecuencia aceptada: el idioma de la extensión lo decide el navegador y el de la app lo decide el usuario, así que **pueden divergir** (sección 10).
 
+### 4.29 El modo de trabajo lo elige el usuario, y la pantalla de apertura
+
+**Qué resuelve.** Hasta aquí, el modo de almacenamiento **no era una decisión del usuario: era un estado derivado del permiso del navegador**. `StorageAdapter.getMode()` devolvía `"file"` o `"localstorage"` según si Chrome había concedido acceso *en esa sesión*, así que el modo **cambiaba solo, bajo los pies del usuario**, y la aplicación seguía funcionando con normalidad como si nada. El escenario que lo enseña entero:
+
+1. Abres Chrome. El permiso no sobrevivió al cierre, así que el modo es local aunque tú creas estar trabajando con tu archivo.
+2. Añades un enlace. Se guarda… en el navegador.
+3. Pulsas «Reconectar».
+4. El enlace sigue en pantalla, así que das por hecho que está en el archivo.
+5. Abres Edge, conectado al mismo archivo. El enlace no está.
+6. Vuelves a Chrome y ahí sigue, pero no ha llegado nunca al archivo.
+
+La decisión 58 arregló que el cambio del paso 2 llegue al archivo al reconectar. Esto arregla **la causa**: que en el paso 1 la aplicación enseñe una colección sin poder decir de dónde sale.
+
+**La inversión.** El modo lo elige el usuario y se persiste (`enlaces_storage_mode_v1`). Lo único que decide el permiso es si la aplicación *puede trabajar ahora mismo* o tiene que **pedir que abras tu archivo**. Es el modelo mental de cualquier documento —o lo tienes abierto, o no lo tienes— y no exige entender qué es un permiso ni un handle.
+
+#### Dos preguntas que antes eran una
+
+| Función | Responde a | La decide |
+|---|---|---|
+| `StorageAdapter.getMode()` | ¿Dónde ha dicho el usuario que quiere trabajar? | El usuario (persistido) |
+| `StorageAdapter.isFileReady()` | ¿Puedo leer y escribir el archivo ahora mismo? | El permiso del navegador |
+
+Todo el código que antes preguntaba `getMode() !== "file"` para decidir *si podía escribir* pregunta ahora `isFileReady()`. Esa confusión entre las dos preguntas era el fallo.
+
+**Migración.** Una instalación con archivo recordado (nombre en `enlaces_file_meta_v1`, o handle en IndexedDB) arranca en `"file"`; cualquier otra, en `"local"`. Nadie tiene que configurar nada para seguir como estaba. En un navegador sin File System Access API el modo archivo se corrige a local **en memoria**, sin tocar la preferencia guardada: quien abra el mismo archivo desde Firefox y luego vuelva a Chrome sigue en modo archivo.
+
+#### La pantalla de apertura
+
+Con modo `"file"` y el archivo **no disponible**, la aplicación **no carga los enlaces de `localStorage` en `state`** y **no pinta ninguna ficha**. En su lugar, `#openGate` ocupa la zona de contenido:
+
+> **Tus enlaces están en `lingatu-datos.json`.**
+> Ábrelo para verlos y trabajar con ellos.
+> [ Abrir mis enlaces ] · Trabajar con los datos de este navegador
+
+**No puede parecerse a "no tienes enlaces"** — es la lectura que hará cualquiera ante un hueco vacío, y sugiere que se han perdido. Cuatro variantes, porque cuatro son las situaciones en que un archivo no está disponible, y decirlas con las mismas palabras sería mentir en tres de ellas:
+
+| Variante | Cuándo | Acciones |
+|---|---|---|
+| `closed` | Hay handle recordado, falta el permiso de esta sesión | Abrir mis enlaces · trabajar en local |
+| `pick` | **No hay handle** (perfil nuevo, IndexedDB vaciado), aunque se recuerde el nombre | Abrir uno que ya tengo · crear uno nuevo · trabajar en local |
+| `missing` | El archivo ya no está donde estaba | Buscar mi archivo · trabajar en local |
+| `unsupported` | El navegador no puede abrir archivos | Trabajar en local |
+
+La distinción entre `closed` y `pick` es por el **handle**, no por el nombre, y no es un detalle: con nombre pero sin handle, tratarlo como `closed` acabaría llamando al selector de *guardar como* delante del archivo que contiene la única copia de la colección, con su *"¿desea reemplazarlo?"* — exactamente el diálogo que la decisión 57 eliminó.
+
+**Mientras esa pantalla está puesta solo hay dos salidas**: abrir el archivo o cambiar el modo a local. Todo lo demás queda desactivado — crear, editar, borrar, importar, **exportar**, las acciones en lote, las vistas, el panel de revisión y la paleta de comandos. Exportar es el que más se olvida y el más traicionero: produciría un JSON de los datos del navegador con el nombre de tu colección, que es otra forma de acabar creyendo que tienes lo que no tienes.
+
+El bloqueo se **ve**, y esa parte no es cosmética: un botón desactivado que sigue pintado de azul y con el cursor de mano se pulsa, no pasa nada visible y la lectura no es *"esto ahora no se puede"* sino *"esto está roto"*. Por eso hay una regla global de `:disabled` (opacidad, escala de grises y `cursor:not-allowed`), y por eso **las tres secciones del lateral —categorías, vistas y etiquetas— se ocultan** mientras dura la pantalla: describen una colección que no está cargada, y dejarlas visibles las llenaba de ceros y de *"sin etiquetas todavía"* justo al lado de un mensaje que dice que tus enlaces están en un archivo. El botón principal de la pantalla recibe además el foco al aparecer, para que baste con pulsar Enter.
+
+El bloqueo tiene **dos capas, y las dos hacen falta**: `syncLockedUi()` pone `disabled` en los controles (nadie ve un botón que parece que funciona) y `bloqueadoPorApertura()` guarda los caminos que no pasan por un botón —atajos de teclado, arrastrar y soltar, la paleta— avisando con palabras, porque un clic que no responde parece una avería. El puente de la sección 8 tiene su propia guarda, `bridgeGuard()`, que **lanza**: la extensión lo interpreta como "no hay puente" y enseña su badge rojo, que es exactamente lo que debe pasar.
+
+**Las copias automáticas rotativas (4.26) no se toman con la pantalla puesta.** El estado en memoria no representa la colección real; `rotateBackups()` ya tenía el precedente exacto de esta cautela con las claves ilegibles. Se toman al desbloquear (`unlockApp()`), que es cuando la instantánea significa algo.
+
+#### Cambiar de modo
+
+- **De archivo a local**: se cargan los datos del navegador y queda un **aviso permanente con su fecha** (`#modeNotice`, bajo la barra de herramientas) mientras dure ese modo teniendo un archivo recordado: *«Estás viendo la última copia guardada en este navegador el 14/08/2026 a las 18:52, no tu archivo `lingatu-datos.json`»*. Sin la fecha, el cambio de modo reintroduciría por la puerta de atrás la confusión que esta función elimina. Sale de `enlaces_file_meta_v1.savedAt`, que ya se guardaba.
+- **De local a archivo habiendo tocado algo**: no se inventa nada nuevo. Se abre el archivo, se compara y, si las dos versiones divergen, decide el **modal de conflicto de tres salidas que ya existía** (4.27). Por eso `switchToFileMode()` **no vacía el estado antes de abrir**: lo que hay en memoria es justo la versión "de esta sesión" que ese modal necesita.
+- **Al abrir desde la pantalla de apertura manda el archivo, sin preguntar** (`unlockFromFile()`): en memoria no hay ninguna colección con la que competir. Si el archivo está vacío —recién creado—, la única colección que existe es la del navegador y su sitio es ese archivo.
+- **Cambiar de modo nunca borra nada**: ni el archivo, ni `localStorage`, ni el handle recordado. Soltar el archivo (`disconnect`) sí deja el modo en local, porque quedarse en modo archivo sin archivo dejaría la app pidiendo abrir algo que ya no existe.
+
+#### El indicador, donde se vea
+
+Sube del pie del lateral a la barra superior (`#storageBadge`), siempre visible, en el idioma de alguien que no sabe qué es un permiso. Pulsarlo abre los ajustes (4.30).
+
+| Estado | Texto |
+|---|---|
+| Archivo abierto y al día | `📄 lingatu-datos.json · guardado a las 18:52` |
+| Archivo con algo sin escribir | `⚠️ Hay cambios que aún no están en lingatu-datos.json` |
+| Modo local | `💻 Guardando en este navegador` |
+| Modo archivo, sin abrir todavía | `📄 lingatu-datos.json · sin abrir` |
+
+### 4.30 Panel de ajustes
+
+Overlay `#settingsOverlay`, registrado en `OVERLAYS` como todos, con su entrada en `COMMANDS` llamando a la misma función con nombre que los dos controles que lo abren (el botón «Ajustes» del pie y el propio indicador de la barra superior). **Cuatro ajustes, y ninguno toca un dato del usuario:**
+
+| Ajuste | Valores | Clave |
+|---|---|---|
+| Modo de trabajo | Este navegador / Un archivo mío | `enlaces_storage_mode_v1` (4.29) |
+| Idioma | Español / English | `enlaces_lang_v1` (4.28) |
+| Tema | Claro / Oscuro / El del sistema | `enlaces_theme_v1` |
+| Archivo de datos | Nombre del archivo y botones para elegirlo o soltarlo | `enlaces_file_meta_v1` (4.27) |
+
+**El tema** se aplica con `data-theme` en `<html>`, que redefine las variables de `:root`. «El del sistema» **no pone atributo** y deja mandar a la `@media (prefers-color-scheme: dark)` de siempre: es el valor por defecto y el comportamiento anterior, y es lo que evita el parpadeo en claro al abrir, porque no depende de que el JavaScript haya llegado a ejecutarse. La paleta oscura está escrita **dos veces a propósito** (ver decisión 65) y las dos copias tienen que decir lo mismo.
+
+**La ruta del archivo no se puede escribir a mano** y no es una carencia que vaya a resolverse: el navegador no da rutas y no existe forma de abrir un archivo por su ruta. Se muestra el nombre y se ofrecen los botones que ya existían (`openExistingFile`, `connectToFile`, `disconnectFile`). Prometer ahí un campo de texto sería mentir sobre lo que la plataforma permite.
+
+**Donde `supportsFileMode()` es `false` (Firefox), el bloque del modo y el del archivo no se muestran** — ni siquiera desactivados. Enseñar en gris algo que ese navegador no podrá hacer nunca parece una avería de Lingatu, no una limitación del navegador.
+
 ## 5. Estructura del HTML
 
 ```
@@ -548,6 +644,9 @@ Las fechas que sí son **presentación** (el sello de las copias, `formatStamp()
   </aside>
   <main class="content">
     Toolbar: buscador + toggle estado + toggle vista + botón paleta (4.22) + contador resultados
+             + #storageBadge   ← dónde se está guardando (4.29), abre los ajustes
+    #modeNotice                ← aviso fechado de "estás viendo la copia del navegador" (4.29)
+    #openGate                  ← pantalla de apertura; ocupa el sitio de las fichas (4.29)
     #linksContainer            ← agrupado por categoría (ver 4.2)
     #emptyState                ← mensaje "sin resultados"
     #selectionBar              ← barra de acciones en lote, fija abajo (ver 4.21)
@@ -564,6 +663,7 @@ Las fechas que sí son **presentación** (el sello de las copias, `formatStamp()
 #storageFullOverlay             Aviso de que un guardado no ha cabido (4.26)
 #restoreBackupOverlay           Lista de copias de seguridad para restaurar (4.26)
 #fileConflictOverlay            El archivo cambió por fuera: tres salidas (4.27)
+#settingsOverlay                Panel de ajustes: modo, idioma, tema y archivo (4.30)
 #commandPaletteOverlay          Paleta de comandos (4.22)
 ```
 
@@ -687,7 +787,16 @@ Todos los overlays se dan de alta con `registerOverlay()`, que es lo que los hac
 | `openRestoreBackup()` / `renderRestoreBackupList()` / `performRestoreBackup(key)` | Modal de restauración: apertura, listado (sin botón para las copias ilegibles o de versión superior) y aplicación con confirmación de los dos recuentos |
 | `syncFooterNotices()` / `backupCheckHtml()` | Pintan los avisos permanentes de `#footerNotices` (llamada desde `render()`) y la fila "Copias de seguridad y espacio" del panel de limpieza |
 | `exportCategories()` | Exportación de categorías (4.19), extraída del listener a una función con nombre para que también registre la fecha de la última copia |
-| `StorageAdapter` | Punto por el que pasa la persistencia (4.27): `init` / `loadAll` / `saveAll` / `getMode` / `getStatusLabel` / `disconnect`. Los once `loadX`/`saveX` se conservan como fachada y no se renombran |
+| `StorageAdapter` | Punto por el que pasa la persistencia (4.27): `init` / `loadAll` / `saveAll` / `getMode` / **`isFileReady`** / `getStatusLabel` / `disconnect`. Los once `loadX`/`saveX` se conservan como fachada y no se renombran. `getMode()` devuelve el modo **elegido** y `isFileReady()` si el archivo está disponible ahora: separar las dos es 4.29 entera |
+| `loadStorageMode()` / `saveStorageMode(modo)` / `initStorageMode()` | Modo de trabajo persistido (4.29) y su migración: con archivo recordado se arranca en `"file"`, y en un navegador sin la API se corrige a local en memoria sin tocar la preferencia guardada |
+| `lockApp()` / `unlockApp()` | Ponen y quitan la pantalla de apertura. Bloquear **vacía el estado en memoria** (no `localStorage`); desbloquear es donde se toman las salvaguardas de 4.26 que el arranque se saltó |
+| `unlockFromFile(actual)` | Desbloqueo cuando el archivo se abre: manda el archivo si trae algo, y si está vacío recibe la copia del navegador. No pregunta nada porque no hay dos versiones que comparar |
+| `switchToLocalMode()` / `switchToFileMode()` | Los dos cambios de modo (4.29). El segundo no vacía el estado antes de abrir: es la versión "de esta sesión" que necesita el modal de conflicto |
+| `gateVariant()` / `renderOpenGate()` | Cuál de las cuatro situaciones es (`closed`, `pick`, `missing`, `unsupported`) y su pintado. La distinción `closed`/`pick` es por el handle, no por el nombre |
+| `syncLockedUi()` / `bloqueadoPorApertura(silencioso)` / `bridgeGuard()` | Las tres capas del bloqueo: `disabled` en los controles, guarda con aviso para lo que no pasa por un botón, y guarda del puente que **lanza** para que la extensión enseñe su badge rojo (sección 8) |
+| `syncStorageBadge()` / `syncModeNotice()` | Indicador de la barra superior (4.29) y aviso fechado de modo local con archivo recordado. El primero lo refresca también `syncStorageStatus()`, porque los guardados terminan fuera de cualquier repintado |
+| `loadTheme()` / `applyTheme()` / `initTheme()` / `setTheme(tema)` | Tema (4.30). `"system"` no pone atributo y deja mandar a `prefers-color-scheme`; los otros dos ponen `data-theme` en `<html>` |
+| `renderSettings()` / `openSettings()` / `closeSettings()` / `radioHtml(...)` | Panel de ajustes (4.30). El cuerpo se pinta entero en cada apertura porque los cuatro ajustes dependen del estado y del idioma |
 | `supportsFileMode()` / `isStateKey(key)` | Si el navegador tiene la File System Access API (en Firefox no existe) / si una clave es una de las once de estado, para decidir si un guardado programa además el volcado al archivo |
 | `idbOpen()` / `idbSet(k,v)` / `idbGet(k)` / `idbDelete(k)` | Almacén del `FileSystemFileHandle` en IndexedDB (4.27), que es el único sitio donde cabe: no es serializable a JSON |
 | `loadFileMeta()` / `saveFileMeta()` / `clearFileMeta()` | Metadatos del archivo conectado en `localStorage` (nombre, `lastModified`, fecha): permiten nombrar el archivo antes de tener permiso y detectar que cambió por fuera |
@@ -696,7 +805,7 @@ Todos los overlays se dan de alta con `registerOverlay()`, que es lo que los hac
 | `scheduleFileSave()` / `flushFileSave()` | Volcado con debounce de 500 ms / volcado inmediato, usado por el temporizador, `visibilitychange` y `beforeunload` |
 | `connectToFile()` / `reconnectFile()` / `disconnectFile()` | Las tres acciones del pie y de la paleta. Ninguna borra datos: desconectar deja intactos el archivo y `localStorage` |
 | `openConflictModal(archivo)` / `closeConflictModal()` | Modal de conflicto con las dos versiones y sus tres salidas. Cerrarlo sin elegir cuenta como "ahora no" y deja el estado marcado como no guardado |
-| `syncStorageStatus()` / `horaCorta(iso)` | Pintan el indicador permanente del pie (4.27), llamado desde `render()` / hora `HH:MM` del último guardado |
+| `syncStorageStatus()` / `horaCorta(iso)` | Pinta **las acciones** del pie (4.27, revisado en 4.29: el estado subió a la barra superior) y refresca de paso `syncStorageBadge()` / hora `HH:MM` del último guardado |
 
 ## 7. Decisiones de diseño relevantes (historial)
 
@@ -833,6 +942,14 @@ Las siguientes son las decisiones del **archivo como fuente de verdad** (4.27):
 
 62. **La herramienta de paridad no usa `JSON.parse`, y esa es justo la razón de que sirva.** `tools/verificar-i18n.html` recorre el bloque `I18N` carácter a carácter, respetando cadenas y comentarios. Parsearlo como JSON habría sido más corto y habría fallado en lo único que ninguna otra comprobación puede dar: **las claves duplicadas**. Un objeto JavaScript —y `JSON.parse`— se queda con la última en silencio, así que una clave repetida sobrevive a cualquier prueba funcional y solo se manifiesta cuando alguien edita la primera y no ve ningún cambio. También es lo que permite señalar el número de línea de las dos.
 
+63. **El modo de trabajo tenía que dejar de ser un estado derivado, y esa es la corrección de fondo de todo 4.29.** `getMode()` devolvía "file" o "localstorage" según el permiso del navegador, así que el modo cambiaba solo entre una sesión y otra sin que nada lo dijera. Todo lo demás —la pantalla de apertura, el bloqueo, el aviso fechado— sale de ahí: son consecuencias de haber separado *"dónde quiero trabajar"* de *"puedo trabajar ahora"*. La prueba de que estaban fundidas es que las mismas cuatro llamadas a `getMode()` servían para dos cosas distintas: decidir qué enseñar y decidir si se podía escribir. La decisión 58 arregló un síntoma de esa fusión; esto arregla la fusión.
+
+64. **Bloquear la aplicación es peor que enseñar datos, salvo cuando no puedes decir de dónde salen.** La versión anterior (R24 del encargo 13) decidió expresamente **no** bloquear nunca esperando un permiso, y era un buen principio: dejar a alguien sin sus enlaces porque un permiso caducó sería inaceptable. Lo que no se vio entonces es que la alternativa elegida —seguir trabajando con la copia del navegador **sin decirlo**— no es "no bloquear", es "mentir por omisión". La regla nueva no invierte el principio, lo acota: **si no se puede afirmar el origen de lo que se enseña, no se enseña**; y como salida siempre está trabajar con la copia del navegador, con su fecha delante. Nadie se queda sin sus datos, pero nadie los ve creyendo que son otros. Por eso la salida a modo local está en las cuatro variantes de la pantalla, incluida la de Firefox, donde es la única.
+
+65. **La paleta oscura está duplicada en el CSS a propósito, y es la menos mala de tres opciones malas.** Forzar un tema exige que sus valores existan **fuera** de la `@media (prefers-color-scheme)`, y CSS no deja reutilizar un bloque de declaraciones. Las alternativas eran peores: `light-dark()` deja la aplicación **ilegible** —no fea— en cualquier navegador anterior a 2024, en una app que se distribuye como archivo suelto y no controla qué navegador la abre; y un `<script>` en el `<head>` que ponga el atributo antes del primer pintado rompe la regla de "todo el JavaScript en un único IIFE" para ahorrar veinte líneas de CSS. Se eligió duplicar, con un comentario largo en las dos copias, porque el fallo que se arriesga (un color que se toca en una sola) es de mantenimiento y visible, no de usuario y silencioso.
+
+66. **Con la pantalla de apertura puesta, el puente lanza en vez de devolver un resultado vacío.** Es la diferencia entre fallar y mentir: `checkDuplicate()` con la colección sin cargar devolvería "no hay duplicado" —que es falso—, la extensión daría el guardado por bueno y el enlace no existiría en ningún sitio. Lanzando, la función inyectada de la extensión devuelve `undefined`, cae en su rama `!result.ok` y enseña el badge rojo "!" que ya usa cuando no encuentra el puente. **No hubo que tocar la extensión**, y ese es el argumento: el contrato de la sección 8 ya tenía un camino para "esto no se puede hacer ahora", solo había que usarlo.
+
 ## 8. Contrato con la extensión de Chrome
 
 `extension/background.js` nunca accede al DOM de `lingatu.html` directamente: pasa siempre por una superficie mínima y estable, `window.LingatuBridge`, expuesta al final de la IIFE. Cualquier cambio a los elementos listados abajo debe ir acompañado de una revisión de `extension/background.js` (función `callBridge`) — si no, la extensión deja de funcionar, normalmente **en silencio**: solo se ve un badge rojo "!" sobre el icono de la extensión (`flashBadge`, en `background.js`), sin ningún error visible dentro de `lingatu.html`.
@@ -861,7 +978,10 @@ Las siguientes son las decisiones del **archivo como fuente de verdad** (4.27):
 
 *(Nota: el indicador 📝 de las notas — 4.23 — también toca las fichas, y sigue el mismo criterio: se añade **dentro** de `.card-icon-actions`, sin envolver la ficha ni desplazar su elemento raíz, así que `.link-card`/`.link-card-compact` y el `data-id` siguen donde estaban.)*
 
+*(Nota: con la **pantalla de apertura** puesta — 4.29 — los cinco métodos siguen existiendo, pero **lanzan**. La extensión ya sabe qué hacer con eso: su función inyectada devuelve `undefined`, cae en `!result.ok` y enseña el badge rojo "!". Es deliberado que falle de forma visible en vez de devolver un resultado plausible: `checkDuplicate()` diciendo "no hay duplicado" con la colección sin cargar haría que la extensión diera por guardado un enlace que no existe en ninguna parte. No hubo que tocar la extensión.)*
+
 **Checklist de verificación manual** (no hay tests automatizados en el proyecto — ver sección 10):
+0. Con la pantalla de apertura puesta (modo archivo, archivo sin abrir), pulsar el icono de la extensión → **badge rojo "!"**, y al abrir el archivo después, la colección no debe tener ningún enlace fantasma.
 1. Abrir una pestaña con una URL que **no** esté guardada y pulsar el icono de la extensión → debe abrirse `lingatu.html` con el modal "Nuevo enlace" ya precargado (título, URL, descripción, categoría sugerida).
 2. Repetir con una URL que **sí** esté guardada → no debe abrirse el modal; la vista debe desplazarse hasta la ficha existente y resaltarla brevemente.
 3. Si el paso 2 no resalta nada pero tampoco da error, comprobar si hay un filtro activo (categoría, etiqueta excluida, búsqueda) ocultando esa ficha — es el comportamiento esperado, no un fallo del puente.
@@ -895,7 +1015,8 @@ Las siguientes son las decisiones del **archivo como fuente de verdad** (4.27):
 - **El nombre de la categoría por defecto no viaja en las copias ni en el archivo.** `enlaces_uncategorized_name_v1` no está en `STATE_SLOTS`, así que restaurar una copia o abrir un archivo en un navegador que arrancó en otro idioma puede acabar creando una segunda categoría por defecto con el otro nombre (por ejemplo "Uncategorized" junto a "Sin categoría"). No se pierde ni un enlace ni queda ninguno huérfano —las dos son categorías normales, y se pueden fusionar renombrando una con el nombre de la otra—, pero conviene saberlo. Meterla en `STATE_SLOTS` cambiaría el formato de la envoltura y de la exportación, que es un cambio mayor por un caso de borde.
 
 - Requiere un navegador moderno con soporte de `localStorage`, `<dialog>`-like overlays manuales, `Set`, `Array.prototype.find`/`findIndex`, plantillas de cadena no usadas (se usa concatenación `+` deliberadamente por compatibilidad ES5-friendly).
-- **El modo archivo (4.27) solo existe en Chrome y Edge.** Firefox no implementa la File System Access API, así que ahí la acción ni se ofrece y la app funciona como siempre. Y aun donde existe, el permiso hay que devolverlo con un clic en cada sesión del navegador: el origen `file://` es opaco y no puede conservarlo.
+- **El modo archivo (4.27, 4.29) solo existe en Chrome y Edge.** Firefox no implementa la File System Access API, así que ahí ni la acción ni el ajuste se ofrecen —tampoco desactivados— y la app funciona como siempre, en modo local. Y aun donde existe, **el archivo hay que abrirlo con un clic cada vez que se cierra la última pestaña de la app** — no solo al cerrar el navegador (P12). El permiso no sobrevive, y no por el origen `file://`: P11 lo midió igual en un origen normal (`spike/RESULTADOS.md`). Es una limitación de la plataforma, no algo que se pueda pulir; quien no quiera ese clic tiene el modo local en los ajustes, con lo que eso significa.
+- **El tema forzado (4.30) tiene la paleta oscura duplicada en el CSS.** Es una consecuencia de que CSS no permita reutilizar un bloque de declaraciones dentro y fuera de una `@media`; ver decisión 65. Quien toque un color oscuro tiene que tocarlo en las dos copias.
 - No hay sincronización entre dispositivos/navegadores: cada `localStorage` es local a un perfil de navegador en una máquina. Conectar un archivo en una carpeta sincronizada (4.27) acerca el resultado, pero **no es sincronización**: es un archivo compartido con detección de conflictos, para trabajar en un equipo cada vez. Exportar/Importar sigue siendo el mecanismo manual de respaldo/traslado. **Las salvaguardas de 4.26 mitigan el riesgo, no lo eliminan**: avisan de que hace días que no exportas y guardan tres instantáneas de rescate, pero esas instantáneas viven en el mismo almacén y se pierden con él. La única copia que sobrevive a un borrado de datos del navegador sigue siendo el archivo exportado.
 - No hay límite de enlaces impuesto por la app; el límite real es la cuota de `localStorage` del navegador. Medido en Chrome 151: **5 MiB exactos** (~5.236.000 caracteres, contando clave y valor), compartidos por todas las páginas `file://`. La app avisa a partir del 60% de ocupación y explica el fallo cuando un guardado no cabe (4.26), en vez de perderlo en silencio como hacía antes.
 - El borrado en el modal de gestión, y el título de la página, siguen usando `confirm()`/`prompt()` nativos del navegador (el renombrado de categorías/etiquetas ya es inline — ver decisión 10 de la sección 7).
@@ -923,7 +1044,7 @@ Ordenado por prioridad, con una excepción deliberada: las ideas relacionadas en
 | **Muy baja** | **Soporte táctil para arrastrar y soltar** *(grupo Arrastrar y soltar, 2 de 2)* | La API nativa HTML5 Drag and Drop está pensada para ratón; en pantallas táctiles solo funcionan los botones ▲/▼ (sección 10). Habría que implementarlo con eventos `touchstart`/`touchmove`/`touchend` en paralelo, reutilizando `moveLinkTo`/`moveCategoryTo` como punto de aplicación. |
 | **Media** | **Copiar URL al portapapeles** | Icono junto a cada enlace (ambos modos de vista) que copie `l.url`. **La parte delicada ya está resuelta**: `copyTextToClipboard(text, btn)` (sección 6) hace el `navigator.clipboard` con respaldo de `execCommand`, que hacía falta porque en `file://` el API puede fallar según navegador y foco, y confirma en el propio botón. Queda solo añadir el icono a `cardHtml`/`cardHtmlCompact` y su `data-action` en el listener delegado — revisar la tabla de la sección 8 antes de cerrar el cambio, porque toca las fichas. |
 | **Baja** | **Enlaces en las notas** | Lo único del Markdown habitual que quedó fuera del renderizador (4.23, decisión 38), y a propósito: es lo que obliga a construir un `href` y, con él, a una lista blanca de esquemas para que un `javascript:` copiado de una página no acabe siendo un clic ejecutable. Hoy una URL pegada en una nota se lee y se copia, que cubre el caso normal. Si se retoma: `[texto](url)` validando `http`/`https`/`mailto`, **sin** imágenes (cargarían recursos de terceros desde tus notas), y con revisión de seguridad propia — no es "una regex más". |
-| **Baja** | **Icono generado localmente como *fallback* del favicon** | Hoy, si el favicon de Google no carga, el `<img>` se autodestruye (`onerror="this.remove()"`, 4.11) y queda un hueco. Cambio: sustituirlo por un icono generado en local — color derivado del hash del dominio + iniciales, como hacen Gmail o Notion con los avatares. Con red se ven los favicons reales de siempre; sin red, o con el servicio bloqueado, un icono legible en vez de nada. ~15 líneas, **sin ninguna opción que configurar**: es una mejora estricta sobre el estado actual. No resuelve la limitación de privacidad de la sección 10 (el dominio sigue enviándose a Google cuando hay red); eliminarla del todo exigiría hacer el icono local *siempre*, que es una decisión distinta —privacidad frente a reconocimiento visual de marca— y no se toma aquí. **Si algún día se añade un panel de Ajustes, reconsiderar la variante conmutable** (las dos fuentes de icono, a elección del usuario): hoy no se justifica un panel de configuración entero para una sola opción, pero hay al menos dos candidatas más esperando (aviso de backup, fuente de iconos). |
+| **Baja** | **Icono generado localmente como *fallback* del favicon** | Hoy, si el favicon de Google no carga, el `<img>` se autodestruye (`onerror="this.remove()"`, 4.11) y queda un hueco. Cambio: sustituirlo por un icono generado en local — color derivado del hash del dominio + iniciales, como hacen Gmail o Notion con los avatares. Con red se ven los favicons reales de siempre; sin red, o con el servicio bloqueado, un icono legible en vez de nada. ~15 líneas, **sin ninguna opción que configurar**: es una mejora estricta sobre el estado actual. No resuelve la limitación de privacidad de la sección 10 (el dominio sigue enviándose a Google cuando hay red); eliminarla del todo exigiría hacer el icono local *siempre*, que es una decisión distinta —privacidad frente a reconocimiento visual de marca— y no se toma aquí. **El panel de Ajustes ya existe (4.30), así que la variante conmutable —las dos fuentes de icono, a elección del usuario— ya no exige inventar dónde ponerla**; lo que sí sigue en pie es el criterio de 4.30 de no pasar de cuatro ajustes sin una razón buena. |
 | **Muy baja** | **Papelera con deshacer** | Al borrar, mover el enlace a un array temporal con marca de tiempo y mostrar un aviso "Enlace eliminado — Deshacer" durante unos segundos, en vez del borrado inmediato e irreversible actual (4.1). Sustituiría el `confirm()` del icono 🗑️. |
 | **Muy baja** | **Contador de clics / último acceso** | Incrementar un contador local al abrir un enlace, para poder ordenar por "más usados". Choca de frente con la decisión de que el orden es siempre manual (sección 3 y 4.9): tendría que ser un modo de orden alternativo y explícito, nunca el de por defecto. |
 | **Muy baja** | **QR local del enlace** | Generar el QR en canvas/SVG puro para abrir un enlace en el móvil sin escribir la URL. Encaja con la filosofía de no depender de red, pero implica escribir un codificador QR desde cero (no hay librería externa posible) — de ahí la prioridad. |
@@ -934,7 +1055,7 @@ Se registran aquí para no volver a proponerlas en rondas futuras. **Aparcada** 
 
 - **(Implementado — 4.27) El archivo como fuente de verdad, con sincronización por carpeta sincronizada.** Se acometió tras responder empíricamente las dos incógnitas que esta entrada dejó planteadas (Fase 0, [`spike/RESULTADOS.md`](../spike/RESULTADOS.md)):
   - **IndexedDB funciona en `file://`**, así que hay dónde guardar el handle — que no es serializable a JSON y por tanto no cabía en `localStorage`. Segunda incógnita: resuelta que sí.
-  - **El permiso NO sobrevive al cierre del navegador.** Primera incógnita: resuelta que no, exactamente por el motivo que esta entrada sospechaba — los permisos se guardan por origen y `file://` es un origen opaco. Se adoptó por tanto el **modo degradado que esta misma entrada declaraba aceptable**: un clic de «Reconectar» por sesión y el resto de la sesión escribe sola.
+  - **El permiso NO sobrevive al cierre del navegador.** Primera incógnita: resuelta que no. La entrada sospechaba que la causa era la opacidad del origen `file://`, y **eso resultó ser falso**: P11 midió después lo mismo con `http://127.0.0.1` —un origen normal, seguro y estable— y el permiso también vuelve a `prompt`. No es cosa del origen; Chrome solo conserva ese permiso para aplicaciones instaladas. Se adoptó por tanto el **modo degradado que esta misma entrada declaraba aceptable**: un clic por sesión para abrir el archivo, y el resto de la sesión escribe sola. Lo que 4.29 cambió después es qué pasa **mientras** ese clic no llega: ya no se sigue trabajando con la copia del navegador como si nada.
   - Se cumplieron los dos límites que la entrada fijaba: **no es sincronización, es un archivo compartido con detección de conflictos** (dicho así en el propio diálogo), y **nunca se escribe un estado vacío sobre un archivo que tenía datos** sin confirmación con recuentos — regla que se aplicó por umbral y no al pie de la letra, ver decisión 54.
   - Lo que no se pudo prever al escribir esta entrada: **Firefox no implementa la API en ninguna forma**, así que el modo archivo es opcional y depende del navegador, no el sustituto universal de `localStorage` que aquí se imaginaba.
 

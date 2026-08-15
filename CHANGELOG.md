@@ -7,7 +7,49 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Ahora eres tú quien decide dónde se guardan tus enlaces, y Lingatu nunca te
+  enseña una lista sin poder decirte de dónde sale.** Hasta ahora, trabajar
+  "con tu archivo" o "con el navegador" no era una decisión tuya: dependía de
+  si el navegador recordaba el permiso, cosa que no hace de una sesión para
+  otra. Así que el modo cambiaba solo, sin avisar, y la aplicación seguía
+  funcionando con normalidad — con la copia del navegador delante y con toda
+  la pinta de ser tu archivo. De ahí venía el caso que lo enseña entero: añades
+  un enlace al abrir Chrome, pulsas «Reconectar», lo ves en pantalla… y en tu
+  otro equipo no está, porque nunca llegó al archivo.
+  - **El modo de trabajo se elige y se recuerda**, en el panel de Ajustes
+    nuevo. Lo único que decide el permiso del navegador es si Lingatu puede
+    trabajar ahora mismo o tiene que pedirte que abras tu archivo.
+  - **Si tus enlaces están en un archivo y todavía no lo has abierto, no verás
+    ninguna ficha**: verás una pantalla que dice, con el nombre delante, dónde
+    están y cómo abrirlos. Mientras esté puesta no se puede crear, editar,
+    borrar, importar **ni exportar** — exportar era el más traicionero de
+    todos, porque te habría dado un archivo con los datos del navegador y el
+    nombre de tu colección.
+  - **La palabra «Reconectar» desaparece.** No describía nada reconocible y
+    sonaba a avería. Ahora se llama **«Abrir mis enlaces»**, que es lo que hace.
+  - **Si prefieres no abrirlo ahora**, puedes trabajar con los datos de este
+    navegador: se ven, con un aviso permanente que te dice **de cuándo son** y
+    que tu archivo no se está tocando. Al volver al archivo, si las dos
+    versiones han cambiado, decide el diálogo de conflicto de siempre, con sus
+    tres salidas.
+  - **Dónde se está guardando se lee ahora en la barra de arriba**, siempre a
+    la vista, en vez de al final del lateral. Pulsándolo se abren los ajustes.
+  - **Nada de esto borra ni mueve un solo dato**: ni el archivo, ni lo que
+    guarda el navegador, ni el archivo que Lingatu recuerda.
+
 ### Añadido
+
+- **Un panel de Ajustes, con cuatro decisiones y ninguna que toque tus
+  enlaces**: dónde trabajas (este navegador o un archivo tuyo), el idioma, el
+  tema y el archivo de datos. Se abre desde el pie del lateral, desde la barra
+  superior o con <kbd>Ctrl</kbd>+<kbd>K</kbd>.
+  - **Tema claro, oscuro o el del sistema.** Hasta ahora Lingatu seguía
+    siempre al sistema; ahora puedes forzarlo, y se conserva al recargar.
+  - En Firefox la opción de archivo **no aparece**, ni siquiera en gris: ese
+    navegador no puede abrir archivos, y enseñarlo desactivado parecería una
+    avería de Lingatu en vez de una limitación suya.
 
 - **Lingatu ya está en inglés, además de en español.** La página de descarga
   llevaba tiempo en los dos idiomas, así que quien llegaba en inglés leía la
