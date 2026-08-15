@@ -75,6 +75,16 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **Lo que editabas antes de pulsar «Reconectar» no llegaba al archivo.** Si
+  abrías Lingatu, añadías o cambiabas algo y luego reconectabas, ese cambio se
+  quedaba solo en el navegador: el archivo no lo recibía, otro equipo no lo
+  veía, y el pie decía «guardado a las HH:MM» delante de un archivo que no lo
+  tenía. Ahora un cambio hecho sin permiso cuenta como pendiente, el indicador
+  lo dice —«lo que has cambiado todavía no está ahí»— y al reconectar se
+  compara el contenido del archivo con el tuyo y se vuelca si hace falta.
+  También cubre el caso de cerrar el navegador sin reconectar y volver al día
+  siguiente.
+
 - **Unos datos ilegibles ya no se borran solos al abrir la aplicación.** Era el
   fallo más grave que quedaba, y era invisible: si el contenido guardado se
   estropeaba —un corte de luz a media escritura, un fallo del navegador—,
