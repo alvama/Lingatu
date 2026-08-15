@@ -97,6 +97,19 @@
      al tema elegido y no al del sistema. */
   :root[data-theme="dark"]{color-scheme:dark;}
   :root[data-theme="light"]{color-scheme:light;}
+  /* Un control desactivado tiene que VERSE desactivado. Sin esto, los botones
+     que la pantalla de apertura desactiva (4.29) se seguían viendo azules y con
+     el cursor de mano: se pulsaban, no pasaba nada visible y la lectura era
+     "esta aplicación está rota", no "esto ahora no se puede". */
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+    filter:grayscale(1);
+  }
+  button:disabled:hover{filter:grayscale(1);}
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -4724,6 +4737,15 @@
       '<p>' + texto + '</p>' +
       '<div class="open-gate-actions">' + acciones + '</div>';
     gate.hidden = false;
+    // El botón principal recibe el foco en cuanto aparece la pantalla: con la
+    // colección sin abrir no hay ninguna otra cosa que hacer aquí, así que
+    // basta con pulsar Enter en vez de ir a buscar el botón con el ratón cada
+    // vez que se abre la aplicación. No se roba el foco si el usuario ya está
+    // escribiendo o navegando por otro sitio.
+    var principal = gate.querySelector(".btn-primary");
+    if(principal && (!document.activeElement || document.activeElement === document.body)){
+      principal.focus();
+    }
   }
 
   document.getElementById("openGate").addEventListener("click", function(e){
@@ -4752,6 +4774,12 @@
     });
     document.getElementById("statusToggle").querySelectorAll("button").forEach(function(b){ b.disabled = appLocked; });
     document.getElementById("viewToggle").querySelectorAll("button").forEach(function(b){ b.disabled = appLocked; });
+    // Las tres secciones del lateral describen la colección: categorías, vistas
+    // y etiquetas. Con la pantalla de apertura puesta no hay colección, y
+    // dejarlas visibles las llenaba de ceros y de "sin etiquetas todavía"
+    // justo al lado de un mensaje que dice que tus enlaces están en un archivo.
+    // Es la misma mentira que la pantalla viene a evitar, dicha en voz baja.
+    document.querySelectorAll(".sidebar-section").forEach(function(s){ s.hidden = appLocked; });
     document.body.classList.toggle("is-locked", appLocked);
   }
 
