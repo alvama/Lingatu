@@ -1,10 +1,10 @@
 # Fase 0 — Resultados de la sonda de almacenamiento
 
-Comprobaciones P1–P10 del encargo 13 y P11 del encargo 16. Este documento se
+Comprobaciones P1–P10 del encargo 13, y P11–P12 del encargo 16. Este documento se
 completa a mano según se vayan ejecutando las filas que necesitan un clic real;
 lo ya rellenado se obtuvo de forma automatizada y es reproducible.
 
-> **Estado: completa.** Las dos incógnitas de 11.2 están respondidas y las once
+> **Estado: completa.** Las dos incógnitas de 11.2 están respondidas y las doce
 > comprobaciones, cerradas.
 >
 > - **El permiso NO sobrevive al cierre del navegador** con origen `file://`
@@ -16,6 +16,8 @@ lo ya rellenado se obtuvo de forma automatizada y es reproducible.
 > - **Tampoco lo salva un origen con identidad propia** (P11, encargo 16):
 >   `http://127.0.0.1` pierde el permiso igual que `file://`, así que la opacidad
 >   del origen no era la causa y la pantalla de apertura no se puede evitar.
+> - **El permiso se pierde al cerrar la pestaña**, no solo el navegador (P12), y
+>   se conserva mientras quede alguna pestaña del mismo origen abierta.
 >
 > **Ruta adoptada: A′ — archivo con reconexión manual.** Ver "Decisión" al final.
 
@@ -41,6 +43,7 @@ lo ya rellenado se obtuvo de forma automatizada y es reproducible.
 | P9 | ¿`localStorage` compartido entre dos `file://`? | **sí** | n/a | **Confirmado**: cuatro archivos distintos en dos carpetas distintas comparten almacén. Lo que 11.6 daba por supuesto es cierto |
 | P10 | Contexto de ejecución | `origin` = `file://`, `isSecureContext` = **true** | `origin` = `http://127.0.0.1:8941`, `isSecureContext` = **true** | Un `file://` **sí** es contexto seguro en Chrome |
 | P11 | ¿Persiste el permiso con un origen **no opaco**? | n/a | **NO** | Encargo 16. Medido en `http://127.0.0.1:8941`: el handle sobrevive, el permiso vuelve a `prompt`. La medida directa sobre `chrome-extension://` **no se pudo automatizar**; ver abajo |
+| P12 | ¿Sobrevive el permiso a cerrar **la pestaña**? | **NO**, salvo que quede otra pestaña del mismo origen abierta | pendiente | Encargo 16. Cierra el "caso observado y no acotado" de P7: no hay umbral de tiempo, hay recuento de pestañas |
 
 ### Edge y Firefox (R16)
 
@@ -176,14 +179,49 @@ llevó a la conclusión equivocada:
 - **Una recarga de la página NO lo pierde.** Con la pestaña abierta y el permiso
   ya concedido, `F5` mantiene `granted` y la app sigue escribiendo sin pedir nada.
 - **Cerrar el navegador sí lo pierde**, que es lo que mide P6.
-- Entre medias hay un caso observado y no acotado: en una prueba separada por
-  varios minutos el estado había vuelto a `prompt` sin cerrar el navegador,
-  compatible con la revocación de Chrome cuando el origen se queda sin pestañas
-  activas o pasa tiempo en segundo plano. **No se ha medido el umbral**, y la app
-  no depende de ello: si el permiso no está, aparece «Reconectar».
+- **Cerrar la pestaña también lo pierde** — ver P12, justo debajo. Esto era el
+  "caso observado y no acotado" que esta lista dejó abierto: se sospechaba un
+  umbral de tiempo, y no lo hay.
 
-Para la RUTA A′ el resumen honesto es: **un clic por sesión de navegador**, no por
-carga de página.
+Para la RUTA A′ el resumen honesto es: **un clic cada vez que el origen se queda
+sin pestañas abiertas**, no por carga de página.
+
+## P12 — ¿Sobrevive el permiso a cerrar la pestaña? (encargo 16)
+
+Pregunta que salió al usar la aplicación ya con la pantalla de apertura puesta:
+*"cierro la pestaña de Lingatu, abro otra y me la vuelve a pedir; ¿tiene que ser
+así?"*. Medido el 16/08/2026 con el mismo método que P5–P7 (handle por arrastre
+simulado, guardado en IndexedDB, consulta después), Chrome 151 `--headless=new`,
+perfil limpio, origen `file://`. Lo único que cambia entre medias es **qué se
+cierra**:
+
+| Qué pasa entre obtener el permiso y consultarlo | Resultado |
+|---|---|
+| Recargar la página (P7, confirmado) | **`granted`** |
+| Cerrar la pestaña y abrir otra, sin quedar ninguna del origen | **`prompt`**, y `getFile()` lanza `NotAllowedError` |
+| Cerrar la pestaña **quedando otra del mismo origen abierta** | **`granted`** — también en una pestaña nueva abierta después |
+
+```
+A · permiso tras el arrastre: granted
+A · handle guardado en IndexedDB: si
+B · permiso ANTES de cerrar A:   granted
+B · permiso DESPUES de cerrar A: granted     (B seguía abierta)
+B · getFile: OK 36 bytes
+C · permiso en una pestana nueva: granted    (con B todavía abierta)
+C · getFile: OK 36 bytes
+```
+
+**La regla no es el tiempo: es quedarse sin pestañas.** Chrome retira el permiso
+en cuanto el origen no tiene ninguna pestaña abierta, y lo conserva mientras
+quede al menos una. Con origen `file://` eso tiene una consecuencia práctica que
+conviene conocer: **cualquier otra página local abierta cuenta como el mismo
+origen** (P9), así que basta una para que el permiso siga vivo.
+
+**Consecuencia para el usuario**: la pantalla de apertura aparece cada vez que se
+cierra la última pestaña de Lingatu, no solo al cerrar el navegador. No hay nada
+que optimizar ahí — es la plataforma, no la app. Y no es una regresión de 4.29:
+antes el permiso se perdía exactamente igual, solo que la aplicación seguía
+adelante con la copia del navegador sin decirlo, que es el fallo que 4.29 elimina.
 
 ## P11 — ¿Salva el permiso un origen que no sea opaco? (encargo 16)
 
