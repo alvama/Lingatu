@@ -39,6 +39,31 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   - **Nada de esto borra ni mueve un solo dato**: ni el archivo, ni lo que
     guarda el navegador, ni el archivo que Lingatu recuerda.
 
+- **Los números del lateral ya concuerdan con lo que ves.** Hasta ahora podías
+  tener cuatro cifras distintas en pantalla a la vez —«Todas 140», «Trabajo
+  18», «127 enlaces» y «Trabajo 16»— porque unas contaban la colección entera
+  y otras respetaban el filtro puesto. Ninguna mentía, pero juntas hacían
+  dudar de todas. Ahora **el número de cada categoría dice cuántos enlaces
+  verías al pulsarla**, con los filtros que tengas puestos; si quieres saber
+  el total de la colección, pasa el ratón por encima o míralo en «Gestionar».
+  Como el filtro «Activos» viene puesto de fábrica, esto le pasaba a todo el
+  mundo desde el primer día.
+
+- **Cuando un filtro deja la pantalla vacía, Lingatu te dice por qué y te
+  ofrece salir.** Antes solo decía «no se encontraron enlaces con los filtros
+  actuales»: ni qué filtro, ni cómo quitarlo. Quien no sabía que había un
+  filtro puesto podía pensar que había perdido sus enlaces. Ahora se enumeran
+  todas las restricciones activas —categoría, etiquetas incluidas y
+  excluidas, vista, búsqueda y el propio Todos/Activos— y hay un botón
+  **«Quitar los filtros»** que las quita todas de una vez.
+
+- **La pantalla de bienvenida lleva a alguna parte.** Los dos primeros pasos
+  —crear tu primer enlace y traer los marcadores del navegador— son ahora
+  botones de verdad, en el centro de la pantalla, en vez de un enlace de texto
+  en mitad de un párrafo mientras el botón real estaba en el lateral. Y ya no
+  te propone importar un archivo de ejemplo que vive en el repositorio y que,
+  si te descargaste solo `lingatu.html`, nunca tuviste.
+
 ### Añadido
 
 - **Un panel de Ajustes, con cuatro decisiones y ninguna que toque tus

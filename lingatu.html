@@ -536,6 +536,20 @@
     color:var(--tag-fg);
     cursor:pointer;
   }
+  /* Estado vacío (4.8). Las líneas van apiladas y los botones son botones: la
+     primera acción estaba antes como enlace de texto en mitad de un párrafo,
+     lejos del único sitio donde de verdad se podía pulsar algo. */
+  .empty-state span{display:block;}
+  .empty-welcome-lead{font-size:16px;margin-bottom:6px;}
+  .empty-welcome-text{margin-bottom:14px;}
+  .empty-welcome-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    margin:16px 0 14px 0;
+  }
+  .empty-welcome-actions button{width:auto;padding:9px 16px;}
   .empty-state{
     text-align:center;
     color:var(--text-muted);
@@ -1640,6 +1654,7 @@
       "sidebar.manageTagsTitle": "Renombrar, colorear y eliminar etiquetas",
       "sidebar.all": "Todas",
       "sidebar.allTitle": "Quitar el filtro de categoría",
+      "sidebar.countHint": "{visible} de {total}, con los filtros que tienes puestos ahora",
       "sidebar.categoryDragTitle": "Arrastra para reordenar (Ctrl+clic para selección múltiple)",
       "sidebar.noTags": "Sin etiquetas todavía",
       "sidebar.tagChipTitle": "Clic para incluir, otro clic para excluir, otro clic para quitar el filtro",
@@ -1682,16 +1697,16 @@
       "focus.text": { one: "Mostrando {n} enlace de la revisión", other: "Mostrando {n} enlaces de la revisión" },
 
       // --- Estados vacíos ---
-      "empty.welcome": "<strong>Bienvenido a Lingatu.</strong>",
-      "empty.welcomeStart": "Empieza por {button}.",
-      "empty.welcomeCreate": "crear tu primer enlace",
-      "empty.welcomeImport": "También puedes importar tus marcadores del navegador con el botón \"Importar\" del lateral.",
+      "empty.welcome": "<strong>Aquí van tus enlaces.</strong>",
+      "empty.welcomeStart": "Guárdalos una vez y los tendrás siempre a mano, ordenados como tú quieras.",
+      "empty.welcomeCreate": "Crear mi primer enlace",
+      "empty.welcomeImportBtn": "Traer mis marcadores del navegador",
       // El archivo no se puede cargar solo: en file:// no hay fetch (ver la
       // restricción de arquitectura). Se nombra el que corresponde al idioma y
       // lo importa el usuario con el mismo botón de siempre.
-      "empty.welcomeExample": "¿Prefieres ver antes cómo queda con contenido? Importa <code>examples/ejemplo-enlaces.json</code>.",
       "empty.welcomeSearch": "Y en cualquier momento, pulsa <kbd>/</kbd> para buscar.",
       "empty.constraints": "Ningún enlace cumple a la vez todas estas restricciones:",
+      "empty.clearFilters": "Quitar los filtros",
       "empty.noResults": "No se encontraron enlaces con los filtros actuales.",
 
       // --- Restricciones activas ---
@@ -2103,6 +2118,7 @@
       "sidebar.manageTagsTitle": "Rename, color and delete tags",
       "sidebar.all": "All",
       "sidebar.allTitle": "Clear the category filter",
+      "sidebar.countHint": "{visible} of {total}, with the filters you have on right now",
       "sidebar.categoryDragTitle": "Drag to reorder (Ctrl+click for multiple selection)",
       "sidebar.noTags": "No tags yet",
       "sidebar.tagChipTitle": "Click to include, click again to exclude, click again to clear the filter",
@@ -2145,13 +2161,13 @@
       "focus.text": { one: "Showing {n} link from the review", other: "Showing {n} links from the review" },
 
       // --- Estados vacíos ---
-      "empty.welcome": "<strong>Welcome to Lingatu.</strong>",
-      "empty.welcomeStart": "Start by {button}.",
-      "empty.welcomeCreate": "creating your first link",
-      "empty.welcomeImport": "You can also import your browser bookmarks with the \"Import\" button in the sidebar.",
-      "empty.welcomeExample": "Would you rather see what it looks like with content first? Import <code>examples/example-links.json</code>.",
+      "empty.welcome": "<strong>Your links go here.</strong>",
+      "empty.welcomeStart": "Save them once and you will always have them at hand, arranged the way you want.",
+      "empty.welcomeCreate": "Create my first link",
+      "empty.welcomeImportBtn": "Bring in my browser bookmarks",
       "empty.welcomeSearch": "And at any moment, press <kbd>/</kbd> to search.",
       "empty.constraints": "No link meets all of these constraints at once:",
+      "empty.clearFilters": "Clear the filters",
       "empty.noResults": "No links found with the current filters.",
 
       // --- Restricciones activas ---
@@ -4038,24 +4054,56 @@
 
   // El orden de state.links es el orden manual del usuario dentro de cada categoría
   // (ver swapLinks). No se reordena aquí para respetarlo.
+  // Criterio único de "este enlace se ve o no se ve", con la posibilidad de
+  // saltarse UNA restricción concreta. Lo necesitan dos sitios con la misma
+  // regla: las fichas (sin saltarse nada) y los recuentos del lateral, que se
+  // saltan la categoría porque el número que va al lado de "Trabajo" tiene que
+  // decir cuántos verías **al pulsar Trabajo**, no cuántos ves ahora mismo.
+  // Escribirlo dos veces era la forma segura de que las dos respuestas dejaran
+  // de concordar en cuanto alguien añadiera un filtro nuevo.
+  function linkPassesFilters(l, parsedQuery, salvo){
+    if(state.focusIds.size > 0 && !state.focusIds.has(l.id)) return false;
+    if(state.viewLinkIds.size > 0 && !state.viewLinkIds.has(l.id)) return false;
+    if(salvo !== "category" && state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
+    if(state.activeFilter === "active" && !l.active) return false;
+    if(state.tags.size > 0){
+      var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
+      if(!hasTag) return false;
+    }
+    if(state.excludedTags.size > 0){
+      var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
+      if(hasExcluded) return false;
+    }
+    if(!linkMatchesQuery(l, parsedQuery)) return false;
+    return true;
+  }
+
   function getFilteredLinks(){
     var parsedQuery = parseSearchQuery(state.search);
-    return state.links.filter(function(l){
-      if(state.focusIds.size > 0 && !state.focusIds.has(l.id)) return false;
-      if(state.viewLinkIds.size > 0 && !state.viewLinkIds.has(l.id)) return false;
-      if(state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
-      if(state.activeFilter === "active" && !l.active) return false;
-      if(state.tags.size > 0){
-        var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
-        if(!hasTag) return false;
-      }
-      if(state.excludedTags.size > 0){
-        var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
-        if(hasExcluded) return false;
-      }
-      if(!linkMatchesQuery(l, parsedQuery)) return false;
-      return true;
+    return state.links.filter(function(l){ return linkPassesFilters(l, parsedQuery, null); });
+  }
+
+  // Recuentos del lateral: cuántos enlaces verías al pulsar cada categoría, con
+  // los filtros que haya puestos ahora mismo.
+  //
+  // Antes eran los totales absolutos, y eso ponía cuatro números distintos en
+  // pantalla a la vez —"Todas 140", "Trabajo 18", "127 enlaces", "Trabajo 16"—
+  // sin que nada explicara que unos cuentan la colección entera y otros
+  // respetan el filtro. Ninguno mentía, pero juntos hacían dudar de todos: con
+  // el filtro "Activos" puesto de fábrica, le pasaba a cualquiera desde el
+  // primer día. Los totales absolutos siguen existiendo donde tienen sentido
+  // —el modal de gestión y el panel de revisión, que hablan de la colección y
+  // no de la vista— y ahí getCategories() no ha cambiado.
+  function getSidebarCounts(){
+    var parsedQuery = parseSearchQuery(state.search);
+    var counts = {};
+    var total = 0;
+    state.links.forEach(function(l){
+      if(!linkPassesFilters(l, parsedQuery, "category")) return;
+      counts[l.category] = (counts[l.category] || 0) + 1;
+      total++;
     });
+    return { total: total, byCategory: counts };
   }
 
   // Exportar: sin categoría/etiquetas/enlaces seleccionados, exporta todo. Con
@@ -4357,12 +4405,22 @@
   // ---------- Render ----------
   function renderSidebar(){
     var categories = getCategories();
-    var totalCount = state.links.length;
+    var visibles = getSidebarCounts();
+    var totalAbsoluto = state.links.length;
+
+    // Cuando un filtro recorta lo que se ve, el número de al lado ya no es el
+    // de la colección entera. El total absoluto no se pierde: se cuenta en el
+    // title, que es donde cabe explicarlo sin llenar el lateral de cifras.
+    function cuenta(visible, total){
+      var titulo = visible === total ? "" : ' title="' + escapeHtml(t("sidebar.countHint", { visible: visible, total: total })) + '"';
+      return '<span class="count"' + titulo + '>' + visible + '</span>';
+    }
+
     var html = '<li class="category-item' + (state.selectedCategories.size === 0 ? ' active' : '') + '" data-category="" title="' + escapeHtml(t("sidebar.allTitle")) + '">' +
-                 '<span>' + escapeHtml(t("sidebar.all")) + '</span><span class="count">' + totalCount + '</span></li>';
+                 '<span>' + escapeHtml(t("sidebar.all")) + '</span>' + cuenta(visibles.total, totalAbsoluto) + '</li>';
     categories.forEach(function(c){
       html += '<li class="category-item' + (state.selectedCategories.has(c.name) ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '" draggable="true" title="' + escapeHtml(t("sidebar.categoryDragTitle")) + '">' +
-                '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span><span class="count">' + c.count + '</span></li>';
+                '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span>' + cuenta(visibles.byCategory[c.name] || 0, c.count) + '</li>';
     });
     document.getElementById("categoryList").innerHTML = html;
 
@@ -4453,17 +4511,34 @@
     if(filtered.length === 0){
       container.innerHTML = "";
       if(state.links.length === 0){
-        var boton = '<button type="button" id="btnEmptyStateAdd" class="link-btn">' + escapeHtml(t("empty.welcomeCreate")) + '</button>';
-        emptyState.innerHTML = t("empty.welcome") + '<br>' +
-          t("empty.welcomeStart", { button: boton }) + '<br>' +
-          escapeHtml(t("empty.welcomeImport")) + '<br>' +
-          t("empty.welcomeExample") + '<br>' +
-          t("empty.welcomeSearch");
-      } else if(state.search.trim() && hasLinkSelection()){
-        emptyState.innerHTML = escapeHtml(t("empty.constraints")) + "<br>&bull; " +
-          describeActiveConstraints().join("<br>&bull; ");
+        // Primera vez: el botón es un botón de verdad y va en su propia línea.
+        // La acción real estaba en el lateral, lejos de donde mira quien acaba
+        // de abrir la aplicación, y aquí aparecía como un enlace de texto entre
+        // cuatro frases.
+        emptyState.innerHTML =
+          '<span class="empty-welcome-lead">' + t("empty.welcome") + '</span>' +
+          '<span class="empty-welcome-text">' + t("empty.welcomeStart") + '</span>' +
+          '<span class="empty-welcome-actions">' +
+            '<button type="button" id="btnEmptyStateAdd" class="btn-primary">' + escapeHtml(t("empty.welcomeCreate")) + '</button>' +
+            '<button type="button" id="btnEmptyStateImport">' + escapeHtml(t("empty.welcomeImportBtn")) + '</button>' +
+          '</span>' +
+          '<span class="empty-welcome-text">' + t("empty.welcomeSearch") + '</span>';
       } else {
-        emptyState.innerHTML = escapeHtml(t("empty.noResults"));
+        // R4 + B1: enumerar las restricciones vigentes SIEMPRE que haya alguna.
+        // Antes esto exigía búsqueda **y** selección a la vez, así que en los
+        // dos casos habituales —solo una búsqueda escrita, o solo una categoría
+        // pulsada— caía en el mensaje genérico y la explicación no aparecía
+        // nunca. El mensaje bueno llevaba escrito desde 4.24 sin llegar a verse.
+        var restricciones = describeActiveConstraints();
+        if(restricciones.length > 0){
+          emptyState.innerHTML = escapeHtml(t("empty.constraints")) + "<br>&bull; " +
+            restricciones.join("<br>&bull; ") +
+            '<span class="empty-welcome-actions">' +
+              '<button type="button" id="btnEmptyStateClear">' + escapeHtml(t("empty.clearFilters")) + '</button>' +
+            '</span>';
+        }else{
+          emptyState.innerHTML = escapeHtml(t("empty.noResults"));
+        }
       }
       emptyState.hidden = false;
       return;
@@ -5123,8 +5198,12 @@
   });
 
   document.getElementById("btnAdd").addEventListener("click", function(){ openModal(null); });
+  // Delegado sobre #emptyState, que render() no destruye: registrarlo dentro de
+  // renderCards() acumularía un listener por repintado.
   document.getElementById("emptyState").addEventListener("click", function(e){
-    if(e.target.closest("#btnEmptyStateAdd")) openModal(null);
+    if(e.target.closest("#btnEmptyStateAdd")){ openModal(null); return; }
+    if(e.target.closest("#btnEmptyStateImport")){ fileImport.click(); return; }
+    if(e.target.closest("#btnEmptyStateClear")){ clearAllFilters(); render(); return; }
   });
   document.getElementById("btnCancel").addEventListener("click", closeModal);
   document.getElementById("btnDuplicate").addEventListener("click", duplicateEditingLink);
@@ -6493,11 +6572,28 @@
 
   document.getElementById("btnExport").addEventListener("click", function(){ exportLinks(); });
 
-  function resetFiltersAfterImport(){
+  // Quita TODAS las restricciones de la vista: categorías, etiquetas incluidas,
+  // etiquetas excluidas, el filtro de estado, la vista aplicada, el foco de
+  // revisión y la búsqueda. La usan el botón del estado vacío (4.8) y la vuelta
+  // a la normalidad después de importar, que quería decir exactamente esto.
+  //
+  // Las etiquetas excluidas se persisten (son el único filtro que sobrevive a
+  // la sesión), así que aquí hay que guardarlas además de vaciarlas: si no, la
+  // pantalla las quitaría y la próxima carga las traería de vuelta.
+  function clearAllFilters(){
     clearSelectionOnViewChange();
-    state.selectedCategories.clear(); state.tags.clear(); state.activeFilter = "all"; state.search = "";
+    state.selectedCategories.clear();
+    state.tags.clear();
+    state.excludedTags.clear();
+    saveExcludedTags();
+    state.activeFilter = "all";
+    state.search = "";
     detachActiveView();
     document.getElementById("searchInput").value = "";
+  }
+
+  function resetFiltersAfterImport(){
+    clearAllFilters();
   }
 
   function performImportReplace(data){
@@ -8117,6 +8213,8 @@
         "Un clic normal en una categoría sustituye la selección; vuelve a pulsarla para quitarla. \"Todas\" limpia el filtro de golpe.",
         "La escoba 🧹 limpia de golpe el filtro de las etiquetas incluidas y las excluidas.",
         "Las etiquetas que excluyes se recuerdan entre sesiones; las que incluyes, no.",
+        "<strong>Los números del lateral cuentan lo que verías al pulsar</strong> cada categoría con los filtros que tengas puestos, no el total de la colección. Cuando no coinciden, pasa el ratón por encima del número y te dice los dos.",
+        "Si un filtro deja la pantalla sin enlaces, Lingatu te enumera <strong>todas las restricciones activas</strong> y te ofrece un botón para quitarlas de golpe — incluido el filtro Todos/Activos, que es el que más veces está detrás.",
         "Guarda una Vista para recuperar de un clic las etiquetas incluidas/excluidas y la categoría — o una lista concreta de enlaces, si es una vista de selección.",
         "El buscador entiende operadores (cat:, #etiqueta, site:, is:activo/is:inactivo, \"frase exacta\", - para excluir) y busca también en el título, la descripción, las etiquetas, las notas y la URL.",
         "Los operadores no cambian con el idioma, y is: acepta tanto activo/inactivo como active/inactive: una búsqueda escrita sigue funcionando aunque cambies de idioma o la compartas."
@@ -8184,6 +8282,8 @@
         "A normal click on a category replaces the selection; click it again to remove it. \"All\" clears the filter in one go.",
         "The broom 🧹 clears both the included and the excluded tag filters at once.",
         "The tags you exclude are remembered between sessions; the ones you include are not.",
+        "<strong>The numbers in the sidebar count what you would see if you clicked</strong> each category with the filters you have on, not the whole collection. When they differ, hover over the number and it tells you both.",
+        "If a filter leaves the screen with no links, Lingatu lists <strong>every active constraint</strong> and offers a button to clear them all at once — including the All/Active filter, which is the one most often behind it.",
         "Save a View to bring back, with one click, the included/excluded tags and the category — or a specific list of links, if it is a selection view.",
         "The search box understands operators (cat:, #tag, site:, is:active/is:inactive, \"exact phrase\", - to exclude) and also searches the title, the description, the tags, the notes and the URL.",
         "Operators do not change with the language, and is: accepts both active/inactive and activo/inactivo: a search you have written keeps working even if you switch language or share it."
