@@ -57,6 +57,30 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   excluidas, vista, búsqueda y el propio Todos/Activos— y hay un botón
   **«Quitar los filtros»** que las quita todas de una vez.
 
+- **Con la ventana estrecha, ahora se ven los enlaces.** Por debajo de cierto
+  ancho el lateral se coloca encima del contenido, y con todo desplegado
+  —categorías, vistas, etiquetas, botones y pie— había que desplazarse casi
+  una pantalla entera para ver el primer enlace: medido, empezaba a 735 píxeles
+  con la ventana a media pantalla y a 852 en un móvil. Ahora el lateral llega
+  plegado, con un botón **«☰ Categorías y etiquetas»** que lo abre, y el primer
+  enlace aparece a 289 y 338. Al elegir una categoría se pliega solo (salvo que
+  tengas Ctrl pulsado para elegir varias), y nada de esto se recuerda: al
+  ensanchar la ventana vuelve el lateral de siempre.
+
+- **Las fichas ya no gritan.** Los iconos ▲▼✏️🗑️ de cada enlace están
+  atenuados hasta que pasas el ratón por la ficha: con una colección de verdad
+  eran cientos de iconos compitiendo con los títulos, que es lo que estabas
+  leyendo. **En pantalla táctil no cambia nada** —ahí los ▲▼ son la única
+  forma de reordenar—, y el indicador 📝 de las notas sigue siempre a la
+  vista, porque eso no es un botón: es la única señal de que un enlace tiene
+  algo escrito.
+
+- **Detalles del formulario y de los paneles.** Al crear un enlace el cursor
+  empieza en el campo del enlace (y al editar, en el título) en vez de en la
+  categoría, que ya venía rellenada sola. El buscador deja de cortarse a media
+  frase. Y «Cerrar» deja de ser el botón más llamativo de los paneles de
+  ayuda, de revisión y de copias, donde no es la acción importante.
+
 - **La pantalla de bienvenida lleva a alguna parte.** Los dos primeros pasos
   —crear tu primer enlace y traer los marcadores del navegador— son ahora
   botones de verdad, en el centro de la pantalla, en vez de un enlace de texto

@@ -322,6 +322,9 @@
     font-size:12px;
     color:var(--text-muted);
     text-align:center;
+    /* F4: sin esto, la última línea del pie —el aviso de idioma, que es la más
+       larga— terminaba pegada al borde inferior y parecía cortada. */
+    padding-bottom:10px;
   }
   .app-footer a{color:var(--text-muted);text-decoration:none;}
   .app-footer a:hover{color:var(--primary);text-decoration:underline;}
@@ -361,7 +364,10 @@
     margin-bottom:20px;
   }
   #searchInput{
-    flex:1;
+    /* F3: se cortaba a media frase ("Buscar por título, descripció…") porque
+       crecía desde cero y el resto de la barra se llevaba el ancho. */
+    flex:1 1 300px;
+    min-width:200px;
     padding:11px 14px;
     border-radius:10px;
     border:1px solid var(--border);
@@ -494,6 +500,36 @@
     gap:8px;
   }
   .card-icon-actions{display:flex;gap:2px;flex-shrink:0;}
+
+  /* Los cuatro controles de cada ficha (▲▼✏️🗑️) pesan menos en reposo que el
+     título, que es lo que el usuario está buscando: con una colección de verdad
+     son cientos de iconos compitiendo con el texto. Vuelven a plena visibilidad
+     al pasar el ratón por la ficha o al enfocar cualquiera con el teclado.
+
+     Tres cosas que parecen detalles y no lo son:
+     - **El @media (hover: hover)** no es un adorno. En pantalla táctil los ▲▼
+       son la ÚNICA forma de reordenar —el arrastrar y soltar no funciona ahí,
+       sección 10—, así que atenuarlos donde no hay ratón los dejaría a medio
+       ver para siempre. Ahí se quedan como estaban.
+     - **El indicador 📝 queda fuera**: no es un control, es la única señal de
+       que un enlace tiene algo escrito. Atenuar información es distinto de
+       atenuar cromo.
+     - **Los desactivados también quedan fuera** (el ▲ del primero de un grupo,
+       el ▼ del último): su atenuación propia significa otra cosa y no debe
+       competir con esta. */
+  @media (hover: hover){
+    .link-card .card-icon-actions > button:not([data-action="notes"]):not(:disabled),
+    .link-card-compact .card-icon-actions > button:not([data-action="notes"]):not(:disabled){
+      opacity:.3;
+      transition:opacity .12s ease-in-out;
+    }
+    .link-card:hover .card-icon-actions > button:not(:disabled),
+    .link-card:focus-within .card-icon-actions > button:not(:disabled),
+    .link-card-compact:hover .card-icon-actions > button:not(:disabled),
+    .link-card-compact:focus-within .card-icon-actions > button:not(:disabled){
+      opacity:1;
+    }
+  }
   .icon-action-plain{
     background:transparent;
     border:none;
@@ -1279,10 +1315,30 @@
   .settings-file-actions{display:flex;flex-wrap:wrap;gap:8px;}
   .settings-file-actions button{width:auto;padding:6px 12px;font-size:12.5px;}
 
+  /* El botón que pliega el lateral solo existe donde el lateral estorba. */
+  #btnSidebarToggle{display:none;}
+
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
-    .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
+    .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);gap:12px;}
     .compact-tags{display:none;}
+
+    /* Por debajo de este ancho el lateral deja de ser una columna y se apila
+       ENCIMA del contenido con todo lo que lleva dentro. Medido con una
+       colección normal: la primera ficha empezaba a 735 px con la ventana a
+       760, y a 852 px con la ventana a 390. Es decir, la aplicación parecía una
+       lista de categorías y había que desplazarse casi una pantalla entera para
+       ver el primer enlace.
+
+       Plegado por defecto y sin clase: así el estado inicial lo decide el CSS y
+       no depende de que el JavaScript llegue a ejecutarse. Lo que se conmuta es
+       la clase de "abierto", y NO se persiste (es consecuencia del tamaño de la
+       ventana, no una preferencia): al ensanchar vuelve el lateral de siempre,
+       entero, porque esta @media deja de aplicar. */
+    #btnSidebarToggle{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+    .app:not(.sidebar-open) .sidebar-section,
+    .app:not(.sidebar-open) .data-actions,
+    .app:not(.sidebar-open) .app-footer{display:none;}
   }
 </style>
 </head>
@@ -1297,6 +1353,9 @@
       <h1 id="siteTitleDisplay">Lingatu</h1>
       <button type="button" id="btnEditTitle" class="icon-btn" data-i18n-title="sidebar.editTitle" title="Cambiar título de la página">✏️</button>
     </div>
+    <!-- Solo visible en ventana estrecha (ver la @media del final del CSS): ahí
+         el lateral se apila encima del contenido y se pliega por defecto. -->
+    <button type="button" id="btnSidebarToggle" class="link-btn" aria-expanded="false" data-i18n="sidebar.toggle" data-i18n-title="sidebar.toggleTitle" title="Mostrar u ocultar categorías, vistas y etiquetas">☰ Categorías y etiquetas</button>
     <button id="btnAdd" class="btn-primary" data-i18n="sidebar.newLink" data-i18n-title="sidebar.newLinkTitle" title="Crear un enlace nuevo (atajo: n)">+ Nuevo enlace</button>
 
     <div class="sidebar-section">
@@ -1504,7 +1563,7 @@
     <h2 id="cleanupModalTitle" data-i18n="cleanup.title">Revisar la colección</h2>
     <div id="cleanupList" class="cleanup-list"></div>
     <div class="modal-actions">
-      <button type="button" id="btnCleanupClose" class="btn-primary" data-i18n="cleanup.close">Cerrar</button>
+      <button type="button" id="btnCleanupClose" data-i18n="cleanup.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1515,7 +1574,7 @@
     <p class="help-intro" data-i18n="help.intro">Lo que Lingatu sabe hacer, aunque nada en pantalla lo diga.</p>
     <div id="helpModalBody"></div>
     <div class="modal-actions">
-      <button type="button" id="btnHelpClose" class="btn-primary" data-i18n="help.close">Cerrar</button>
+      <button type="button" id="btnHelpClose" data-i18n="help.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1538,7 +1597,7 @@
     <p class="help-intro" data-i18n-html="restore.intro">Lingatu guarda una copia automática de todo (enlaces, categorías, etiquetas, colores, iconos, vistas y notas) cada vez que abres la aplicación, y conserva las tres últimas. Restaurar sustituye lo que tienes ahora por el contenido de la copia elegida.<br><strong>Ojo:</strong> estas copias viven dentro del propio navegador, así que te protegen de un borrado accidental, pero no de perder los datos del navegador. Para eso hay que exportar a un archivo.</p>
     <div id="restoreBackupList" class="backup-list"></div>
     <div class="modal-actions">
-      <button type="button" id="btnRestoreBackupClose" class="btn-primary" data-i18n="restore.close">Cerrar</button>
+      <button type="button" id="btnRestoreBackupClose" data-i18n="restore.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1654,6 +1713,8 @@
       "sidebar.manageTagsTitle": "Renombrar, colorear y eliminar etiquetas",
       "sidebar.all": "Todas",
       "sidebar.allTitle": "Quitar el filtro de categoría",
+      "sidebar.toggle": "☰ Categorías y etiquetas",
+      "sidebar.toggleTitle": "Mostrar u ocultar las categorías, las vistas y las etiquetas",
       "sidebar.countHint": "{visible} de {total}, con los filtros que tienes puestos ahora",
       "sidebar.categoryDragTitle": "Arrastra para reordenar (Ctrl+clic para selección múltiple)",
       "sidebar.noTags": "Sin etiquetas todavía",
@@ -2118,6 +2179,8 @@
       "sidebar.manageTagsTitle": "Rename, color and delete tags",
       "sidebar.all": "All",
       "sidebar.allTitle": "Clear the category filter",
+      "sidebar.toggle": "☰ Categories and tags",
+      "sidebar.toggleTitle": "Show or hide categories, views and tags",
       "sidebar.countHint": "{visible} of {total}, with the filters you have on right now",
       "sidebar.categoryDragTitle": "Drag to reorder (Ctrl+click for multiple selection)",
       "sidebar.noTags": "No tags yet",
@@ -5122,7 +5185,11 @@
       notesEl.focus();
       notesEl.setSelectionRange(notesEl.value.length, notesEl.value.length); // el cursor al final: lo normal es seguir escribiendo
     } else {
-      document.getElementById("fieldCategory").focus();
+      // F1: el foco empieza en el contenido, no en la taxonomía. Al crear va a
+      // la URL —lo normal es llegar con un enlace en el portapapeles y pegarlo—
+      // y al editar, al título. La categoría ya llega precargada con la que
+      // esté filtrada, así que empezar por ella obligaba a saltársela siempre.
+      document.getElementById(link ? "fieldTitle" : "fieldUrl").focus();
     }
   }
 
@@ -6296,9 +6363,31 @@
     else if(action === "bulk-delete") bulkDelete();
   });
 
+  // ---------- Lateral plegable en ventana estrecha ----------
+  // Sin persistir (es consecuencia del ancho, no una preferencia) y sin tocar
+  // nada más: el estado por defecto lo pone el CSS, aquí solo se conmuta.
+  var appEl = document.querySelector(".app");
+
+  document.getElementById("btnSidebarToggle").addEventListener("click", function(){
+    var abierto = appEl.classList.toggle("sidebar-open");
+    this.setAttribute("aria-expanded", abierto ? "true" : "false");
+  });
+
+  // Elegir un filtro es haber terminado con el lateral: dejarlo abierto obliga
+  // a desplazarse otra vez para ver el resultado, que es justo lo que se venía
+  // a evitar. Con Ctrl/Cmd no se pliega, porque ahí se está eligiendo varias
+  // categorías seguidas (4.18).
+  function closeSidebarIfNarrow(e){
+    if(e && (e.ctrlKey || e.metaKey)) return;
+    if(!appEl.classList.contains("sidebar-open")) return;
+    appEl.classList.remove("sidebar-open");
+    document.getElementById("btnSidebarToggle").setAttribute("aria-expanded", "false");
+  }
+
   document.getElementById("categoryList").addEventListener("click", function(e){
     var item = e.target.closest(".category-item");
     if(!item) return;
+    closeSidebarIfNarrow(e);
     clearSelectionOnViewChange();
     var cat = item.getAttribute("data-category");
     if(cat === ""){
@@ -6363,6 +6452,8 @@
   document.getElementById("tagCloud").addEventListener("click", function(e){
     var chip = e.target.closest(".tag-chip[data-tag]");
     if(!chip) return;
+    // Las etiquetas tienen ciclo de tres estados (4.17), así que aquí NO se
+    // pliega el lateral: quien pulsa una suele volver a pulsarla.
     clearSelectionOnViewChange();
     var tag = chip.getAttribute("data-tag");
     if(state.tags.has(tag)){
@@ -8204,7 +8295,9 @@
         "Pulsa la cabecera de un grupo para plegarlo o desplegarlo — se recuerda entre sesiones.",
         "Con \"Seleccionar\" activo, toca cualquier parte de una ficha para marcarla o desmarcarla; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ quedan desactivados.",
         "La selección se vacía sola en cuanto cambias de filtro, de búsqueda o de vista, y se conserva entre acciones en lote — salvo al eliminar.",
-        "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque."
+        "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque.",
+        "Los iconos ▲▼✏️🗑️ de cada ficha están atenuados hasta que pasas el ratón por encima, para que no compitan con los títulos. Donde no hay ratón se ven siempre, porque ahí los ▲▼ son la única forma de reordenar.",
+        "Con la ventana estrecha, el lateral llega plegado y se abre con <kbd>☰ Categorías y etiquetas</kbd> — así los enlaces se ven sin desplazarse. Al elegir una categoría se pliega solo; con <kbd>Ctrl</kbd> pulsado, no, para que puedas elegir varias."
       ]},
       { title: "Filtros", icon: "🔍", items: [
         "Pulsa tres veces seguidas una etiqueta del lateral para recorrer sus tres estados: neutra → incluida → excluida.",
@@ -8273,7 +8366,9 @@
         "Click a group heading to collapse or expand it — it is remembered between sessions.",
         "With \"Select\" on, tap anywhere on a card to check or uncheck it; while it lasts, dragging and the ▲▼✏️🗑️ icons are disabled.",
         "The selection clears itself as soon as you change filter, search or view, and is kept between bulk actions — except when deleting.",
-        "On a touch screen dragging does not work: use ▲/▼, which do respond to taps."
+        "On a touch screen dragging does not work: use ▲/▼, which do respond to taps.",
+        "The ▲▼✏️🗑️ icons on each card are dimmed until you hover over it, so they do not compete with the titles. Where there is no mouse they are always visible, because there the ▲/▼ are the only way to reorder.",
+        "With a narrow window the sidebar arrives collapsed and opens with <kbd>☰ Categories and tags</kbd> — that way the links are visible without scrolling. Choosing a category collapses it again; holding <kbd>Ctrl</kbd> does not, so you can pick several."
       ]},
       { title: "Filters", icon: "🔍", items: [
         "Click a sidebar tag three times in a row to cycle through its three states: neutral → included → excluded.",
