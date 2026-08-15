@@ -4,16 +4,16 @@ Comprobaciones P1–P10 del encargo 13. Este documento se completa a mano según
 vayan ejecutando las filas que necesitan un clic real; lo ya rellenado se obtuvo
 de forma automatizada y es reproducible.
 
-> **Estado: la incógnita que decidía la ruta está resuelta, y la respuesta es
-> que NO.** El permiso sobre un handle **no sobrevive** al cierre del navegador
-> con origen `file://` (P6). El handle sí sobrevive (P5). Con eso, la RUTA A
-> queda descartada y **la ruta es la A′**: reconexión manual, un clic por sesión.
-> Ver "Decisión" al final.
+> **Estado: completa.** Las dos incógnitas de 11.2 están respondidas y las diez
+> comprobaciones, cerradas.
 >
-> Queda una sola comprobación sin cerrar —el clic humano sobre la burbuja de
-> permiso (P7) y, tras él, el ciclo de escritura (P3)—, y no por falta de
-> intento: Chrome **no permite conceder ese permiso por ningún medio
-> automatizado**, ni siquiera por el protocolo de depuración. Es deliberado.
+> - **El permiso NO sobrevive al cierre del navegador** con origen `file://`
+>   (P6). Esa es la que decidía.
+> - **El handle sí sobrevive** en IndexedDB (P5), y **un gesto del usuario
+>   recupera el acceso** (P7), tras lo cual el ciclo de escritura y relectura
+>   funciona (P3, verificado en el archivo del disco).
+>
+> **Ruta adoptada: A′ — archivo con reconexión manual.** Ver "Decisión" al final.
 
 ## Entorno de las medidas automatizadas
 
@@ -28,11 +28,11 @@ de forma automatizada y es reproducible.
 |---|---|---|---|---|
 | P1 | ¿Existe `window.showSaveFilePicker`? | **sí** | **sí** | `showSaveFilePicker`, `showOpenFilePicker` y `FileSystemFileHandle` son `function` en los dos contextos |
 | P2 | ¿Se puede invocar bajo `file://`? | **parcial** | **parcial** | Ver abajo: la excepción es idéntica en los dos contextos y es por falta de gesto, no por el origen |
-| P3 | Ciclo escribir → cerrar → releer | pendiente (un clic) | pendiente | Depende de aceptar la burbuja de permiso de escritura, que solo puede pulsar una persona |
+| P3 | Ciclo escribir → cerrar → releer | **sí** | n/a | `createWritable` → `write` → `close` → `getFile` devuelve exactamente lo escrito, y el archivo del disco lo confirma desde fuera del navegador |
 | P4 | ¿IndexedDB disponible? | **sí** | **sí** | `open` + transacción de escritura + lectura correctas: `{"a":1}` recuperado. **Incógnita 2 de 11.2 resuelta: sí** |
 | P5 | ¿Sobrevive el handle en IndexedDB a una recarga? | **sí** | pendiente | Sobrevive incluso al **cierre completo** del navegador: se recupera con `kind`, `name` y sus métodos intactos |
 | P6 | ¿`queryPermission` conserva el permiso al reabrir el navegador? | **NO** | pendiente | **Incógnita 1 de 11.2, resuelta.** Antes de cerrar: `read: granted`. Tras reabrir: `read: prompt`, `readwrite: prompt`, y `getFile()` lanza `NotAllowedError` |
-| P7 | ¿`requestPermission` lo recupera con un gesto? | la burbuja aparece; falta pulsarla | pendiente | Con activación de usuario la llamada procede y Chrome abre su burbuja de permiso: la promesa queda pendiente hasta que una persona responde |
+| P7 | ¿`requestPermission` lo recupera con un gesto? | **sí** | n/a | Partiendo de `prompt`, un clic real sobre la burbuja devuelve `granted`, y el permiso se mantiene el resto de la vida del documento |
 | P8 | Cuota real de `localStorage` | **5 MiB** | pendiente | 5.236.266 caracteres (clave + valor) antes de `QuotaExceededError`. Es 5×1024×1024 clavado, no una cifra redonda aproximada |
 | P9 | ¿`localStorage` compartido entre dos `file://`? | **sí** | n/a | **Confirmado**: cuatro archivos distintos en dos carpetas distintas comparten almacén. Lo que 11.6 daba por supuesto es cierto |
 | P10 | Contexto de ejecución | `origin` = `file://`, `isSecureContext` = **true** | `origin` = `http://127.0.0.1:8941`, `isSecureContext` = **true** | Un `file://` **sí** es contexto seguro en Chrome |
@@ -136,36 +136,52 @@ The request is not allowed by the user agent or the platform in the current cont
 que 11.2 temía al escribir que *"los permisos se guardan por origen y `file://`
 es un origen opaco, justo el caso en que no se pueden persistir"*.
 
-## P7: la burbuja aparece, y solo una persona puede pulsarla
+## P7 y P3: un clic lo recupera, y a partir de ahí se escribe con normalidad
 
 Con activación de usuario, `requestPermission({mode:"readwrite"})` **procede**: la
-promesa no se rechaza, se queda **pendiente**, que es la firma inequívoca de que
-Chrome ha abierto su burbuja de permiso y está esperando una respuesta. Es decir,
-el camino de recuperación existe y está a un clic.
-
-Ese clic no se puede dar por ningún medio automatizado, y no por falta de
+promesa no se rechaza, se queda **pendiente** mientras Chrome enseña su burbuja de
+permiso. Ese clic no se puede dar por ningún medio automatizado, y no por falta de
 intento: la burbuja es interfaz del navegador, fuera del alcance del protocolo y
-del DOM. También se probó a concederlo por protocolo
-(`Browser.setPermission` con `fileSystem`, `fileSystemAccess`, `file-system`,
-`fileHandling`…) y **Chrome rechaza todos los nombres** con
-`Invalid PermissionDescriptor name`. No hay puerta trasera, y es deliberado: dar
-acceso al disco a una página exige una persona.
+del DOM, y conceder el permiso por protocolo tampoco funciona — `Browser.setPermission`
+con `fileSystem`, `fileSystemAccess`, `file-system` o `fileHandling` devuelve
+`Invalid PermissionDescriptor name` en todos los casos. No hay puerta trasera, y es
+deliberado: dar acceso al disco a una página exige una persona.
 
-Queda por tanto **una sola comprobación**, y las dos preguntas que responde ya
-tienen una respuesta esperable: si el clic concede el permiso (P7) y si el ciclo
-de escritura y relectura funciona (P3). Ninguna de las dos cambia la ruta
-elegida, porque esa la decide P6, que ya está cerrada.
+Ejecutado con esa persona delante (15/08/2026, 11:13), partiendo del estado en que
+queda tras reiniciar el navegador:
+
+```
+P5 · handle recuperado de IndexedDB tras reiniciar el navegador: SÍ (datos.json)
+P6 · permiso ANTES de pedir nada — lectura: prompt, escritura: prompt
+P7 · requestPermission devolvió: granted   (recuperado con un gesto)
+P3 · escritura completada y archivo cerrado
+P3 · relectura: {"prueba":"escrito por la sonda","cuando":"2026-08-15T11:13:18.446Z"}
+P3 · el contenido coincide: SÍ
+Estado del permiso al terminar: granted
+```
+
+**Comprobado además desde fuera del navegador**: el archivo del disco contiene
+exactamente ese JSON, sustituyendo al contenido que tenía antes. No es un ciclo
+que se cierre sobre una caché de la propia página.
+
+**Detalle sobre el ciclo de vida del permiso**, observado al repetir la prueba: en
+una ejecución posterior el estado de partida volvía a ser `prompt`, mientras que
+al repetir sin recargar seguía en `granted`. Es decir, **el permiso vive mientras
+viva el documento**, no mientras viva el proceso del navegador. Para la RUTA A′
+eso encaja con lo previsto —cada apertura de Lingatu es un documento nuevo y pide
+su clic—, pero conviene tenerlo escrito: el clic de «Reconectar» toca **una vez
+por carga de la página**, recarga incluida, no una vez por sesión de navegador.
 
 ## Decisión (R17): **RUTA A′ — archivo con reconexión manual**
 
 - **RUTA A queda descartada**: exige que el permiso sobreviva al cierre del
   navegador, y P6 dice que no.
-- **RUTA A′ es viable**: el handle se conserva en IndexedDB entre sesiones (P5),
-  así que la app puede recordar *qué* archivo era sin volver a preguntarlo, y
-  recuperar el acceso con un único clic de «Reconectar» al abrir. El resto de la
-  sesión escribe sola. **11.2 ya declaró este modo degradado como aceptable**, y
-  no es un fracaso: el usuario elige el archivo una vez en su vida y después da
-  un clic por sesión.
+- **RUTA A′ es viable, y está comprobada de punta a punta**: el handle se conserva
+  en IndexedDB entre sesiones (P5), así que la app puede recordar *qué* archivo era
+  sin volver a preguntarlo; un clic lo reactiva (P7) y a partir de ahí escribe y
+  relee con normalidad (P3). **11.2 ya declaró este modo degradado como
+  aceptable**, y no es un fracaso: el usuario elige el archivo una vez en su vida
+  y después da un clic por cada carga de la página.
 - **Solo en Chromium.** Firefox no implementa la API, así que allí no hay modo
   archivo: se queda con el mecanismo actual. Eso convierte la Parte B en una
   funcionalidad **opcional y dependiente del navegador**, no en el sustituto
