@@ -4,7 +4,11 @@
 
 Antes de empezar, lee [`CLAUDE.md`](../../CLAUDE.md). El *por qué* de fondo está en la sección 11.5 de [`ESPECIFICACIONES.md`](../ESPECIFICACIONES.md), que ya diagnosticó el problema: **Lingatu no tiene un problema de documentación, tiene un problema de descubribilidad.**
 
-> **Este documento es una propuesta.** Sale de una auditoría, no de una decisión tomada: qué entra, en qué orden y qué se descarta lo decide el autor del repositorio. Cada parte es independiente y se puede acometer sola.
+> **Estado: implementado, las seis partes.** Ver 4.8 (estados vacíos), 4.3 (recuentos del lateral), la sección 10 (ventana estrecha y atenuación de las fichas) y las decisiones 67 y 68 de [`ESPECIFICACIONES.md`](../ESPECIFICACIONES.md). Este documento se conserva porque explica **de dónde salió cada cambio** —qué se vio y qué se midió—, que es lo que no cabe en el CHANGELOG.
+>
+> De las dos salidas que la Parte C dejaba abiertas se eligió **retirar la promesa** del archivo de ejemplo, no embeberlo. La Parte E se acometió entera, no acotada al caso del portátil.
+>
+> Nació como propuesta: qué entraba, en qué orden y qué se descartaba lo decidió el autor del repositorio.
 
 ## De dónde sale esto
 
