@@ -2085,11 +2085,13 @@
       "badge.local": "💻 Guardando en este navegador",
       "badge.closed": "📄 {name} · sin abrir",
       "badge.title": "Dónde se están guardando tus enlaces. Se cambia en los ajustes",
+      "badge.titleLocalFile": "Guardando en este navegador. Tu archivo {name} no está abierto; la última copia que se guardó en él es del {date} a las {time}. El modo se cambia en los ajustes",
 
       // --- Aviso de modo local con archivo recordado (4.29) ---
       "mode.localNotice": "Estás viendo la última copia guardada en este navegador el {date} a las {time}, no tu archivo {name}.",
       "mode.localNoticeNoDate": "Estás viendo los datos de este navegador, no tu archivo {name}.",
       "mode.localNoticeOpen": "Abrir mi archivo",
+      "mode.localNoticeDismiss": "Entendido",
 
       // --- Ajustes (4.30) ---
       "settings.title": "Ajustes",
@@ -2548,11 +2550,13 @@
       "badge.local": "💻 Saving in this browser",
       "badge.closed": "📄 {name} · not open",
       "badge.title": "Where your links are being saved. You change it in the settings",
+      "badge.titleLocalFile": "Saving in this browser. Your file {name} is not open; the last copy saved to it is from {date} at {time}. You change the mode in the settings",
 
       // --- Aviso de modo local con archivo recordado (4.29) ---
       "mode.localNotice": "You're looking at the last copy saved in this browser on {date} at {time}, not at your file {name}.",
       "mode.localNoticeNoDate": "You're looking at this browser's data, not at your file {name}.",
       "mode.localNoticeOpen": "Open my file",
+      "mode.localNoticeDismiss": "Got it",
 
       // --- Ajustes (4.30) ---
       "settings.title": "Settings",
@@ -4895,7 +4899,14 @@
     if(e.target.closest('[data-action="gate-open"]')){ reconnectFile(); return; }
     if(e.target.closest('[data-action="gate-find"]')){ openExistingFile(); return; }
     if(e.target.closest('[data-action="gate-create"]')){ connectToFile(); return; }
-    if(e.target.closest('[data-action="gate-local"]')){ switchToLocalMode(); return; }
+    if(e.target.closest('[data-action="gate-local"]')){
+      // Aplazar la apertura no es lo mismo que elegir el navegador en los
+      // ajustes: aquí sí procede recordar de cuándo es lo que se va a ver.
+      localNoticePending = true;
+      localNoticeDismissed = false;
+      switchToLocalMode();
+      return;
+    }
   });
 
   // Con la pantalla puesta, todo lo que no sea una de las dos salidas queda
@@ -4965,21 +4976,47 @@
         : t("file.savedNoTime", { name: fileState.name });
     }
     el.className = clase;
-    el.title = t("badge.title");
+    // Con un archivo recordado y trabajando en el navegador, la fecha de lo que
+    // se está viendo se cuenta aquí: al alcance de quien la busque, sin banner
+    // que discuta el modo elegido.
+    var meta = (storageMode !== "file") ? loadFileMeta() : null;
+    var f = (meta && meta.name && meta.savedAt) ? new Date(meta.savedAt) : null;
+    el.title = (f && !isNaN(f.getTime()))
+      ? t("badge.titleLocalFile", {
+          name: meta.name,
+          date: f.toLocaleDateString(currentLocale()),
+          time: horaCorta(meta.savedAt)
+        })
+      : t("badge.title");
     el.textContent = texto;
   }
 
   document.getElementById("storageBadge").addEventListener("click", function(){ openSettings(); });
 
-  // ---------- Aviso de modo local con archivo recordado (R8) ----------
-  // Sin la fecha delante, cambiar de modo reintroduciría por la puerta de atrás
-  // la confusión que el encargo entero viene a eliminar: enlaces en pantalla sin
-  // saber de cuándo son.
+  // ---------- Aviso de modo local con archivo recordado (R8, revisado) ----------
+  // El aviso nació permanente, y estaba mal. Un banner que no se puede quitar y
+  // que ofrece "abrir mi archivo" cada vez que arrancas **discute una decisión
+  // que ya tomaste**, y eso contradice la premisa del encargo entero: el modo de
+  // trabajo es del usuario, no algo que la aplicación tenga que corregir.
+  //
+  // Lo que R8 quería evitar sigue evitado, pero por otro camino: **el indicador
+  // de la barra superior dice siempre dónde se guarda**, y cuando hay un archivo
+  // recordado su tooltip lleva la fecha de la copia que estás viendo. La
+  // información no desaparece; deja de interrumpir.
+  //
+  // El aviso se queda solo para el caso en que de verdad es un aplazamiento y no
+  // una decisión: **acabas de decir "ahora no" en la pantalla de apertura**. Ahí
+  // sí estabas yendo a tu archivo, y ahí sí conviene recordarte de cuándo es lo
+  // que ves. Dura esa sesión, y se puede cerrar.
+  var localNoticePending = false;   // se aplazó la apertura en esta sesión
+  var localNoticeDismissed = false; // y el usuario ya lo ha leído
+
   function syncModeNotice(){
     var el = document.getElementById("modeNotice");
     if(!el) return;
     var meta = loadFileMeta();
-    if(appLocked || storageMode === "file" || !meta.name){
+    if(appLocked || storageMode === "file" || !meta.name ||
+       !localNoticePending || localNoticeDismissed){
       el.hidden = true;
       el.innerHTML = "";
       return;
@@ -4995,12 +5032,17 @@
     el.innerHTML = '<span>' + texto + '</span>' +
       (supportsFileMode()
         ? '<button type="button" data-action="mode-open-file">' + escapeHtml(t("mode.localNoticeOpen")) + '</button>'
-        : "");
+        : "") +
+      '<button type="button" data-action="mode-dismiss">' + escapeHtml(t("mode.localNoticeDismiss")) + '</button>';
     el.hidden = false;
   }
 
   document.getElementById("modeNotice").addEventListener("click", function(e){
-    if(e.target.closest('[data-action="mode-open-file"]')) switchToFileMode();
+    if(e.target.closest('[data-action="mode-open-file"]')){ switchToFileMode(); return; }
+    if(e.target.closest('[data-action="mode-dismiss"]')){
+      localNoticeDismissed = true;
+      syncModeNotice();
+    }
   });
 
   function syncExportButtonLabel(){
@@ -8341,7 +8383,8 @@
         "Después, <strong>cada vez que vuelves a abrir Lingatu te recibe una pantalla</strong> que dice dónde están tus enlaces, y pulsas <kbd>Abrir mis enlaces</kbd>. El archivo no hay que volver a elegirlo nunca: lo que caduca es solo el permiso.",
         "<strong>Cuándo caduca ese permiso, exactamente</strong>: el navegador lo retira en cuanto se cierra <strong>la última pestaña</strong> de la aplicación — no hace falta cerrar el navegador entero. En cambio <strong>recargar la página no lo pierde</strong>, y mientras dejes Lingatu abierto tampoco. Es una regla del navegador, no una decisión de Lingatu: no hay forma de recordarlo de una vez para siempre.",
         "<strong>Mientras esa pantalla está puesta no se puede tocar nada</strong> —ni crear, ni importar, ni exportar— y es a propósito: lo que hay en el navegador es una copia, y trabajar sobre ella creyendo que trabajas sobre tu archivo es justo lo que hacía perder cambios.",
-        "Si no te viene bien abrirlo ahora, pulsa <kbd>Trabajar con los datos de este navegador</kbd>: verás la última copia guardada aquí, con un aviso permanente que te dice <strong>de cuándo es</strong>. Tu archivo no se toca. Cuando vuelvas a modo archivo, si las dos versiones han cambiado, Lingatu te deja elegir con cuál te quedas.",
+        "Si no te viene bien abrirlo ahora, pulsa <kbd>Trabajar con los datos de este navegador</kbd>: verás la última copia guardada aquí, con un aviso que te dice <strong>de cuándo es</strong> y que puedes cerrar. Tu archivo no se toca. Cuando vuelvas a modo archivo, si las dos versiones han cambiado, Lingatu te deja elegir con cuál te quedas.",
+        "<strong>Si has elegido guardar en este navegador, Lingatu no te insiste</strong> en que uses un archivo: el indicador de arriba dice dónde se guarda y, si recuerda un archivo tuyo, su tooltip te dice de cuándo es la copia que estás viendo. Ese es todo el aviso.",
         "La <strong>barra superior</strong> te dice en todo momento dónde se está guardando, y avisa cuando algo que ves <strong>no</strong> ha llegado al archivo. Pulsándola se abren los ajustes.",
         "El archivo es texto y se puede abrir con cualquier editor. Aun así, <strong>no sustituye a exportar</strong>: conviene seguir guardando una copia aparte de vez en cuando.",
         "<strong>Esto no es sincronización</strong>, aunque el archivo esté en una carpeta que se sincroniza: es un archivo compartido. Trabaja en un equipo cada vez — si lo cambias en dos a la vez, Lingatu lo detecta al guardar y te deja elegir con cuál te quedas, sin machacar nada.",
@@ -8412,7 +8455,8 @@
         "After that, <strong>every time you open Lingatu again you are met by a screen</strong> telling you where your links are, and you press <kbd>Open my links</kbd>. You never have to choose the file again: the only thing that expires is the permission.",
         "<strong>When exactly that permission expires</strong>: the browser withdraws it as soon as <strong>the last tab</strong> of the app is closed — you do not have to close the whole browser. <strong>Reloading the page does not lose it</strong>, and neither does leaving Lingatu open. It is a browser rule, not a Lingatu decision: there is no way to remember it once and for all.",
         "<strong>While that screen is up nothing can be touched</strong> — no creating, no importing, no exporting — and that is on purpose: what the browser holds is a copy, and working on it while believing you are working on your file is exactly what used to lose changes.",
-        "If opening it right now does not suit you, press <kbd>Work with this browser's data</kbd>: you will see the last copy saved here, with a permanent notice telling you <strong>when it is from</strong>. Your file is not touched. When you go back to file mode, if both versions have changed, Lingatu lets you choose which one you keep.",
+        "If opening it right now does not suit you, press <kbd>Work with this browser's data</kbd>: you will see the last copy saved here, with a notice telling you <strong>when it is from</strong> that you can dismiss. Your file is not touched. When you go back to file mode, if both versions have changed, Lingatu lets you choose which one you keep.",
+        "<strong>If you have chosen to save in this browser, Lingatu does not nag you</strong> about using a file: the indicator at the top says where things are saved and, if it remembers a file of yours, its tooltip tells you when the copy you are looking at is from. That is the whole warning.",
         "The <strong>top bar</strong> tells you at all times where things are being saved, and warns you when something you can see has <strong>not</strong> reached the file. Clicking it opens the settings.",
         "The file is text and can be opened with any editor. Even so, <strong>it does not replace exporting</strong>: it is worth still saving a separate copy now and then.",
         "<strong>This is not synchronization</strong>, even if the file sits in a folder that syncs: it is a shared file. Work on one computer at a time — if you change it on two at once, Lingatu detects it when saving and lets you choose which one you keep, without overwriting anything.",

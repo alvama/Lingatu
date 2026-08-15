@@ -30,10 +30,13 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   - **La palabra «Reconectar» desaparece.** No describía nada reconocible y
     sonaba a avería. Ahora se llama **«Abrir mis enlaces»**, que es lo que hace.
   - **Si prefieres no abrirlo ahora**, puedes trabajar con los datos de este
-    navegador: se ven, con un aviso permanente que te dice **de cuándo son** y
-    que tu archivo no se está tocando. Al volver al archivo, si las dos
-    versiones han cambiado, decide el diálogo de conflicto de siempre, con sus
-    tres salidas.
+    navegador: se ven, con un aviso que te dice **de cuándo son** y que tu
+    archivo no se está tocando. Ese aviso solo aparece cuando **aplazas** la
+    apertura, dura esa sesión y se puede cerrar: si has elegido a propósito
+    guardar en el navegador, la aplicación no vuelve a proponerte que cambies
+    —lo dice el indicador de arriba, y su tooltip lleva la fecha por si la
+    buscas—. Al volver al archivo, si las dos versiones han cambiado, decide el
+    diálogo de conflicto de siempre, con sus tres salidas.
   - **Dónde se está guardando se lee ahora en la barra de arriba**, siempre a
     la vista, en vez de al final del lateral. Pulsándolo se abren los ajustes.
   - **Nada de esto borra ni mueve un solo dato**: ni el archivo, ni lo que
