@@ -1749,7 +1749,9 @@
       "file.versionOnScreen": "{count} · lo que estás viendo ahora en pantalla",
       "file.savingIn": "Guardando en {name}",
       "file.notFound": "No se encuentra {name}",
+      "file.notFoundPending": "No se encuentra {name} — lo que has cambiado todavía no está ahí",
       "file.notConnected": "Sin conectar con {name}",
+      "file.notConnectedPending": "Sin conectar con {name} — lo que has cambiado todavía no está ahí",
       "file.savingHere": "Guardando en este navegador",
       "file.heldBack": "⚠️ Lo que ves no está en {name}",
       "file.savingEllipsis": "Guardando en {name}…",
@@ -2151,7 +2153,9 @@
       "file.versionOnScreen": "{count} · what you are seeing on screen now",
       "file.savingIn": "Saving to {name}",
       "file.notFound": "{name} cannot be found",
+      "file.notFoundPending": "{name} cannot be found — what you changed is not there yet",
       "file.notConnected": "Not connected to {name}",
+      "file.notConnectedPending": "Not connected to {name} — what you changed is not there yet",
       "file.savingHere": "Saving in this browser",
       "file.heldBack": "⚠️ What you see is not in {name}",
       "file.savingEllipsis": "Saving to {name}…",
@@ -3214,7 +3218,19 @@
   // sería absurdo. El volcado forzado de visibilitychange/beforeunload es lo que
   // cierra la ventana de riesgo que abre esta espera.
   function scheduleFileSave(){
-    if(StorageAdapter.getMode() !== "file") return;
+    // Sin archivo recordado no hay nada que sincronizar.
+    if(!fileState.handle && !fileState.name) return;
+    // Con archivo recordado pero sin acceso —falta el permiso de esta sesión, o
+    // el archivo ya no está donde estaba— el cambio no se puede escribir todavía,
+    // pero **sigue siendo un cambio pendiente**. Antes se salía aquí sin marcar
+    // nada, y eso tenía dos consecuencias graves: al reconectar no se volcaba
+    // (fileState.dirty seguía en false, ver syncAfterReconnect) y el pie decía
+    // "guardado" delante de un archivo que no tenía ese cambio.
+    if(StorageAdapter.getMode() !== "file"){
+      fileState.dirty = true;
+      syncStorageStatus();
+      return;
+    }
     fileState.dirty = true;
     syncStorageStatus();
     if(fileState.timer) clearTimeout(fileState.timer);
@@ -6743,7 +6759,7 @@
         }
         if(actual.reason === "vacio"){
           // Un archivo vacío no compite con nada: recibe el volcado y ya está.
-          return flushDirtyOnReconnect();
+          return syncAfterReconnect(actual);
         }
         if(!actual.ok){
           alert(t("file.unreadable", {
@@ -6753,9 +6769,10 @@
           fileState.needsReconnect = true;
           return;
         }
-        // Si el archivo es el mismo que dejamos, seguimos donde lo dejamos.
+        // Si el archivo es el mismo que dejamos, seguimos donde lo dejamos: lo
+        // que se haya hecho aquí mientras tanto baja al archivo.
         if(fileState.lastModified && actual.lastModified === fileState.lastModified){
-          return flushDirtyOnReconnect();
+          return syncAfterReconnect(actual);
         }
         // Cambió por fuera, o es la primera vez que lo vemos en esta instalación.
         openConflictModal(actual);
@@ -6765,8 +6782,30 @@
     }).then(function(){ syncStorageStatus(); render(); });
   }
 
-  function flushDirtyOnReconnect(){
-    if(!fileState.dirty) { syncStorageStatus(); return; }
+  // Al recuperar el acceso hay que decidir si lo de esta sesión tiene que bajar
+  // al archivo. **No basta con mirar fileState.dirty**: esa bandera vive en
+  // memoria y se pierde al cerrar el navegador, así que unos cambios hechos ayer
+  // sin permiso no dejarían ningún rastro y el archivo se quedaría atrás para
+  // siempre. Se compara el contenido, que es la única fuente fiable — mismo
+  // criterio que usa rotateBackups() para no guardar tres copias idénticas.
+  //
+  // Solo se llama cuando el archivo NO ha cambiado por fuera; si había cambiado,
+  // quien decide es el modal de conflicto.
+  function syncAfterReconnect(actual){
+    var local = JSON.stringify(getStateSnapshot().data);
+    var enArchivo = (actual && actual.ok) ? JSON.stringify(actual.data) : null;
+    if(enArchivo !== null && local === enArchivo){
+      // Coinciden: no hay nada que escribir y nada que avisar.
+      fileState.dirty = false;
+      fileState.heldBack = false;
+      syncStorageStatus();
+      return;
+    }
+    // O el archivo estaba vacío, o lo de aquí es más nuevo. En los dos casos
+    // manda esta sesión, porque nadie más ha tocado el archivo desde que lo
+    // dejamos. La guarda de perdidaGrande() sigue vigente dentro de
+    // writeFileState(): si esto encogiera la colección de golpe, preguntaría.
+    fileState.dirty = true;
     return flushFileSave();
   }
 
@@ -6910,13 +6949,16 @@
       botones = '<button type="button" data-action="file-disconnect" title="' + escapeHtml(t("file.disconnectTitle")) + '">' + escapeHtml(t("file.disconnect")) + '</button>';
     }else if(fileState.missing){
       clase += " is-warn";
-      texto = "⚠️ " + escapeHtml(t("file.notFound", { name: fileState.name }));
+      texto = "⚠️ " + escapeHtml(t(fileState.dirty ? "file.notFoundPending" : "file.notFound", { name: fileState.name }));
       botones = '<button type="button" data-action="file-open" title="' + escapeHtml(t("file.findItTitle")) + '">' + escapeHtml(t("file.findIt")) + '</button>' +
                 '<button type="button" data-action="file-connect" title="' + escapeHtml(t("file.createAnotherTitle")) + '">' + escapeHtml(t("file.createAnother")) + '</button>' +
                 '<button type="button" data-action="file-disconnect">' + escapeHtml(t("file.forgetIt")) + '</button>';
     }else if(fileState.needsReconnect){
       clase += " is-warn";
-      texto = escapeHtml(t("file.notConnected", { name: fileState.name }));
+      // Con cambios pendientes el aviso lo dice: callarlo es lo que hacía creer
+      // que el archivo estaba al día cuando no lo estaba.
+      texto = (fileState.dirty ? "⚠️ " : "") +
+        escapeHtml(t(fileState.dirty ? "file.notConnectedPending" : "file.notConnected", { name: fileState.name }));
       botones = '<button type="button" data-action="file-reconnect" title="' + escapeHtml(t("file.reconnectTitle")) + '">' + escapeHtml(t("file.reconnect")) + '</button>';
     }else{
       texto = escapeHtml(t("file.savingHere"));
