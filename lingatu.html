@@ -2186,7 +2186,19 @@
   // sería absurdo. El volcado forzado de visibilitychange/beforeunload es lo que
   // cierra la ventana de riesgo que abre esta espera.
   function scheduleFileSave(){
-    if(StorageAdapter.getMode() !== "file") return;
+    // Sin archivo recordado no hay nada que sincronizar.
+    if(!fileState.handle && !fileState.name) return;
+    // Con archivo recordado pero sin acceso —falta el permiso de esta sesión, o
+    // el archivo ya no está donde estaba— el cambio no se puede escribir todavía,
+    // pero **sigue siendo un cambio pendiente**. Antes se salía aquí sin marcar
+    // nada, y eso tenía dos consecuencias graves: al reconectar no se volcaba
+    // (fileState.dirty seguía en false, ver syncAfterReconnect) y el pie decía
+    // "guardado" delante de un archivo que no tenía ese cambio.
+    if(StorageAdapter.getMode() !== "file"){
+      fileState.dirty = true;
+      syncStorageStatus();
+      return;
+    }
     fileState.dirty = true;
     syncStorageStatus();
     if(fileState.timer) clearTimeout(fileState.timer);
@@ -5687,7 +5699,7 @@
         }
         if(actual.reason === "vacio"){
           // Un archivo vacío no compite con nada: recibe el volcado y ya está.
-          return flushDirtyOnReconnect();
+          return syncAfterReconnect(actual);
         }
         if(!actual.ok){
           alert("El archivo " + fileState.name + " no se ha podido leer" +
@@ -5696,9 +5708,10 @@
           fileState.needsReconnect = true;
           return;
         }
-        // Si el archivo es el mismo que dejamos, seguimos donde lo dejamos.
+        // Si el archivo es el mismo que dejamos, seguimos donde lo dejamos: lo
+        // que se haya hecho aquí mientras tanto baja al archivo.
         if(fileState.lastModified && actual.lastModified === fileState.lastModified){
-          return flushDirtyOnReconnect();
+          return syncAfterReconnect(actual);
         }
         // Cambió por fuera, o es la primera vez que lo vemos en esta instalación.
         openConflictModal(actual);
@@ -5708,8 +5721,30 @@
     }).then(function(){ syncStorageStatus(); render(); });
   }
 
-  function flushDirtyOnReconnect(){
-    if(!fileState.dirty) { syncStorageStatus(); return; }
+  // Al recuperar el acceso hay que decidir si lo de esta sesión tiene que bajar
+  // al archivo. **No basta con mirar fileState.dirty**: esa bandera vive en
+  // memoria y se pierde al cerrar el navegador, así que unos cambios hechos ayer
+  // sin permiso no dejarían ningún rastro y el archivo se quedaría atrás para
+  // siempre. Se compara el contenido, que es la única fuente fiable — mismo
+  // criterio que usa rotateBackups() para no guardar tres copias idénticas.
+  //
+  // Solo se llama cuando el archivo NO ha cambiado por fuera; si había cambiado,
+  // quien decide es el modal de conflicto.
+  function syncAfterReconnect(actual){
+    var local = JSON.stringify(getStateSnapshot().data);
+    var enArchivo = (actual && actual.ok) ? JSON.stringify(actual.data) : null;
+    if(enArchivo !== null && local === enArchivo){
+      // Coinciden: no hay nada que escribir y nada que avisar.
+      fileState.dirty = false;
+      fileState.heldBack = false;
+      syncStorageStatus();
+      return;
+    }
+    // O el archivo estaba vacío, o lo de aquí es más nuevo. En los dos casos
+    // manda esta sesión, porque nadie más ha tocado el archivo desde que lo
+    // dejamos. La guarda de perdidaGrande() sigue vigente dentro de
+    // writeFileState(): si esto encogiera la colección de golpe, preguntaría.
+    fileState.dirty = true;
     return flushFileSave();
   }
 
@@ -5848,13 +5883,17 @@
       botones = '<button type="button" data-action="file-disconnect" title="Dejar de guardar en el archivo; ni el archivo ni tus datos se borran">Desconectar</button>';
     }else if(fileState.missing){
       clase += " is-warn";
-      texto = "⚠️ No se encuentra " + escapeHtml(fileState.name);
+      texto = "⚠️ No se encuentra " + escapeHtml(fileState.name) +
+        (fileState.dirty ? " — lo que has cambiado todavía no está ahí" : "");
       botones = '<button type="button" data-action="file-open" title="Buscarlo donde esté ahora, si lo has movido o renombrado">Buscarlo</button>' +
                 '<button type="button" data-action="file-connect" title="Empezar de nuevo con un archivo nuevo">Crear otro</button>' +
                 '<button type="button" data-action="file-disconnect">Olvidarlo</button>';
     }else if(fileState.needsReconnect){
       clase += " is-warn";
-      texto = "Sin conectar con " + escapeHtml(fileState.name);
+      // Con cambios pendientes el aviso lo dice: callarlo es lo que hacía creer
+      // que el archivo estaba al día cuando no lo estaba.
+      texto = (fileState.dirty ? "⚠️ " : "") + "Sin conectar con " + escapeHtml(fileState.name) +
+        (fileState.dirty ? " — lo que has cambiado todavía no está ahí" : "");
       botones = '<button type="button" data-action="file-reconnect" title="Devolver a Lingatu el permiso para escribir en el archivo">Reconectar</button>';
     }else{
       texto = "Guardando en este navegador";
