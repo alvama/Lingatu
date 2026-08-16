@@ -1062,6 +1062,15 @@ Todas las ideas que figuraban aquí en rondas anteriores (multi-selección de et
 
 Cualquier idea de esta lista debe respetar la restricción de arquitectura de la sección 2: JS/CSS vanilla dentro del mismo `lingatu.html`, sin frameworks, sin build step y sin servidor.
 
+### 11.0 El nombre "Lingatu" compite con un producto homónimo consolidado
+
+Detectado al redactar el `README.md` en inglés (tarea de descubribilidad, agosto 2026): `lingatu.in` lleva desde 2009 siendo el gestor de marcadores de referencia entre el público técnico, que es exactamente el público al que se dirige un README en inglés. Dos consecuencias concretas:
+
+- La búsqueda por el propio nombre del proyecto nunca se va a ganar.
+- Cualquier presentación del proyecto (README, publicaciones, listados) gasta su primer párrafo en desambiguar frente a ese producto en vez de en convencer.
+
+No se aborda aquí — es una decisión del propietario del repositorio, no de la tarea que la detectó — pero conviene registrarla donde no se pierda: **el momento más barato para renombrar es ahora**, con el repositorio en cero estrellas y cero forks. Cuanto más crezca el proyecto con este nombre, más cara se vuelve la migración (releases, extensión publicada en la Chrome Web Store con este nombre, enlaces ya compartidos).
+
 ### 11.1 Pendientes, por prioridad
 
 Ordenado por prioridad, con una excepción deliberada: las ideas relacionadas entre sí (por ejemplo, las de exportación/importación, o las de arrastrar y soltar) se agrupan físicamente aunque tengan prioridades distintas, para leerlas juntas. La prioridad real de cada una sigue siendo la de su columna, no su posición en la tabla.
