@@ -30,14 +30,74 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   - **La palabra «Reconectar» desaparece.** No describía nada reconocible y
     sonaba a avería. Ahora se llama **«Abrir mis enlaces»**, que es lo que hace.
   - **Si prefieres no abrirlo ahora**, puedes trabajar con los datos de este
-    navegador: se ven, con un aviso permanente que te dice **de cuándo son** y
-    que tu archivo no se está tocando. Al volver al archivo, si las dos
-    versiones han cambiado, decide el diálogo de conflicto de siempre, con sus
-    tres salidas.
+    navegador: se ven, con un aviso que te dice **de cuándo son** y que tu
+    archivo no se está tocando. Ese aviso solo aparece cuando **aplazas** la
+    apertura, dura esa sesión y se puede cerrar: si has elegido a propósito
+    guardar en el navegador, la aplicación no vuelve a proponerte que cambies
+    —lo dice el indicador de arriba, y su tooltip lleva la fecha por si la
+    buscas—. Al volver al archivo, si las dos versiones han cambiado, decide el
+    diálogo de conflicto de siempre, con sus tres salidas.
   - **Dónde se está guardando se lee ahora en la barra de arriba**, siempre a
     la vista, en vez de al final del lateral. Pulsándolo se abren los ajustes.
   - **Nada de esto borra ni mueve un solo dato**: ni el archivo, ni lo que
     guarda el navegador, ni el archivo que Lingatu recuerda.
+
+- **Los números del lateral ya concuerdan con lo que ves.** Hasta ahora podías
+  tener cuatro cifras distintas en pantalla a la vez —«Todas 140», «Trabajo
+  18», «127 enlaces» y «Trabajo 16»— porque unas contaban la colección entera
+  y otras respetaban el filtro puesto. Ninguna mentía, pero juntas hacían
+  dudar de todas. Ahora **el número de cada categoría dice cuántos enlaces
+  verías al pulsarla**, con los filtros que tengas puestos; si quieres saber
+  el total de la colección, pasa el ratón por encima o míralo en «Gestionar».
+  Como el filtro «Activos» viene puesto de fábrica, esto le pasaba a todo el
+  mundo desde el primer día.
+
+- **Cuando un filtro deja la pantalla vacía, Lingatu te dice por qué y te
+  ofrece salir.** Antes solo decía «no se encontraron enlaces con los filtros
+  actuales»: ni qué filtro, ni cómo quitarlo. Quien no sabía que había un
+  filtro puesto podía pensar que había perdido sus enlaces. Ahora se enumeran
+  todas las restricciones activas —categoría, etiquetas incluidas y
+  excluidas, vista, búsqueda y el propio Todos/Activos— y hay un botón
+  **«Quitar los filtros»** que las quita todas de una vez.
+
+- **Con la ventana estrecha, ahora se ven los enlaces.** Por debajo de cierto
+  ancho el lateral se coloca encima del contenido, y con todo desplegado
+  —categorías, vistas, etiquetas, botones y pie— había que desplazarse casi
+  una pantalla entera para ver el primer enlace: medido, empezaba a 735 píxeles
+  con la ventana a media pantalla y a 852 en un móvil. Ahora el lateral llega
+  plegado, con un botón **«☰ Categorías y etiquetas»** que lo abre, y el primer
+  enlace aparece a 289 y 338. Al elegir una categoría se pliega solo (salvo que
+  tengas Ctrl pulsado para elegir varias), y nada de esto se recuerda: al
+  ensanchar la ventana vuelve el lateral de siempre.
+
+- **Los controles son más fáciles de acertar y de leer.** Revisión con
+  medición, no a ojo: los iconos de cada ficha y los botones de texto de la
+  interfaz eran demasiado pequeños para pulsarlos con comodidad —algunos de 16
+  píxeles de alto— y ahora todos llegan al mínimo recomendado. El texto gris
+  secundario (contadores, avisos del pie) se ha oscurecido un punto para que se
+  lea bien en los dos temas.
+
+- **Las fichas ya no gritan.** Los iconos ▲▼✏️🗑️ de cada enlace están
+  atenuados hasta que pasas el ratón por la ficha: con una colección de verdad
+  eran cientos de iconos compitiendo con los títulos, que es lo que estabas
+  leyendo. La atenuación es suave a propósito: más oscura dejaría los
+  iconos por debajo del contraste mínimo que necesitan para verse. **En pantalla táctil no cambia nada** —ahí los ▲▼ son la única
+  forma de reordenar—, y el indicador 📝 de las notas sigue siempre a la
+  vista, porque eso no es un botón: es la única señal de que un enlace tiene
+  algo escrito.
+
+- **Detalles del formulario y de los paneles.** Al crear un enlace el cursor
+  empieza en el campo del enlace (y al editar, en el título) en vez de en la
+  categoría, que ya venía rellenada sola. El buscador deja de cortarse a media
+  frase. Y «Cerrar» deja de ser el botón más llamativo de los paneles de
+  ayuda, de revisión y de copias, donde no es la acción importante.
+
+- **La pantalla de bienvenida lleva a alguna parte.** Los dos primeros pasos
+  —crear tu primer enlace y traer los marcadores del navegador— son ahora
+  botones de verdad, en el centro de la pantalla, en vez de un enlace de texto
+  en mitad de un párrafo mientras el botón real estaba en el lateral. Y ya no
+  te propone importar un archivo de ejemplo que vive en el repositorio y que,
+  si te descargaste solo `lingatu.html`, nunca tuviste.
 
 ### Añadido
 

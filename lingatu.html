@@ -12,7 +12,7 @@
     --surface-2:#fafbfc;
     --border:#e2e5ea;
     --text:#1c2029;
-    --text-muted:#6b7280;
+    --text-muted:#646b78;
     --primary:#3d63dd;
     --primary-hover:#2f4fc0;
     --primary-fg:#ffffff;
@@ -50,7 +50,7 @@
       --surface-2:#20232c;
       --border:#2c3039;
       --text:#e7e9ee;
-      --text-muted:#9aa0ac;
+      --text-muted:#a2a8b4;
       --primary:#5b7cf0;
       --primary-hover:#7691f5;
       --primary-fg:#0d1017;
@@ -76,7 +76,7 @@
     --surface-2:#20232c;
     --border:#2c3039;
     --text:#e7e9ee;
-    --text-muted:#9aa0ac;
+    --text-muted:#a2a8b4;
     --primary:#5b7cf0;
     --primary-hover:#7691f5;
     --primary-fg:#0d1017;
@@ -311,6 +311,13 @@
   }
   .data-actions button{flex:1;}
 
+  /* Los botones del pie (ayuda, ajustes, las acciones sobre el archivo y los
+     avisos) son <button> sueltos sin clase, así que no les llegaba la regla de
+     .link-btn: medían 16 px de alto. WCAG 2.2 admite una excepción para
+     objetivos "en línea" dentro de una frase, y estos van separados por puntos
+     como si lo fueran — pero no son texto corrido, son controles, y cumplir
+     sale más barato que discutir si la excepción aplica. */
+  .app-footer button{min-height:24px;padding:4px 2px;}
   .app-footer{
     display:flex;
     flex-wrap:wrap;
@@ -322,6 +329,9 @@
     font-size:12px;
     color:var(--text-muted);
     text-align:center;
+    /* F4: sin esto, la última línea del pie —el aviso de idioma, que es la más
+       larga— terminaba pegada al borde inferior y parecía cortada. */
+    padding-bottom:10px;
   }
   .app-footer a{color:var(--text-muted);text-decoration:none;}
   .app-footer a:hover{color:var(--primary);text-decoration:underline;}
@@ -361,7 +371,10 @@
     margin-bottom:20px;
   }
   #searchInput{
-    flex:1;
+    /* F3: se cortaba a media frase ("Buscar por título, descripció…") porque
+       crecía desde cero y el resto de la barra se llevaba el ancho. */
+    flex:1 1 300px;
+    min-width:200px;
     padding:11px 14px;
     border-radius:10px;
     border:1px solid var(--border);
@@ -494,6 +507,47 @@
     gap:8px;
   }
   .card-icon-actions{display:flex;gap:2px;flex-shrink:0;}
+  /* WCAG 2.2 AA (Target Size Minimum): 24x24 px de área pulsable. Medido antes,
+     estos iconos eran de 22x20 y 29x20 — se fallaba por el alto, que es el que
+     no se ve venir porque el ancho parecía suficiente. */
+  .icon-action-plain{min-width:24px;min-height:24px;}
+
+  /* Los cuatro controles de cada ficha (▲▼✏️🗑️) pesan menos en reposo que el
+     título, que es lo que el usuario está buscando: con una colección de verdad
+     son cientos de iconos compitiendo con el texto. Vuelven a plena visibilidad
+     al pasar el ratón por la ficha o al enfocar cualquiera con el teclado.
+
+     Tres cosas que parecen detalles y no lo son:
+     - **El @media (hover: hover)** no es un adorno. En pantalla táctil los ▲▼
+       son la ÚNICA forma de reordenar —el arrastrar y soltar no funciona ahí,
+       sección 10—, así que atenuarlos donde no hay ratón los dejaría a medio
+       ver para siempre. Ahí se quedan como estaban.
+     - **El indicador 📝 queda fuera**: no es un control, es la única señal de
+       que un enlace tiene algo escrito. Atenuar información es distinto de
+       atenuar cromo.
+     - **Los desactivados también quedan fuera** (el ▲ del primero de un grupo,
+       el ▼ del último): su atenuación propia significa otra cosa y no debe
+       competir con esta. */
+  @media (hover: hover){
+    .link-card .card-icon-actions > button:not([data-action="notes"]):not(:disabled),
+    .link-card-compact .card-icon-actions > button:not([data-action="notes"]):not(:disabled){
+      /* 0,75 y no menos, y esto está medido: WCAG 1.4.11 pide 3:1 para los
+         componentes de interfaz, y --text-muted sobre la ficha parte de 4,83:1
+         en claro. Con opacidad 0,3 —como estaba— el contraste real caía a
+         **1,47:1 en claro y 1,73:1 en oscuro**: un control que hay que adivinar.
+         A 0,75 queda en 3,06:1 y 4,2:1. La lección es que aquí no cabe una
+         atenuación dramática: el margen entre el gris de partida y el mínimo
+         legal solo da para bajar el tono, no para apagarlo. */
+      opacity:.75;
+      transition:opacity .12s ease-in-out;
+    }
+    .link-card:hover .card-icon-actions > button:not(:disabled),
+    .link-card:focus-within .card-icon-actions > button:not(:disabled),
+    .link-card-compact:hover .card-icon-actions > button:not(:disabled),
+    .link-card-compact:focus-within .card-icon-actions > button:not(:disabled){
+      opacity:1;
+    }
+  }
   .icon-action-plain{
     background:transparent;
     border:none;
@@ -536,6 +590,20 @@
     color:var(--tag-fg);
     cursor:pointer;
   }
+  /* Estado vacío (4.8). Las líneas van apiladas y los botones son botones: la
+     primera acción estaba antes como enlace de texto en mitad de un párrafo,
+     lejos del único sitio donde de verdad se podía pulsar algo. */
+  .empty-state span{display:block;}
+  .empty-welcome-lead{font-size:16px;margin-bottom:6px;}
+  .empty-welcome-text{margin-bottom:14px;}
+  .empty-welcome-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    margin:16px 0 14px 0;
+  }
+  .empty-welcome-actions button{width:auto;padding:9px 16px;}
   .empty-state{
     text-align:center;
     color:var(--text-muted);
@@ -864,6 +932,8 @@
     background:transparent;
     border:none;
     padding:4px 6px;
+    min-width:24px;
+    min-height:24px;
     font-size:14px;
     line-height:1;
     color:var(--text-muted);
@@ -875,10 +945,16 @@
   .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .section-header h2{margin:0;}
   .section-header-actions{display:flex;align-items:center;gap:2px;}
+  /* Los botones de texto de la interfaz —"Gestionar", "Seleccionar",
+     "Comandos", los del pie— medían 16 px de alto: por debajo de los 24 que
+     pide WCAG 2.2 AA. El padding vertical no descoloca nada porque el
+     contenedor los centra, y a cambio dejan de ser una diana de un píxel para
+     quien no tenga buen pulso. */
   .link-btn{
     background:transparent;
     border:none;
-    padding:0;
+    padding:4px 0;
+    min-height:24px;
     font-size:12px;
     font-weight:600;
     color:var(--primary);
@@ -1181,6 +1257,11 @@
      leerlo, y lo que dice —de dónde salen los enlaces que estás viendo— no
      puede depender de que alguien baje a buscarlo. */
   .storage-badge{
+    /* Al final de la barra, esté en la primera línea o haya bajado a la
+       segunda: con el buscador ya en su ancho legible (F3 de la tarea 17) no
+       caben los dos en una sola fila por debajo de ~1300 px, y un indicador
+       suelto a la izquierda parece un descuido en vez de un estado. */
+    margin-left:auto;
     display:inline-flex;
     align-items:center;
     gap:6px;
@@ -1265,10 +1346,30 @@
   .settings-file-actions{display:flex;flex-wrap:wrap;gap:8px;}
   .settings-file-actions button{width:auto;padding:6px 12px;font-size:12.5px;}
 
+  /* El botón que pliega el lateral solo existe donde el lateral estorba. */
+  #btnSidebarToggle{display:none;}
+
   @media (max-width: 780px){
     .app{grid-template-columns:1fr;}
-    .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);}
+    .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);gap:12px;}
     .compact-tags{display:none;}
+
+    /* Por debajo de este ancho el lateral deja de ser una columna y se apila
+       ENCIMA del contenido con todo lo que lleva dentro. Medido con una
+       colección normal: la primera ficha empezaba a 735 px con la ventana a
+       760, y a 852 px con la ventana a 390. Es decir, la aplicación parecía una
+       lista de categorías y había que desplazarse casi una pantalla entera para
+       ver el primer enlace.
+
+       Plegado por defecto y sin clase: así el estado inicial lo decide el CSS y
+       no depende de que el JavaScript llegue a ejecutarse. Lo que se conmuta es
+       la clase de "abierto", y NO se persiste (es consecuencia del tamaño de la
+       ventana, no una preferencia): al ensanchar vuelve el lateral de siempre,
+       entero, porque esta @media deja de aplicar. */
+    #btnSidebarToggle{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+    .app:not(.sidebar-open) .sidebar-section,
+    .app:not(.sidebar-open) .data-actions,
+    .app:not(.sidebar-open) .app-footer{display:none;}
   }
 </style>
 </head>
@@ -1281,8 +1382,11 @@
     <div class="site-title">
       <img class="app-icon" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACfUlEQVR42t1aIUgFQRC9qiA2wSDYDBoMNptBxKIYBaPBZrBZtFgMYrKYLBYxGAUxCVYxWMQmfkX5ol8UUVbeh5H783fvZpbb+7d/YNr/t+/NzL6Z270kcVh/3+j42MjmzuTE0fnc9L3phGNtYACWRGq9PUPDnQSdRQbYMsEPDszMz07d1KsGnhzYgNEJvqrAubeRQGqqHHlbJlrKqYo1L9kT/2oTG3jypjpBpmIlAOxRlk9LGcUKntybwOrKkzk5bpjrqy/TeP81sLvbb3N58Wl2t+tmceGhmgSWl2pN0HkGUvt7r9UigMhStKUGsiGzkWjA+xpKq6MEUDa2yGMPYC/Q7xBpEH2s/Vh/2zECvOZBJg3c5menH20kEIjSCWBRbnngyaFIaQOp0glASXxBcPKUufW156YXsbkTbflgYc0CeZKL/XJ48OZNRk1A2zOgQBLz7RvBCKBUtD3DZ5+oCUiUxCW71BMgqdjgNrnVksglgMXSJklzVt3zWseespXZ1sZLMQTwIF6rWRsuq2Mj6rb/4HmcBLJTWCPjqcZiLhJc+9MGcq418DxedpIsiAjwLBAJLqkAkTXUaXuOZPwQD3O20YBSjahjMZdkIrLSza8lrRqnXSTy9F06esCDEqA0S/UdGdEOcMEJUK2j/bt0XAOAS2opBDgZGs5s3VeTAV6ikp5T+KkEB+HSftvo4fP+UDgB2/tD3mhgy5y0/IKcC/Hxg+SWH7fQ0Yyv7AYjAJeO0dqOXRoBRFpyfsQjrwEflIC2b4Csz0t/KWejdNwCRaLSAimA5kczlSQQ9Ggx+uP16C84or9iiv6SryuuWaO/6O6KTw264mOPGD+3+QMA13WQacC7AQAAAABJRU5ErkJggg==">
       <h1 id="siteTitleDisplay">Lingatu</h1>
-      <button type="button" id="btnEditTitle" class="icon-btn" data-i18n-title="sidebar.editTitle" title="Cambiar título de la página">✏️</button>
+      <button type="button" id="btnEditTitle" class="icon-btn" data-i18n-aria="sidebar.editTitle" data-i18n-title="sidebar.editTitle" title="Cambiar título de la página">✏️</button>
     </div>
+    <!-- Solo visible en ventana estrecha (ver la @media del final del CSS): ahí
+         el lateral se apila encima del contenido y se pliega por defecto. -->
+    <button type="button" id="btnSidebarToggle" class="link-btn" aria-expanded="false" data-i18n="sidebar.toggle" data-i18n-title="sidebar.toggleTitle" title="Mostrar u ocultar categorías, vistas y etiquetas">☰ Categorías y etiquetas</button>
     <button id="btnAdd" class="btn-primary" data-i18n="sidebar.newLink" data-i18n-title="sidebar.newLinkTitle" title="Crear un enlace nuevo (atajo: n)">+ Nuevo enlace</button>
 
     <div class="sidebar-section">
@@ -1305,7 +1409,7 @@
       <div class="section-header">
         <h2 data-i18n="sidebar.tags">Etiquetas</h2>
         <span class="section-header-actions">
-          <button type="button" id="btnClearTagSelection" class="icon-btn" data-i18n-title="sidebar.clearTagsTitle" title="Limpiar selección de etiquetas (quita las incluidas y las excluidas)">🧹</button>
+          <button type="button" id="btnClearTagSelection" class="icon-btn" data-i18n-aria="sidebar.clearTagsTitle" data-i18n-title="sidebar.clearTagsTitle" title="Limpiar selección de etiquetas (quita las incluidas y las excluidas)">🧹</button>
           <button type="button" id="btnManageTags" class="link-btn" data-i18n="sidebar.manage" data-i18n-title="sidebar.manageTagsTitle" title="Renombrar, colorear y eliminar etiquetas">Gestionar</button>
         </span>
       </div>
@@ -1490,7 +1594,7 @@
     <h2 id="cleanupModalTitle" data-i18n="cleanup.title">Revisar la colección</h2>
     <div id="cleanupList" class="cleanup-list"></div>
     <div class="modal-actions">
-      <button type="button" id="btnCleanupClose" class="btn-primary" data-i18n="cleanup.close">Cerrar</button>
+      <button type="button" id="btnCleanupClose" data-i18n="cleanup.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1501,7 +1605,7 @@
     <p class="help-intro" data-i18n="help.intro">Lo que Lingatu sabe hacer, aunque nada en pantalla lo diga.</p>
     <div id="helpModalBody"></div>
     <div class="modal-actions">
-      <button type="button" id="btnHelpClose" class="btn-primary" data-i18n="help.close">Cerrar</button>
+      <button type="button" id="btnHelpClose" data-i18n="help.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1524,7 +1628,7 @@
     <p class="help-intro" data-i18n-html="restore.intro">Lingatu guarda una copia automática de todo (enlaces, categorías, etiquetas, colores, iconos, vistas y notas) cada vez que abres la aplicación, y conserva las tres últimas. Restaurar sustituye lo que tienes ahora por el contenido de la copia elegida.<br><strong>Ojo:</strong> estas copias viven dentro del propio navegador, así que te protegen de un borrado accidental, pero no de perder los datos del navegador. Para eso hay que exportar a un archivo.</p>
     <div id="restoreBackupList" class="backup-list"></div>
     <div class="modal-actions">
-      <button type="button" id="btnRestoreBackupClose" class="btn-primary" data-i18n="restore.close">Cerrar</button>
+      <button type="button" id="btnRestoreBackupClose" data-i18n="restore.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1552,7 +1656,7 @@
          navegador) y del idioma, así que no hay nada que dejar escrito aquí. -->
     <div id="settingsBody"></div>
     <div class="modal-actions">
-      <button type="button" id="btnSettingsClose" class="btn-primary" data-i18n="settings.close">Cerrar</button>
+      <button type="button" id="btnSettingsClose" data-i18n="settings.close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1640,6 +1744,9 @@
       "sidebar.manageTagsTitle": "Renombrar, colorear y eliminar etiquetas",
       "sidebar.all": "Todas",
       "sidebar.allTitle": "Quitar el filtro de categoría",
+      "sidebar.toggle": "☰ Categorías y etiquetas",
+      "sidebar.toggleTitle": "Mostrar u ocultar las categorías, las vistas y las etiquetas",
+      "sidebar.countHint": "{visible} de {total}, con los filtros que tienes puestos ahora",
       "sidebar.categoryDragTitle": "Arrastra para reordenar (Ctrl+clic para selección múltiple)",
       "sidebar.noTags": "Sin etiquetas todavía",
       "sidebar.tagChipTitle": "Clic para incluir, otro clic para excluir, otro clic para quitar el filtro",
@@ -1682,16 +1789,16 @@
       "focus.text": { one: "Mostrando {n} enlace de la revisión", other: "Mostrando {n} enlaces de la revisión" },
 
       // --- Estados vacíos ---
-      "empty.welcome": "<strong>Bienvenido a Lingatu.</strong>",
-      "empty.welcomeStart": "Empieza por {button}.",
-      "empty.welcomeCreate": "crear tu primer enlace",
-      "empty.welcomeImport": "También puedes importar tus marcadores del navegador con el botón \"Importar\" del lateral.",
+      "empty.welcome": "<strong>Aquí van tus enlaces.</strong>",
+      "empty.welcomeStart": "Guárdalos una vez y los tendrás siempre a mano, ordenados como tú quieras.",
+      "empty.welcomeCreate": "Crear mi primer enlace",
+      "empty.welcomeImportBtn": "Traer mis marcadores del navegador",
       // El archivo no se puede cargar solo: en file:// no hay fetch (ver la
       // restricción de arquitectura). Se nombra el que corresponde al idioma y
       // lo importa el usuario con el mismo botón de siempre.
-      "empty.welcomeExample": "¿Prefieres ver antes cómo queda con contenido? Importa <code>examples/ejemplo-enlaces.json</code>.",
       "empty.welcomeSearch": "Y en cualquier momento, pulsa <kbd>/</kbd> para buscar.",
       "empty.constraints": "Ningún enlace cumple a la vez todas estas restricciones:",
+      "empty.clearFilters": "Quitar los filtros",
       "empty.noResults": "No se encontraron enlaces con los filtros actuales.",
 
       // --- Restricciones activas ---
@@ -2004,11 +2111,13 @@
       "badge.local": "💻 Guardando en este navegador",
       "badge.closed": "📄 {name} · sin abrir",
       "badge.title": "Dónde se están guardando tus enlaces. Se cambia en los ajustes",
+      "badge.titleLocalFile": "Guardando en este navegador. Tu archivo {name} no está abierto; la última copia que se guardó en él es del {date} a las {time}. El modo se cambia en los ajustes",
 
       // --- Aviso de modo local con archivo recordado (4.29) ---
       "mode.localNotice": "Estás viendo la última copia guardada en este navegador el {date} a las {time}, no tu archivo {name}.",
       "mode.localNoticeNoDate": "Estás viendo los datos de este navegador, no tu archivo {name}.",
       "mode.localNoticeOpen": "Abrir mi archivo",
+      "mode.localNoticeDismiss": "Entendido",
 
       // --- Ajustes (4.30) ---
       "settings.title": "Ajustes",
@@ -2103,6 +2212,9 @@
       "sidebar.manageTagsTitle": "Rename, color and delete tags",
       "sidebar.all": "All",
       "sidebar.allTitle": "Clear the category filter",
+      "sidebar.toggle": "☰ Categories and tags",
+      "sidebar.toggleTitle": "Show or hide categories, views and tags",
+      "sidebar.countHint": "{visible} of {total}, with the filters you have on right now",
       "sidebar.categoryDragTitle": "Drag to reorder (Ctrl+click for multiple selection)",
       "sidebar.noTags": "No tags yet",
       "sidebar.tagChipTitle": "Click to include, click again to exclude, click again to clear the filter",
@@ -2145,13 +2257,13 @@
       "focus.text": { one: "Showing {n} link from the review", other: "Showing {n} links from the review" },
 
       // --- Estados vacíos ---
-      "empty.welcome": "<strong>Welcome to Lingatu.</strong>",
-      "empty.welcomeStart": "Start by {button}.",
-      "empty.welcomeCreate": "creating your first link",
-      "empty.welcomeImport": "You can also import your browser bookmarks with the \"Import\" button in the sidebar.",
-      "empty.welcomeExample": "Would you rather see what it looks like with content first? Import <code>examples/example-links.json</code>.",
+      "empty.welcome": "<strong>Your links go here.</strong>",
+      "empty.welcomeStart": "Save them once and you will always have them at hand, arranged the way you want.",
+      "empty.welcomeCreate": "Create my first link",
+      "empty.welcomeImportBtn": "Bring in my browser bookmarks",
       "empty.welcomeSearch": "And at any moment, press <kbd>/</kbd> to search.",
       "empty.constraints": "No link meets all of these constraints at once:",
+      "empty.clearFilters": "Clear the filters",
       "empty.noResults": "No links found with the current filters.",
 
       // --- Restricciones activas ---
@@ -2464,11 +2576,13 @@
       "badge.local": "💻 Saving in this browser",
       "badge.closed": "📄 {name} · not open",
       "badge.title": "Where your links are being saved. You change it in the settings",
+      "badge.titleLocalFile": "Saving in this browser. Your file {name} is not open; the last copy saved to it is from {date} at {time}. You change the mode in the settings",
 
       // --- Aviso de modo local con archivo recordado (4.29) ---
       "mode.localNotice": "You're looking at the last copy saved in this browser on {date} at {time}, not at your file {name}.",
       "mode.localNoticeNoDate": "You're looking at this browser's data, not at your file {name}.",
       "mode.localNoticeOpen": "Open my file",
+      "mode.localNoticeDismiss": "Got it",
 
       // --- Ajustes (4.30) ---
       "settings.title": "Settings",
@@ -4038,24 +4152,56 @@
 
   // El orden de state.links es el orden manual del usuario dentro de cada categoría
   // (ver swapLinks). No se reordena aquí para respetarlo.
+  // Criterio único de "este enlace se ve o no se ve", con la posibilidad de
+  // saltarse UNA restricción concreta. Lo necesitan dos sitios con la misma
+  // regla: las fichas (sin saltarse nada) y los recuentos del lateral, que se
+  // saltan la categoría porque el número que va al lado de "Trabajo" tiene que
+  // decir cuántos verías **al pulsar Trabajo**, no cuántos ves ahora mismo.
+  // Escribirlo dos veces era la forma segura de que las dos respuestas dejaran
+  // de concordar en cuanto alguien añadiera un filtro nuevo.
+  function linkPassesFilters(l, parsedQuery, salvo){
+    if(state.focusIds.size > 0 && !state.focusIds.has(l.id)) return false;
+    if(state.viewLinkIds.size > 0 && !state.viewLinkIds.has(l.id)) return false;
+    if(salvo !== "category" && state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
+    if(state.activeFilter === "active" && !l.active) return false;
+    if(state.tags.size > 0){
+      var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
+      if(!hasTag) return false;
+    }
+    if(state.excludedTags.size > 0){
+      var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
+      if(hasExcluded) return false;
+    }
+    if(!linkMatchesQuery(l, parsedQuery)) return false;
+    return true;
+  }
+
   function getFilteredLinks(){
     var parsedQuery = parseSearchQuery(state.search);
-    return state.links.filter(function(l){
-      if(state.focusIds.size > 0 && !state.focusIds.has(l.id)) return false;
-      if(state.viewLinkIds.size > 0 && !state.viewLinkIds.has(l.id)) return false;
-      if(state.selectedCategories.size > 0 && !state.selectedCategories.has(l.category)) return false;
-      if(state.activeFilter === "active" && !l.active) return false;
-      if(state.tags.size > 0){
-        var hasTag = l.tags.some(function(t){ return state.tags.has(t); });
-        if(!hasTag) return false;
-      }
-      if(state.excludedTags.size > 0){
-        var hasExcluded = l.tags.some(function(t){ return state.excludedTags.has(t); });
-        if(hasExcluded) return false;
-      }
-      if(!linkMatchesQuery(l, parsedQuery)) return false;
-      return true;
+    return state.links.filter(function(l){ return linkPassesFilters(l, parsedQuery, null); });
+  }
+
+  // Recuentos del lateral: cuántos enlaces verías al pulsar cada categoría, con
+  // los filtros que haya puestos ahora mismo.
+  //
+  // Antes eran los totales absolutos, y eso ponía cuatro números distintos en
+  // pantalla a la vez —"Todas 140", "Trabajo 18", "127 enlaces", "Trabajo 16"—
+  // sin que nada explicara que unos cuentan la colección entera y otros
+  // respetan el filtro. Ninguno mentía, pero juntos hacían dudar de todos: con
+  // el filtro "Activos" puesto de fábrica, le pasaba a cualquiera desde el
+  // primer día. Los totales absolutos siguen existiendo donde tienen sentido
+  // —el modal de gestión y el panel de revisión, que hablan de la colección y
+  // no de la vista— y ahí getCategories() no ha cambiado.
+  function getSidebarCounts(){
+    var parsedQuery = parseSearchQuery(state.search);
+    var counts = {};
+    var total = 0;
+    state.links.forEach(function(l){
+      if(!linkPassesFilters(l, parsedQuery, "category")) return;
+      counts[l.category] = (counts[l.category] || 0) + 1;
+      total++;
     });
+    return { total: total, byCategory: counts };
   }
 
   // Exportar: sin categoría/etiquetas/enlaces seleccionados, exporta todo. Con
@@ -4357,12 +4503,22 @@
   // ---------- Render ----------
   function renderSidebar(){
     var categories = getCategories();
-    var totalCount = state.links.length;
+    var visibles = getSidebarCounts();
+    var totalAbsoluto = state.links.length;
+
+    // Cuando un filtro recorta lo que se ve, el número de al lado ya no es el
+    // de la colección entera. El total absoluto no se pierde: se cuenta en el
+    // title, que es donde cabe explicarlo sin llenar el lateral de cifras.
+    function cuenta(visible, total){
+      var titulo = visible === total ? "" : ' title="' + escapeHtml(t("sidebar.countHint", { visible: visible, total: total })) + '"';
+      return '<span class="count"' + titulo + '>' + visible + '</span>';
+    }
+
     var html = '<li class="category-item' + (state.selectedCategories.size === 0 ? ' active' : '') + '" data-category="" title="' + escapeHtml(t("sidebar.allTitle")) + '">' +
-                 '<span>' + escapeHtml(t("sidebar.all")) + '</span><span class="count">' + totalCount + '</span></li>';
+                 '<span>' + escapeHtml(t("sidebar.all")) + '</span>' + cuenta(visibles.total, totalAbsoluto) + '</li>';
     categories.forEach(function(c){
       html += '<li class="category-item' + (state.selectedCategories.has(c.name) ? ' active' : '') + '" data-category="' + escapeHtml(c.name) + '" draggable="true" title="' + escapeHtml(t("sidebar.categoryDragTitle")) + '">' +
-                '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span><span class="count">' + c.count + '</span></li>';
+                '<span class="cat-name-wrap">' + categoryDotHtml(c.name) + escapeHtml(c.name) + '</span>' + cuenta(visibles.byCategory[c.name] || 0, c.count) + '</li>';
     });
     document.getElementById("categoryList").innerHTML = html;
 
@@ -4453,17 +4609,34 @@
     if(filtered.length === 0){
       container.innerHTML = "";
       if(state.links.length === 0){
-        var boton = '<button type="button" id="btnEmptyStateAdd" class="link-btn">' + escapeHtml(t("empty.welcomeCreate")) + '</button>';
-        emptyState.innerHTML = t("empty.welcome") + '<br>' +
-          t("empty.welcomeStart", { button: boton }) + '<br>' +
-          escapeHtml(t("empty.welcomeImport")) + '<br>' +
-          t("empty.welcomeExample") + '<br>' +
-          t("empty.welcomeSearch");
-      } else if(state.search.trim() && hasLinkSelection()){
-        emptyState.innerHTML = escapeHtml(t("empty.constraints")) + "<br>&bull; " +
-          describeActiveConstraints().join("<br>&bull; ");
+        // Primera vez: el botón es un botón de verdad y va en su propia línea.
+        // La acción real estaba en el lateral, lejos de donde mira quien acaba
+        // de abrir la aplicación, y aquí aparecía como un enlace de texto entre
+        // cuatro frases.
+        emptyState.innerHTML =
+          '<span class="empty-welcome-lead">' + t("empty.welcome") + '</span>' +
+          '<span class="empty-welcome-text">' + t("empty.welcomeStart") + '</span>' +
+          '<span class="empty-welcome-actions">' +
+            '<button type="button" id="btnEmptyStateAdd" class="btn-primary">' + escapeHtml(t("empty.welcomeCreate")) + '</button>' +
+            '<button type="button" id="btnEmptyStateImport">' + escapeHtml(t("empty.welcomeImportBtn")) + '</button>' +
+          '</span>' +
+          '<span class="empty-welcome-text">' + t("empty.welcomeSearch") + '</span>';
       } else {
-        emptyState.innerHTML = escapeHtml(t("empty.noResults"));
+        // R4 + B1: enumerar las restricciones vigentes SIEMPRE que haya alguna.
+        // Antes esto exigía búsqueda **y** selección a la vez, así que en los
+        // dos casos habituales —solo una búsqueda escrita, o solo una categoría
+        // pulsada— caía en el mensaje genérico y la explicación no aparecía
+        // nunca. El mensaje bueno llevaba escrito desde 4.24 sin llegar a verse.
+        var restricciones = describeActiveConstraints();
+        if(restricciones.length > 0){
+          emptyState.innerHTML = escapeHtml(t("empty.constraints")) + "<br>&bull; " +
+            restricciones.join("<br>&bull; ") +
+            '<span class="empty-welcome-actions">' +
+              '<button type="button" id="btnEmptyStateClear">' + escapeHtml(t("empty.clearFilters")) + '</button>' +
+            '</span>';
+        }else{
+          emptyState.innerHTML = escapeHtml(t("empty.noResults"));
+        }
       }
       emptyState.hidden = false;
       return;
@@ -4752,7 +4925,14 @@
     if(e.target.closest('[data-action="gate-open"]')){ reconnectFile(); return; }
     if(e.target.closest('[data-action="gate-find"]')){ openExistingFile(); return; }
     if(e.target.closest('[data-action="gate-create"]')){ connectToFile(); return; }
-    if(e.target.closest('[data-action="gate-local"]')){ switchToLocalMode(); return; }
+    if(e.target.closest('[data-action="gate-local"]')){
+      // Aplazar la apertura no es lo mismo que elegir el navegador en los
+      // ajustes: aquí sí procede recordar de cuándo es lo que se va a ver.
+      localNoticePending = true;
+      localNoticeDismissed = false;
+      switchToLocalMode();
+      return;
+    }
   });
 
   // Con la pantalla puesta, todo lo que no sea una de las dos salidas queda
@@ -4780,6 +4960,11 @@
     // justo al lado de un mensaje que dice que tus enlaces están en un archivo.
     // Es la misma mentira que la pantalla viene a evitar, dicha en voz baja.
     document.querySelectorAll(".sidebar-section").forEach(function(s){ s.hidden = appLocked; });
+    // Y con las secciones ocultas, el botón de plegarlas (que solo se ve en
+    // ventana estrecha) no tendría nada que plegar: pulsarlo no haría nada
+    // visible, que es justo la sensación de avería que evita el resto de esta
+    // función.
+    document.getElementById("btnSidebarToggle").hidden = appLocked;
     document.body.classList.toggle("is-locked", appLocked);
   }
 
@@ -4817,21 +5002,47 @@
         : t("file.savedNoTime", { name: fileState.name });
     }
     el.className = clase;
-    el.title = t("badge.title");
+    // Con un archivo recordado y trabajando en el navegador, la fecha de lo que
+    // se está viendo se cuenta aquí: al alcance de quien la busque, sin banner
+    // que discuta el modo elegido.
+    var meta = (storageMode !== "file") ? loadFileMeta() : null;
+    var f = (meta && meta.name && meta.savedAt) ? new Date(meta.savedAt) : null;
+    el.title = (f && !isNaN(f.getTime()))
+      ? t("badge.titleLocalFile", {
+          name: meta.name,
+          date: f.toLocaleDateString(currentLocale()),
+          time: horaCorta(meta.savedAt)
+        })
+      : t("badge.title");
     el.textContent = texto;
   }
 
   document.getElementById("storageBadge").addEventListener("click", function(){ openSettings(); });
 
-  // ---------- Aviso de modo local con archivo recordado (R8) ----------
-  // Sin la fecha delante, cambiar de modo reintroduciría por la puerta de atrás
-  // la confusión que el encargo entero viene a eliminar: enlaces en pantalla sin
-  // saber de cuándo son.
+  // ---------- Aviso de modo local con archivo recordado (R8, revisado) ----------
+  // El aviso nació permanente, y estaba mal. Un banner que no se puede quitar y
+  // que ofrece "abrir mi archivo" cada vez que arrancas **discute una decisión
+  // que ya tomaste**, y eso contradice la premisa del encargo entero: el modo de
+  // trabajo es del usuario, no algo que la aplicación tenga que corregir.
+  //
+  // Lo que R8 quería evitar sigue evitado, pero por otro camino: **el indicador
+  // de la barra superior dice siempre dónde se guarda**, y cuando hay un archivo
+  // recordado su tooltip lleva la fecha de la copia que estás viendo. La
+  // información no desaparece; deja de interrumpir.
+  //
+  // El aviso se queda solo para el caso en que de verdad es un aplazamiento y no
+  // una decisión: **acabas de decir "ahora no" en la pantalla de apertura**. Ahí
+  // sí estabas yendo a tu archivo, y ahí sí conviene recordarte de cuándo es lo
+  // que ves. Dura esa sesión, y se puede cerrar.
+  var localNoticePending = false;   // se aplazó la apertura en esta sesión
+  var localNoticeDismissed = false; // y el usuario ya lo ha leído
+
   function syncModeNotice(){
     var el = document.getElementById("modeNotice");
     if(!el) return;
     var meta = loadFileMeta();
-    if(appLocked || storageMode === "file" || !meta.name){
+    if(appLocked || storageMode === "file" || !meta.name ||
+       !localNoticePending || localNoticeDismissed){
       el.hidden = true;
       el.innerHTML = "";
       return;
@@ -4847,12 +5058,17 @@
     el.innerHTML = '<span>' + texto + '</span>' +
       (supportsFileMode()
         ? '<button type="button" data-action="mode-open-file">' + escapeHtml(t("mode.localNoticeOpen")) + '</button>'
-        : "");
+        : "") +
+      '<button type="button" data-action="mode-dismiss">' + escapeHtml(t("mode.localNoticeDismiss")) + '</button>';
     el.hidden = false;
   }
 
   document.getElementById("modeNotice").addEventListener("click", function(e){
-    if(e.target.closest('[data-action="mode-open-file"]')) switchToFileMode();
+    if(e.target.closest('[data-action="mode-open-file"]')){ switchToFileMode(); return; }
+    if(e.target.closest('[data-action="mode-dismiss"]')){
+      localNoticeDismissed = true;
+      syncModeNotice();
+    }
   });
 
   function syncExportButtonLabel(){
@@ -5047,7 +5263,11 @@
       notesEl.focus();
       notesEl.setSelectionRange(notesEl.value.length, notesEl.value.length); // el cursor al final: lo normal es seguir escribiendo
     } else {
-      document.getElementById("fieldCategory").focus();
+      // F1: el foco empieza en el contenido, no en la taxonomía. Al crear va a
+      // la URL —lo normal es llegar con un enlace en el portapapeles y pegarlo—
+      // y al editar, al título. La categoría ya llega precargada con la que
+      // esté filtrada, así que empezar por ella obligaba a saltársela siempre.
+      document.getElementById(link ? "fieldTitle" : "fieldUrl").focus();
     }
   }
 
@@ -5123,8 +5343,12 @@
   });
 
   document.getElementById("btnAdd").addEventListener("click", function(){ openModal(null); });
+  // Delegado sobre #emptyState, que render() no destruye: registrarlo dentro de
+  // renderCards() acumularía un listener por repintado.
   document.getElementById("emptyState").addEventListener("click", function(e){
-    if(e.target.closest("#btnEmptyStateAdd")) openModal(null);
+    if(e.target.closest("#btnEmptyStateAdd")){ openModal(null); return; }
+    if(e.target.closest("#btnEmptyStateImport")){ fileImport.click(); return; }
+    if(e.target.closest("#btnEmptyStateClear")){ clearAllFilters(); render(); return; }
   });
   document.getElementById("btnCancel").addEventListener("click", closeModal);
   document.getElementById("btnDuplicate").addEventListener("click", duplicateEditingLink);
@@ -6217,9 +6441,31 @@
     else if(action === "bulk-delete") bulkDelete();
   });
 
+  // ---------- Lateral plegable en ventana estrecha ----------
+  // Sin persistir (es consecuencia del ancho, no una preferencia) y sin tocar
+  // nada más: el estado por defecto lo pone el CSS, aquí solo se conmuta.
+  var appEl = document.querySelector(".app");
+
+  document.getElementById("btnSidebarToggle").addEventListener("click", function(){
+    var abierto = appEl.classList.toggle("sidebar-open");
+    this.setAttribute("aria-expanded", abierto ? "true" : "false");
+  });
+
+  // Elegir un filtro es haber terminado con el lateral: dejarlo abierto obliga
+  // a desplazarse otra vez para ver el resultado, que es justo lo que se venía
+  // a evitar. Con Ctrl/Cmd no se pliega, porque ahí se está eligiendo varias
+  // categorías seguidas (4.18).
+  function closeSidebarIfNarrow(e){
+    if(e && (e.ctrlKey || e.metaKey)) return;
+    if(!appEl.classList.contains("sidebar-open")) return;
+    appEl.classList.remove("sidebar-open");
+    document.getElementById("btnSidebarToggle").setAttribute("aria-expanded", "false");
+  }
+
   document.getElementById("categoryList").addEventListener("click", function(e){
     var item = e.target.closest(".category-item");
     if(!item) return;
+    closeSidebarIfNarrow(e);
     clearSelectionOnViewChange();
     var cat = item.getAttribute("data-category");
     if(cat === ""){
@@ -6284,6 +6530,8 @@
   document.getElementById("tagCloud").addEventListener("click", function(e){
     var chip = e.target.closest(".tag-chip[data-tag]");
     if(!chip) return;
+    // Las etiquetas tienen ciclo de tres estados (4.17), así que aquí NO se
+    // pliega el lateral: quien pulsa una suele volver a pulsarla.
     clearSelectionOnViewChange();
     var tag = chip.getAttribute("data-tag");
     if(state.tags.has(tag)){
@@ -6493,11 +6741,28 @@
 
   document.getElementById("btnExport").addEventListener("click", function(){ exportLinks(); });
 
-  function resetFiltersAfterImport(){
+  // Quita TODAS las restricciones de la vista: categorías, etiquetas incluidas,
+  // etiquetas excluidas, el filtro de estado, la vista aplicada, el foco de
+  // revisión y la búsqueda. La usan el botón del estado vacío (4.8) y la vuelta
+  // a la normalidad después de importar, que quería decir exactamente esto.
+  //
+  // Las etiquetas excluidas se persisten (son el único filtro que sobrevive a
+  // la sesión), así que aquí hay que guardarlas además de vaciarlas: si no, la
+  // pantalla las quitaría y la próxima carga las traería de vuelta.
+  function clearAllFilters(){
     clearSelectionOnViewChange();
-    state.selectedCategories.clear(); state.tags.clear(); state.activeFilter = "all"; state.search = "";
+    state.selectedCategories.clear();
+    state.tags.clear();
+    state.excludedTags.clear();
+    saveExcludedTags();
+    state.activeFilter = "all";
+    state.search = "";
     detachActiveView();
     document.getElementById("searchInput").value = "";
+  }
+
+  function resetFiltersAfterImport(){
+    clearAllFilters();
   }
 
   function performImportReplace(data){
@@ -8108,7 +8373,9 @@
         "Pulsa la cabecera de un grupo para plegarlo o desplegarlo — se recuerda entre sesiones.",
         "Con \"Seleccionar\" activo, toca cualquier parte de una ficha para marcarla o desmarcarla; mientras dura, el arrastre y los iconos ▲▼✏️🗑️ quedan desactivados.",
         "La selección se vacía sola en cuanto cambias de filtro, de búsqueda o de vista, y se conserva entre acciones en lote — salvo al eliminar.",
-        "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque."
+        "En pantalla táctil el arrastre no funciona: usa ▲/▼, que sí responden al toque.",
+        "Los iconos ▲▼✏️🗑️ de cada ficha están atenuados hasta que pasas el ratón por encima, para que no compitan con los títulos. Donde no hay ratón se ven siempre, porque ahí los ▲▼ son la única forma de reordenar.",
+        "Con la ventana estrecha, el lateral llega plegado y se abre con <kbd>☰ Categorías y etiquetas</kbd> — así los enlaces se ven sin desplazarse. Al elegir una categoría se pliega solo; con <kbd>Ctrl</kbd> pulsado, no, para que puedas elegir varias."
       ]},
       { title: "Filtros", icon: "🔍", items: [
         "Pulsa tres veces seguidas una etiqueta del lateral para recorrer sus tres estados: neutra → incluida → excluida.",
@@ -8117,6 +8384,8 @@
         "Un clic normal en una categoría sustituye la selección; vuelve a pulsarla para quitarla. \"Todas\" limpia el filtro de golpe.",
         "La escoba 🧹 limpia de golpe el filtro de las etiquetas incluidas y las excluidas.",
         "Las etiquetas que excluyes se recuerdan entre sesiones; las que incluyes, no.",
+        "<strong>Los números del lateral cuentan lo que verías al pulsar</strong> cada categoría con los filtros que tengas puestos, no el total de la colección. Cuando no coinciden, pasa el ratón por encima del número y te dice los dos.",
+        "Si un filtro deja la pantalla sin enlaces, Lingatu te enumera <strong>todas las restricciones activas</strong> y te ofrece un botón para quitarlas de golpe — incluido el filtro Todos/Activos, que es el que más veces está detrás.",
         "Guarda una Vista para recuperar de un clic las etiquetas incluidas/excluidas y la categoría — o una lista concreta de enlaces, si es una vista de selección.",
         "El buscador entiende operadores (cat:, #etiqueta, site:, is:activo/is:inactivo, \"frase exacta\", - para excluir) y busca también en el título, la descripción, las etiquetas, las notas y la URL.",
         "Los operadores no cambian con el idioma, y is: acepta tanto activo/inactivo como active/inactive: una búsqueda escrita sigue funcionando aunque cambies de idioma o la compartas."
@@ -8140,7 +8409,8 @@
         "Después, <strong>cada vez que vuelves a abrir Lingatu te recibe una pantalla</strong> que dice dónde están tus enlaces, y pulsas <kbd>Abrir mis enlaces</kbd>. El archivo no hay que volver a elegirlo nunca: lo que caduca es solo el permiso.",
         "<strong>Cuándo caduca ese permiso, exactamente</strong>: el navegador lo retira en cuanto se cierra <strong>la última pestaña</strong> de la aplicación — no hace falta cerrar el navegador entero. En cambio <strong>recargar la página no lo pierde</strong>, y mientras dejes Lingatu abierto tampoco. Es una regla del navegador, no una decisión de Lingatu: no hay forma de recordarlo de una vez para siempre.",
         "<strong>Mientras esa pantalla está puesta no se puede tocar nada</strong> —ni crear, ni importar, ni exportar— y es a propósito: lo que hay en el navegador es una copia, y trabajar sobre ella creyendo que trabajas sobre tu archivo es justo lo que hacía perder cambios.",
-        "Si no te viene bien abrirlo ahora, pulsa <kbd>Trabajar con los datos de este navegador</kbd>: verás la última copia guardada aquí, con un aviso permanente que te dice <strong>de cuándo es</strong>. Tu archivo no se toca. Cuando vuelvas a modo archivo, si las dos versiones han cambiado, Lingatu te deja elegir con cuál te quedas.",
+        "Si no te viene bien abrirlo ahora, pulsa <kbd>Trabajar con los datos de este navegador</kbd>: verás la última copia guardada aquí, con un aviso que te dice <strong>de cuándo es</strong> y que puedes cerrar. Tu archivo no se toca. Cuando vuelvas a modo archivo, si las dos versiones han cambiado, Lingatu te deja elegir con cuál te quedas.",
+        "<strong>Si has elegido guardar en este navegador, Lingatu no te insiste</strong> en que uses un archivo: el indicador de arriba dice dónde se guarda y, si recuerda un archivo tuyo, su tooltip te dice de cuándo es la copia que estás viendo. Ese es todo el aviso.",
         "La <strong>barra superior</strong> te dice en todo momento dónde se está guardando, y avisa cuando algo que ves <strong>no</strong> ha llegado al archivo. Pulsándola se abren los ajustes.",
         "El archivo es texto y se puede abrir con cualquier editor. Aun así, <strong>no sustituye a exportar</strong>: conviene seguir guardando una copia aparte de vez en cuando.",
         "<strong>Esto no es sincronización</strong>, aunque el archivo esté en una carpeta que se sincroniza: es un archivo compartido. Trabaja en un equipo cada vez — si lo cambias en dos a la vez, Lingatu lo detecta al guardar y te deja elegir con cuál te quedas, sin machacar nada.",
@@ -8175,7 +8445,9 @@
         "Click a group heading to collapse or expand it — it is remembered between sessions.",
         "With \"Select\" on, tap anywhere on a card to check or uncheck it; while it lasts, dragging and the ▲▼✏️🗑️ icons are disabled.",
         "The selection clears itself as soon as you change filter, search or view, and is kept between bulk actions — except when deleting.",
-        "On a touch screen dragging does not work: use ▲/▼, which do respond to taps."
+        "On a touch screen dragging does not work: use ▲/▼, which do respond to taps.",
+        "The ▲▼✏️🗑️ icons on each card are dimmed until you hover over it, so they do not compete with the titles. Where there is no mouse they are always visible, because there the ▲/▼ are the only way to reorder.",
+        "With a narrow window the sidebar arrives collapsed and opens with <kbd>☰ Categories and tags</kbd> — that way the links are visible without scrolling. Choosing a category collapses it again; holding <kbd>Ctrl</kbd> does not, so you can pick several."
       ]},
       { title: "Filters", icon: "🔍", items: [
         "Click a sidebar tag three times in a row to cycle through its three states: neutral → included → excluded.",
@@ -8184,6 +8456,8 @@
         "A normal click on a category replaces the selection; click it again to remove it. \"All\" clears the filter in one go.",
         "The broom 🧹 clears both the included and the excluded tag filters at once.",
         "The tags you exclude are remembered between sessions; the ones you include are not.",
+        "<strong>The numbers in the sidebar count what you would see if you clicked</strong> each category with the filters you have on, not the whole collection. When they differ, hover over the number and it tells you both.",
+        "If a filter leaves the screen with no links, Lingatu lists <strong>every active constraint</strong> and offers a button to clear them all at once — including the All/Active filter, which is the one most often behind it.",
         "Save a View to bring back, with one click, the included/excluded tags and the category — or a specific list of links, if it is a selection view.",
         "The search box understands operators (cat:, #tag, site:, is:active/is:inactive, \"exact phrase\", - to exclude) and also searches the title, the description, the tags, the notes and the URL.",
         "Operators do not change with the language, and is: accepts both active/inactive and activo/inactivo: a search you have written keeps working even if you switch language or share it."
@@ -8207,7 +8481,8 @@
         "After that, <strong>every time you open Lingatu again you are met by a screen</strong> telling you where your links are, and you press <kbd>Open my links</kbd>. You never have to choose the file again: the only thing that expires is the permission.",
         "<strong>When exactly that permission expires</strong>: the browser withdraws it as soon as <strong>the last tab</strong> of the app is closed — you do not have to close the whole browser. <strong>Reloading the page does not lose it</strong>, and neither does leaving Lingatu open. It is a browser rule, not a Lingatu decision: there is no way to remember it once and for all.",
         "<strong>While that screen is up nothing can be touched</strong> — no creating, no importing, no exporting — and that is on purpose: what the browser holds is a copy, and working on it while believing you are working on your file is exactly what used to lose changes.",
-        "If opening it right now does not suit you, press <kbd>Work with this browser's data</kbd>: you will see the last copy saved here, with a permanent notice telling you <strong>when it is from</strong>. Your file is not touched. When you go back to file mode, if both versions have changed, Lingatu lets you choose which one you keep.",
+        "If opening it right now does not suit you, press <kbd>Work with this browser's data</kbd>: you will see the last copy saved here, with a notice telling you <strong>when it is from</strong> that you can dismiss. Your file is not touched. When you go back to file mode, if both versions have changed, Lingatu lets you choose which one you keep.",
+        "<strong>If you have chosen to save in this browser, Lingatu does not nag you</strong> about using a file: the indicator at the top says where things are saved and, if it remembers a file of yours, its tooltip tells you when the copy you are looking at is from. That is the whole warning.",
         "The <strong>top bar</strong> tells you at all times where things are being saved, and warns you when something you can see has <strong>not</strong> reached the file. Clicking it opens the settings.",
         "The file is text and can be opened with any editor. Even so, <strong>it does not replace exporting</strong>: it is worth still saving a separate copy now and then.",
         "<strong>This is not synchronization</strong>, even if the file sits in a folder that syncs: it is a shared file. Work on one computer at a time — if you change it on two at once, Lingatu detects it when saving and lets you choose which one you keep, without overwriting anything.",
