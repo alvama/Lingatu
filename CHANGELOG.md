@@ -7,6 +7,16 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **`README.md` en inglés como puerta de entrada del repositorio**, con la
+  demo en vivo, el GIF de importación y las capturas por delante; el README
+  en español se conserva íntegro en `README.es.md`, con enlace cruzado en la
+  primera línea de ambos. Motivo: el repositorio tenía cero estrellas, cero
+  forks y ninguna imagen — nadie que llegara desde una búsqueda en inglés
+  podía evaluar el proyecto sin descargarlo primero. Las dos versiones deben
+  mantenerse en paridad (regla añadida a `CLAUDE.md`).
+
 ### Cambiado
 
 - **Ahora eres tú quien decide dónde se guardan tus enlaces, y Lingatu nunca te

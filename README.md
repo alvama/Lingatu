@@ -1,225 +1,85 @@
+[Español](README.es.md)
+
 # Lingatu
 
-Gestor de marcadores personal en un solo archivo HTML, sin servidor ni
-dependencias, más una extensión de navegador opcional que captura la pestaña
-activa y la añade con un clic.
+Your bookmarks, in a file you own — no account, no cloud, no server.
 
-> **Lingatu se llamaba PinBoard.** Solo cambia el nombre: los datos, el
-> formato de exportación y la extensión siguen siendo los mismos, y quien
-> tenga `pinboard.html` puede seguir usándolo. Ver el
-> [CHANGELOG](CHANGELOG.md).
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](https://github.com/alvama/Lingatu/releases/tag/v1.9.0)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/kljfmjpiflhpedkbcldmkomhmepnimdl.svg)](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
 
-- **`lingatu.html`** — la aplicación. Se abre directamente en el navegador
-  (`file://`), guarda los datos en `localStorage` y no requiere instalación
-  ni conexión a internet (salvo para los favicons).
-- **`extension/`** — [extensión publicada en la Chrome Web Store](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
-  (Manifest V3, también compatible con otros navegadores basados en Chromium
-  como Edge o Brave) que captura la URL, el título y la descripción de la
-  pestaña activa, comprueba si ya existe en Lingatu y, si no, abre el
-  formulario de alta precargado con una categoría sugerida.
+![Importing bookmarks into Lingatu by dragging a browser export file onto the page](docs/img/import.gif)
 
-## Funcionalidades
+### [**Try the live demo →**](https://nlevia.org/lingatu/app/)
 
-- **Enlaces**: alta/edición/borrado, duplicar con un clic, reordenar
-  manualmente (drag & drop o botones ▲/▼), favicon automático.
-- **Categorías**: crear, renombrar, eliminar y reordenar (drag & drop o
-  ▲/▼); color e icono propios (56 iconos a elegir); selección múltiple en
-  el sidebar con Ctrl+clic; exportar/importar el conjunto completo de
-  categorías (nombre, icono, color y posición) por separado de los
-  enlaces.
-- **Etiquetas**: editor de chips con autocompletado (sugiere y reutiliza
-  las ya existentes mientras escribes, sin dejar de admitir crear una
-  nueva libremente), color propio, filtrado por inclusión y exclusión
-  (clic / clic de nuevo / clic otra vez — ciclo de 3 estados), icono de
-  escoba para limpiar la selección de golpe.
-- **Vistas guardadas**: guardar la combinación activa de categorías y
-  etiquetas incluidas/excluidas con un nombre y volver a aplicarla con un
-  clic. Una vista también puede ser **una lista concreta de enlaces**,
-  creada desde el modo selección con "Crear vista".
-- **Notas por enlace**: texto largo que se acumula con el tiempo (cada
-  anotación entra como un bloque nuevo con su fecha, nunca se sobrescribe
-  lo anterior), escrito en Markdown y **formateado al leerlo** en un visor
-  de solo lectura —encabezados, citas, listas, negrita, cursiva y bloques
-  de código con botón para copiarlos—. Se pueden capturar desde cualquier
-  página con el menú del clic derecho de la extensión, y **la búsqueda las
-  encuentra**.
-- **Panel de ayuda** (`?`): atajos, gestos, filtros y datos reunidos en un
-  solo sitio, para todo lo que la interfaz no insinúa por sí sola.
-- **Panel de limpieza ("Revisar")**: detecta ocho problemas típicos de una
-  colección que ha crecido —duplicados, URLs inválidas, enlaces sin
-  etiquetar, etiquetas huérfanas, categorías dispersas y más— sin
-  modificar nada; cada comprobación enfoca la vista a los enlaces
-  afectados para arreglarlos con las herramientas de siempre.
-- **Búsqueda con operadores** (`cat:`, `#etiqueta`, `site:`,
-  `is:activo`/`is:inactivo`, `"frase exacta"`, `-` para negar) y filtros
-  combinables, con exportación que respeta la selección activa (categoría,
-  etiquetas o los enlaces de una vista) en vez de exportar siempre todo.
-- **Dos modos de vista**: cómoda (con barra de color y URL bajo el
-  título) y compacta.
-- **Exportar/Importar enlaces** en JSON, con opción de fusionar
-  (deduplicando por URL) o sustituir todo.
-- **Importar marcadores de cualquier navegador**: arrastra sobre la página
-  (o usa el botón "Importar") el HTML que exporta cualquier navegador o el
-  `Bookmarks` de Chrome/Edge, sin herramientas externas.
-- **Selección múltiple de enlaces y acciones en lote**: modo "Seleccionar"
-  para etiquetar, cambiar de categoría, activar, desactivar, eliminar o
-  guardar como vista varios enlaces a la vez.
-- **Paleta de comandos** (`Ctrl+K`/`Cmd+K`): busca a la vez acciones,
-  enlaces, categorías, vistas y etiquetas desde un único desplegable.
-- Modo oscuro automático, atajos de teclado (`/` buscar, `n` nuevo
-  enlace), título de la página personalizable.
-- Cero servidor, cero cuentas: todo vive en `localStorage` de tu
-  navegador.
+No install, no sign-up — it just opens.
 
-Detalle técnico completo en
-[`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
+## Why Lingatu
 
-## Instalación de la app
+- **One HTML file, nothing else.** No server, no build step, no framework, no external dependency. Open `lingatu.html` and it works.
+- **No account, no sign-up.** Your links live in your browser's `localStorage`, not on anyone's server.
+- **Works offline**, except for favicon icons (see [Privacy](#privacy) below).
+- **Import from any browser**: drag the bookmarks HTML file any browser exports straight onto the page.
+- **MIT licensed.**
 
-1. Descarga o clona este repositorio.
-2. Abre `lingatu.html` directamente en tu navegador (doble clic, o
-   arrástralo a una pestaña).
-3. Ya está — todos los datos se guardan localmente en el navegador
-   (`localStorage`), no hay nada más que configurar.
+## Features
 
-Lingatu empieza completamente vacío. Si quieres ver la app con contenido de
-muestra, usa el botón **"Importar"** y selecciona
-[`examples/ejemplo-enlaces.json`](examples/ejemplo-enlaces.json).
+- Full link management: create, edit, delete, duplicate, manual drag-and-drop reordering, automatic favicons.
+- Categories and tags with custom colors and icons, manually reordered.
+- Search operators — `cat:`, `#tag`, `site:`, `is:active`/`is:inactive`, `"exact phrase"`, `-` to exclude.
+- Saved views: a reusable combination of filters, or a specific hand-picked list of links.
+- Per-link notes, written and read back rendered in Markdown.
+- Cleanup panel that flags duplicates, broken URLs, untagged links, and more — without changing anything.
+- Command palette (`Ctrl+K` / `Cmd+K`) across actions, links, categories, views, and tags.
+- Multi-select with bulk actions, dark mode, and keyboard shortcuts.
 
-Para pasar tus marcadores de cualquier navegador a Lingatu, la vía
-recomendada es exportarlos y soltar el archivo sobre la página:
+Full functional and technical detail in [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md) (Spanish).
 
-1. En tu navegador, exporta los marcadores a HTML (en Chrome/Edge:
-   `Ctrl+Shift+O` → menú "⋮" → **Exportar marcadores**).
-2. Arrastra ese archivo `.html` sobre `lingatu.html` (o pulsa el botón
-   "Importar" y selecciónalo). Lingatu reconoce el formato
-   automáticamente, respeta la estructura de carpetas como categorías
-   (unidas con `" / "`) y abre el modal de siempre para elegir entre
-   fusionar o sustituir.
+![Comfortable view with three categories, showing links with favicons, descriptions, and tags](docs/img/vista-comoda.png)
 
-También reconoce directamente el archivo `Bookmarks` de Chrome/Edge (sin
-extensión), por si lo tienes más a mano que exportar.
+![Cleanup panel flagging a category with a single link, with a "View these" shortcut into the filtered results](docs/img/panel-limpieza.png)
 
-`tools/` sigue disponible como alternativa **opcional**, útil sobre todo
-para convertir varios perfiles/navegadores de golpe desde la línea de
-comandos sin pasar por el navegador:
+## Quick start
 
-1. Abre `tools/configurar_marcadores.html` en el navegador y rellena, para
-   cada perfil que quieras importar, el navegador y la ruta completa a su
-   archivo `Bookmarks` (la propia página indica dónde suele estar en
-   Windows/macOS/Linux), más la ruta donde quieres el JSON de salida.
-2. Pulsa "Generar marcadores_config.json" y guarda el archivo descargado
-   junto a `tools/convertir_marcadores.py`.
-3. Ejecuta `python tools/convertir_marcadores.py` — genera el JSON indicado,
-   listo para cargarlo con el botón "Importar" de la app.
+1. Download [`lingatu.html`](lingatu.html).
+2. Open it in your browser (double-click it, or drag it into a tab).
+3. To bring in your existing bookmarks, export them from your browser as HTML and drag that file onto the page.
 
-Ni el script ni la página de configuración llevan ninguna ruta escrita de
-antemano: todo sale del `marcadores_config.json` que generas tú (que no se
-versiona, por contener rutas de tu máquina).
+## Browser extension
 
-## Instalación de la extensión (Chrome / Edge / navegadores basados en Chromium)
+The optional **[Lingatu Connector](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)** extension adds a one-click "save this tab" button: it captures the active tab's URL, title, and description, checks whether it's already in Lingatu, and opens the add-link form pre-filled if it isn't.
 
-La extensión está publicada en la Chrome Web Store:
+Because `lingatu.html` runs on `file://`, the extension needs one extra permission after installing it:
 
-**[Lingatu Connector](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)**
+1. Go to `chrome://extensions` (or `edge://extensions`).
+2. Open the **Lingatu Connector** card → **Details**.
+3. Enable **"Allow access to file URLs"**.
 
-Al estar basada en Manifest V3 y no usar APIs exclusivas de Chrome, también
-funciona en otros navegadores basados en Chromium (Edge, Brave, Opera...)
-instalándola desde esa misma URL o cargándola en modo desarrollador (ver más
-abajo).
+Without this step, the extension can't detect or open your `lingatu.html`.
 
-Tras instalarla, **es imprescindible** activar el acceso a archivos locales,
-ya que `lingatu.html` se abre como `file://`:
+## Privacy
 
-1. Ve a `chrome://extensions` (o `edge://extensions`, etc.).
-2. Busca la tarjeta de **Lingatu Connector** y entra en **"Detalles"**.
-3. Activa **"Permitir acceso a las URL de archivo"**.
+- Your data lives in your browser's `localStorage`. Nothing is sent to any server Lingatu controls.
+- **One declared exception**: favicons are fetched from `google.com/s2/favicons`, so the domain of every link you've saved is sent to Google on each page load. Without a connection, links still display, just without an icon.
 
-Sin este paso, la extensión no podrá detectar ni abrir tu `lingatu.html`.
+## FAQ
 
-### Instalación en modo desarrollador (alternativa)
+**Where is my data stored?**
+In your browser's `localStorage`, tied to the browser profile where you opened `lingatu.html`.
 
-Si prefieres instalar la extensión directamente desde este repositorio (por
-ejemplo, para modificar el código):
+**What happens if I clear my browser data?**
+You lose your collection unless you've exported a backup file first. Lingatu warns you before you go too long without exporting, but the only copy that survives a browser data wipe is one you've exported yourself.
 
-1. Ve a `chrome://extensions` (Chrome) o `edge://extensions` (Edge).
-2. Activa **"Modo de desarrollador"**.
-3. Pulsa **"Cargar descomprimida"** y selecciona la carpeta `extension/` de
-   este repositorio.
-4. En la tarjeta de la extensión, entra en **"Detalles"** y activa
-   **"Permitir acceso a las URL de archivo"**.
+**Does it work without an internet connection?**
+Yes — everything works offline except favicon icons, which need a connection to load.
 
-### Configurar la extensión
+**Can I use it on more than one computer?**
+There's no built-in sync. Export a JSON file from one machine and import it on the other to move your collection across.
 
-1. Abre tu `lingatu.html` normalmente en el navegador y copia la URL
-   completa de la barra de direcciones (empieza por `file:///`).
-2. Clic derecho sobre el icono de la extensión → **"Opciones"** (o
-   `chrome://extensions` → tarjeta de la extensión → "Opciones de la
-   extensión").
-3. Pega la URL y pulsa **Guardar**.
+## Contributing
 
-### Uso
+Contributions are welcome. The project follows a strict architecture constraint — single self-contained HTML file, no build step, no dependencies, ES5-style syntax — documented in full in [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md). Read it before touching `lingatu.html`.
 
-Con `lingatu.html` ya configurado, en cualquier página pulsa el icono de la
-extensión (o usa el menú del clic derecho → **"Guardar en Lingatu"**, que
-hace exactamente lo mismo):
-
-- Si la URL ya está guardada en Lingatu, se abre/enfoca la pestaña de
-  Lingatu y resalta brevemente el enlace existente.
-- Si no existe, abre el formulario de alta con la categoría, el título, la
-  URL y la descripción precargados (la categoría es solo una sugerencia,
-  siempre editable antes de guardar).
-
-**Guardar una cita como nota**: selecciona texto en cualquier página y usa el
-menú del clic derecho → **"Añadir selección como nota en Lingatu"**. Se
-guarda como cita, con la fecha del día, en las notas de ese enlace.
-
-- Si la página **ya está** en Lingatu, la nota se añade sin cambiar de
-  pestaña: sigues leyendo, y un aviso en la esquina superior derecha confirma
-  a qué enlace ha ido y cuántas notas lleva ya. Cada nota nueva se añade al
-  final, sin borrar las anteriores.
-- Si **no está**, se abre Lingatu con el formulario de alta y la nota ya
-  puesta, para que confirmes el alta como siempre.
-
-## Estructura del repositorio
-
-```
-Lingatu/
-├── lingatu.html                  # Aplicación principal
-├── extension/                    # Extensión de navegador (Chrome/Edge)
-│   ├── manifest.json
-│   ├── background.js
-│   ├── options.html / options.js
-│   └── icons/
-├── tools/                         # Opcional: conversión por lotes desde la
-│   │                              # línea de comandos (la vía recomendada es
-│   │                              # arrastrar el HTML exportado del navegador)
-│   ├── convertir_marcadores.py       # Convierte varios perfiles Chrome/Edge de golpe
-│   ├── configurar_marcadores.html    # Genera marcadores_config.json
-│   └── marcadores_config.example.json
-├── examples/
-│   └── ejemplo-enlaces.json      # Datos de muestra para "Importar"
-├── docs/
-│   └── ESPECIFICACIONES.md       # Documentación técnica detallada
-├── README.md
-├── CHANGELOG.md
-└── LICENSE
-```
-
-Más detalle técnico (modelo de datos, decisiones de diseño, limitaciones
-conocidas) en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md).
-
-## Versionado
-
-- La versión de la app se muestra en el pie de la barra lateral de
-  `lingatu.html` (constante `APP_CONFIG.version` en el propio archivo).
-- La versión de la extensión se muestra en su página de opciones, tomada
-  directamente de `manifest.json`.
-- El historial de cambios de cada versión se documenta en
-  [`CHANGELOG.md`](CHANGELOG.md).
-- Última versión publicada: [v1.9.0](https://github.com/alvama/Lingatu/releases/tag/v1.9.0)
-  ([todos los releases](https://github.com/alvama/Lingatu/releases)).
-
-## Licencia
+## License
 
 [MIT](LICENSE) © 2026 A. Vazquez ([NLevia.org](https://www.nlevia.org))
