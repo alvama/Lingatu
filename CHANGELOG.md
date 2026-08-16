@@ -70,10 +70,18 @@ y este proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
   tengas Ctrl pulsado para elegir varias), y nada de esto se recuerda: al
   ensanchar la ventana vuelve el lateral de siempre.
 
+- **Los controles son más fáciles de acertar y de leer.** Revisión con
+  medición, no a ojo: los iconos de cada ficha y los botones de texto de la
+  interfaz eran demasiado pequeños para pulsarlos con comodidad —algunos de 16
+  píxeles de alto— y ahora todos llegan al mínimo recomendado. El texto gris
+  secundario (contadores, avisos del pie) se ha oscurecido un punto para que se
+  lea bien en los dos temas.
+
 - **Las fichas ya no gritan.** Los iconos ▲▼✏️🗑️ de cada enlace están
   atenuados hasta que pasas el ratón por la ficha: con una colección de verdad
   eran cientos de iconos compitiendo con los títulos, que es lo que estabas
-  leyendo. **En pantalla táctil no cambia nada** —ahí los ▲▼ son la única
+  leyendo. La atenuación es suave a propósito: más oscura dejaría los
+  iconos por debajo del contraste mínimo que necesitan para verse. **En pantalla táctil no cambia nada** —ahí los ▲▼ son la única
   forma de reordenar—, y el indicador 📝 de las notas sigue siempre a la
   vista, porque eso no es un botón: es la única señal de que un enlace tiene
   algo escrito.
