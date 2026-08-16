@@ -5,7 +5,7 @@
 Tus marcadores, en un archivo que es tuyo — sin cuenta, sin nube, sin servidor.
 
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-1.9.0-blue.svg)](https://github.com/alvama/Lingatu/releases/tag/v1.9.0)
+[![Versión](https://img.shields.io/badge/versión-1.10.0-blue.svg)](https://github.com/alvama/Lingatu/releases/tag/v1.10.0)
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/kljfmjpiflhpedkbcldmkomhmepnimdl.svg)](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
 
 ![Importando marcadores a Lingatu arrastrando el archivo exportado del navegador sobre la página](docs/img/import.gif)

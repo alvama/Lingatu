@@ -5,7 +5,7 @@
 Your bookmarks, in a file you own — no account, no cloud, no server.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](https://github.com/alvama/Lingatu/releases/tag/v1.9.0)
+[![Version](https://img.shields.io/badge/version-1.10.0-blue.svg)](https://github.com/alvama/Lingatu/releases/tag/v1.10.0)
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/kljfmjpiflhpedkbcldmkomhmepnimdl.svg)](https://chromewebstore.google.com/detail/lingatu-connector/kljfmjpiflhpedkbcldmkomhmepnimdl)
 
 ![Importing bookmarks into Lingatu by dragging a browser export file onto the page](docs/img/import.gif)
