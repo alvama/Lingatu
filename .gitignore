@@ -27,3 +27,6 @@ Thumbs.db
 
 # Paquete generado para la Chrome Web Store (regenerable con tools/empaquetar_extension.py)
 store/*.zip
+
+# Kit de actualización para nlevia
+nlevia/
